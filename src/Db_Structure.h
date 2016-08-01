@@ -6,8 +6,9 @@
 
 #define MAGIC_NUMBER 0xffff0001
 
+#define KEYDIGEST_SIZE 20 // RIPEMD-160/(sizeof(char)*8)  160/8
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #include <unistd.h>
@@ -39,6 +40,31 @@ namespace kvdb {
     } __attribute__((__packed__));
 
 
+    struct DataHeader {
+        unsigned char key[KEYDIGEST_SIZE];
+        uint16_t data_size;
+        uint32_t data_offset;
+        uint32_t next_header_offset;
+    } __attribute__((__packed__));
+
+    //struct DataHeaderOffset{
+    //    uint32_t segment_id;
+    //    uint32_t header_offset;
+    //}__attribute__((__packed__));
+    struct DataHeaderOffset{
+        uint32_t header_offset;
+    }__attribute__((__packed__));
+
+    struct HashEntryOnDisk {
+        struct DataHeader dataheader;
+        struct DataHeaderOffset offset;
+    } __attribute__((__packed__));
+
+    struct HashEntry {
+        struct HashEntryOnDisk hash_entry;
+        uint32_t pointer;
+    } __attribute__((__packed__));
+
     /*
       Hash Entry Format
       D = Is slot deleted: 1 means deleted, 0 means not deleted.  Needed for lazy deletion
@@ -49,29 +75,28 @@ namespace kvdb {
       |DVKKKKKKKKKKKKKKOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO|
       ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
     */
-    struct HashEntryOnDisk {
-        uint16_t present_key;
-        uint32_t offset;
-    } __attribute__((__packed__));
+    //struct HashEntryOnDisk {
+    //    uint16_t present_key;
+    //    uint32_t offset;
+    //} __attribute__((__packed__));
 
+    //struct DataHeader {
+    //    uint32_t data_length;
+    //    uint32_t key_length;
+    //    //bool deleteLog;
+    //} __attribute__((__packed__));
 
-    struct DataHeader {
-        uint32_t data_length;
-        uint32_t key_length;
-        bool deleteLog;
-    } __attribute__((__packed__));
+    //struct HashEntry {
+    //    uint16_t present_key;
+    //    uint32_t offset;
+    //    uint32_t pointer;
+    //} __attribute__((__packed__));
 
-    struct HashEntry {
-        uint16_t present_key;
-        uint32_t offset;
-        uint32_t pointer;
-    } __attribute__((__packed__));
-
-    struct SegmentHeader {
-        time_t time_stamp;
-        uint16_t check_sum;
-        int nkeys;
-    } __attribute__ ((__packed__));
+    //struct SegmentHeader {
+    //    time_t time_stamp;
+    //    uint16_t check_sum;
+    //    int nkeys;
+    //} __attribute__ ((__packed__));
 
 }  // namespace kvdb
 

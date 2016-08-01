@@ -1,30 +1,19 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 
-#include "HashFun.h"
+
 #include "IndexManager.h"
 
 
 namespace kvdb{
+
     bool IndexManager::InitIndexForCreateDB(uint64_t numObjects)
     {
         m_size = ComputeHashSizeForCreateDB(numObjects);
-
-        m_ht_ondisk = (struct HashEntryOnDisk*)malloc(sizeof(struct HashEntryOnDisk) * m_size);
-        if(m_ht_ondisk == NULL){
-            perror("could not malloc hash table file\n");
-            return false;
-        }
-        memset(m_ht_ondisk, 0, sizeof(struct HashEntryOnDisk) * m_size);
-
-        m_hashtable = (struct HashEntry*)malloc(sizeof(struct HashEntry) * m_size);
-        if(m_ht_ondisk == NULL){
-            perror("could not malloc hash table file\n");
-            return false;
-        }
-        memset(m_hashtable, 0, sizeof(struct HashEntryOnDisk) * m_size);
-
+        
+        InitHashTable(m_size); 
         return true;
     }
 
@@ -37,35 +26,17 @@ namespace kvdb{
         __DEBUG("Load Hashtable timestamp: %s", m_last_timestamp->TimeToChar());
         offset += timeLength;
         
-        //Read hashtable from device
+        //Init hashtable
         m_size = ht_size;
-
-        uint64_t length = sizeof(struct HashEntryOnDisk) * m_size;
-        m_ht_ondisk = (struct HashEntryOnDisk*)malloc(sizeof(struct HashEntryOnDisk) * m_size);
-        if(m_ht_ondisk == NULL){
-            perror("could not malloc hash table on disk file\n");
-            return false;
-        }
-        if(!_LoadHashTableFromDevice(length, offset))
-            return false;
-       
-        //Convert hashtable from device to memory
-        m_hashtable = (struct HashEntry*)malloc(sizeof(struct HashEntry) * m_size);
-        if(m_ht_ondisk == NULL){
-            perror("could not malloc hash table file\n");
-            return false;
-        }
-        ConvertHTDiskToMem();
-
-        return true;
-    }
-
-    bool IndexManager::_LoadHashTableFromDevice(uint64_t readLength, off_t offset)
-    {
+        InitHashTable(m_size);
+        
+        //Read hashtable 
+        uint64_t table_length = sizeof(int) * m_size;
+        int* counter = (int *)malloc(table_length);
         ssize_t nread;
         uint64_t h_offset = 0;
-        while((nread = m_bdev->pRead(m_ht_ondisk + h_offset, readLength, offset)) > 0){
-            readLength -= nread;
+        while((nread = m_bdev->pRead(counter + h_offset, table_length, offset)) > 0){
+            table_length -= nread;
             offset += nread;
             h_offset += nread;
             if (nread < 0){
@@ -73,6 +44,48 @@ namespace kvdb{
                 return false;
             }
         }
+
+        //Read hash_entry
+        uint64_t length = sizeof(struct HashEntryOnDisk) * m_size;
+        struct HashEntryOnDisk *entry_ondisk = (struct HashEntryOnDisk*)malloc(sizeof(struct HashEntryOnDisk) * m_size);
+        if(entry_ondisk == NULL){
+            perror("could not malloc hash table on disk file\n");
+            return false;
+        }
+
+        h_offset = 0;
+        while((nread = m_bdev->pRead(entry_ondisk + h_offset, length, offset)) > 0){
+            length -= nread;
+            offset += nread;
+            h_offset += nread;
+            if (nread < 0){
+                perror("Error in reading hashtable from file\n");
+                return false;
+            }
+        }
+       
+        //Convert hashtable from device to memory
+        int entry_index = 0;
+        for(int i = 0; i < m_size; i++)
+        {
+            
+            int entry_num = counter[i];
+            for(int j=0; j< entry_num; j++)
+            {
+                struct HashEntry entry;
+                entry.hash_entry = entry_ondisk[entry_index];
+                entry.pointer = 0;
+
+                CheckLinkedList(i);
+                m_hashtable[i]->insert(entry);
+
+                entry_index++;
+            }
+            __DEBUG("read hashtable[%d]=%d", i, entry_num);
+        }
+
+        free(entry_ondisk);
+        free(counter);
         return true;
     }
 
@@ -86,48 +99,82 @@ namespace kvdb{
         __DEBUG("Write Hashtable timestamp: %s", m_last_timestamp->TimeToChar());
         offset += timeLength;
 
-        //Convert hashtable from memory to device
-        ConvertHTMemToDisk();
 
+        int entry_num;
         //Write hashtable to device
-        uint64_t length = sizeof(struct HashEntryOnDisk) * m_size;
-        if(!_WriteHashTableToDevice(length, offset))
-            return false;
+        for(int i=0; i<m_size; i++)
+        {
+            if (!m_hashtable[i])
+                entry_num = 0;
+            else
+                entry_num = (m_hashtable[i])->get_size();
 
-        return true;
-    }
+            m_bdev->pWrite(&entry_num, sizeof(int), offset);
+            offset += sizeof(int);
+            __DEBUG("write hashtable[%d]=%d on %d", i, entry_num, (int)offset);
+        }
 
-    bool IndexManager::_WriteHashTableToDevice(uint64_t writeLength, off_t offset)
-    {
-        ssize_t nwrite;
-        while((nwrite = m_bdev->pWrite(m_ht_ondisk, writeLength, offset)) > 0){
-            writeLength -= nwrite;
-            offset += nwrite;
-            if(nwrite < 0){
-                perror("Error in Write hashtable to file\n");
-                return false;
+        //Write all hash_entry to device
+        for(int i=0; i<m_size; i++)
+        {
+            if (!m_hashtable[i])
+                continue;
+            vector<HashEntry> tmp_vec = m_hashtable[i]->get();
+            for(vector<struct HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
+            {
+                //struct HashEntry *entry = *iter;
+                struct HashEntryOnDisk *entry_ondisk = NULL;
+                entry_ondisk = &(iter->hash_entry);
+                m_bdev->pWrite(entry_ondisk, sizeof(HashEntryOnDisk), offset);
+                offset +=  sizeof(HashEntryOnDisk);
+                //__DEBUG("write entry_ondisk on %d", (int)offset);
             }
+            //__DEBUG("write hashtable[%d] hash entry complete", i);
         }
+    
         return true;
     }
 
-    void IndexManager::ConvertHTDiskToMem()
+    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset)
     {
-        for(int index=0; index < (int)m_size; index++)
-        {
-            m_hashtable[index].present_key = m_ht_ondisk[index].present_key;
-            m_hashtable[index].offset = m_ht_ondisk[index].offset;
-            m_hashtable[index].pointer = 0;
-        }
+        struct HashEntryOnDisk entry_ondisk;
+        memcpy(&entry_ondisk.dataheader, data_header, sizeof(DataHeader));
+        entry_ondisk.offset.header_offset = header_offset;
+        struct HashEntry entry;
+        memcpy(&entry.hash_entry, &entry_ondisk, sizeof(HashEntryOnDisk));
+
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+
+        CheckLinkedList(hash_index);
+        LinkedList *entry_list = m_hashtable[hash_index];
+
+        entry_list->insert(entry);
+
+        return true; 
     }
-    
-    void IndexManager::ConvertHTMemToDisk()
+
+    bool IndexManager::GetHashEntry(Kvdb_Digest *digest, HashEntry &entry)
     {
-        for(int index=0; index < (int)m_size; index++)
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+
+        CheckLinkedList(hash_index);
+        LinkedList *entry_list = m_hashtable[hash_index];
+
+        memcpy(&entry.hash_entry.dataheader.key, &digest->value, 20 );
+        
+        if(entry_list->search(entry))
         {
-            m_ht_ondisk[index].present_key = m_hashtable[index].present_key;
-            m_ht_ondisk[index].offset = m_hashtable[index].offset;
+             vector<HashEntry> tmp_vec = entry_list->get();
+             for(vector<struct HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
+             {
+                 if(!memcmp(iter->hash_entry.dataheader.key, entry.hash_entry.dataheader.key, 20))
+                 {
+                     memcpy(&entry, (const void*)(&*iter), sizeof(HashEntry));
+                     return true;
+                 }
+             }
         }
+        return false;
     }
 
     uint64_t IndexManager::GetIndexSizeOnDevice(uint64_t ht_size)
@@ -137,135 +184,9 @@ namespace kvdb{
         return (index_size_pages + 1) * getpagesize();
     }
 
-    int32_t IndexManager::FindIndexToInsert(const char* key, uint32_t key_len, bool* newObj)
-    {
-        int32_t hash_index = 0;
-        for (u_int hash_fn_index = 0; hash_fn_index < HASH_COUNT; hash_fn_index++){
-            uint32_t indexkey = (*(Hashes::hashes[hash_fn_index]))(key, key_len);
-            uint32_t hash_index_start = indexkey & (m_size - 1);
-
-            hash_index_start &= (~(PROBES_BEFORE_REHASH-1));
-
-            for(hash_index = hash_index_start; 
-                (uint32_t)hash_index < hash_index_start + PROBES_BEFORE_REHASH; 
-                hash_index++){
-                
-                uint16_t vkey = verifykey(hash_index);
-                // Find first open spot or find the same key
-                if(!exists(hash_index)){
-                    *newObj = true; //This is a new object, not an updated object for an existing key.
-                    return hash_index;
-                }else if(vkey == keyfragment_from_key(key, key_len)){
-                    off_t datapos = m_hashtable[hash_index].offset;
-                    DataHeader data_header;
-                    string ckey;
-                    if(m_data_handle->ReadDataHeader(datapos, data_header, ckey) &&
-                            ckey.length() == key_len &&
-                            memcmp(ckey.data(), key, key_len) == 0)
-                        return hash_index;
-                }
-            }
-        }
-        return ERR;
-    }
-
-    int32_t IndexManager::FindItemIndexAndHeader(const char* key, uint32_t key_len, DataHeader* data_header) const
-    {
-        DataHeader dummy_header;
-        int32_t hash_index = 0;
-        
-        if (data_header == NULL)
-            data_header = &dummy_header;
-        
-        for (u_int hash_fn_index = 0; hash_fn_index < HASH_COUNT; hash_fn_index++) {
-            uint32_t indexkey = (*(Hashes::hashes[hash_fn_index]))(key, key_len);
-            // calculate the starting index to probe. We linearly probe
-            // PROBES_BEFORE_REHASH locations before rehashing the key to get a new
-            // starting index.
-        
-            // Mask lower order bits to find hash index
-            uint32_t hash_index_start = indexkey & (m_size - 1);
-        
-            hash_index_start &= (~(PROBES_BEFORE_REHASH-1));
-        
-            for (hash_index = hash_index_start;
-                 (uint32_t)hash_index < hash_index_start + PROBES_BEFORE_REHASH;
-                 ++hash_index) {
-        
-                uint16_t vkey = verifykey(hash_index);
-        
-                // If empty entry, key could not be found.
-                if (!valid(hash_index)) {
-                    return ERR;
-                }
-                // Skip over deleted entries
-                else if (deleted(hash_index)) {
-                    continue;
-                }
-                else if (vkey == keyfragment_from_key(key, key_len)) {
-                    off_t datapos = m_hashtable[hash_index].offset;
-                    DataHeader data_header;
-                    string ckey;
-                    if (m_data_handle->ReadDataHeader(datapos, data_header, ckey) &&
-                        ckey.length() == key_len &&
-                        memcmp(ckey.data(), key, key_len) == 0)
-                        return hash_index;
-                }
-            }
-        
-        }
-        return ERR;     
-    }
-
-
-    bool IndexManager::GetItemData(const char* key, uint32_t key_len, string &data) 
-    {
-        int32_t hash_index = 0;
-        for (u_int hash_fn_index = 0; hash_fn_index < HASH_COUNT; hash_fn_index++) {
-            uint32_t indexkey = (*(Hashes::hashes[hash_fn_index]))(key, key_len);
-
-            // Mask lower order bits to find hash index
-            uint32_t hash_index_start = indexkey & (m_size - 1);
-
-            hash_index_start &= (~(PROBES_BEFORE_REHASH-1));
-
-            for (hash_index = hash_index_start;
-                 (uint32_t)hash_index < hash_index_start + PROBES_BEFORE_REHASH;
-                 ++hash_index) {
-                uint16_t vkey = verifykey(hash_index);
-                if (!valid(hash_index)) {
-                    return false;
-                }
-                else if (deleted(hash_index)) {
-                    continue;
-                }
-                else if (vkey == keyfragment_from_key(key, key_len)) {
-                    off_t datapos = m_hashtable[hash_index].offset;
-                    if (m_data_handle->ReadData(key, key_len, datapos, data))
-                        return true;
-                }
-            }
-
-        }
-        return false; 
-    }
-
-    void IndexManager::UpdateIndexValid(const char* key, uint32_t key_len, int32_t hash_index, uint32_t offset)
-    {
-        uint16_t key_in_hashtable = keyfragment_from_key(key, key_len);
-        key_in_hashtable |= VALIDBITMASK; // set valid bit to 1
-        m_hashtable[hash_index].present_key = key_in_hashtable;
-        m_hashtable[hash_index].offset = offset;
-    }
-
-    void IndexManager::UpdateIndexDeleted(uint32_t hash_index)
-    {
-       m_hashtable[hash_index].present_key |= DELETEDBITMASK; 
-    }
 
     IndexManager::IndexManager(DataHandle* data_handle, BlockDevice* bdev):
-        m_data_handle(data_handle), m_ht_ondisk(NULL), 
-        m_hashtable(NULL), m_size(0), m_bdev(bdev)
+        m_data_handle(data_handle), m_hashtable(NULL), m_size(0), m_bdev(bdev)
     {
         m_last_timestamp = new Timing(bdev);
         return ;
@@ -273,12 +194,12 @@ namespace kvdb{
 
     IndexManager::~IndexManager()
     {
-        if(m_ht_ondisk)
-            free(m_ht_ondisk);
-        if(m_hashtable)
-            free(m_hashtable);
         if(m_last_timestamp)
-            free(m_last_timestamp);
+            delete m_last_timestamp;
+        if(m_hashtable)
+        {
+            DestroyHashTable();
+        }
     }
 
     uint32_t IndexManager::ComputeHashSizeForCreateDB(uint32_t number)
@@ -294,34 +215,38 @@ namespace kvdb{
         return number;
     }
 
-    // Grab lowest order KEYFRAG bits to use as keyfragment
-    // Key should be at least 2 bytes long for this to work properly
-    uint16_t IndexManager::keyfragment_from_key(const char *key, uint32_t key_len) const 
+    void IndexManager::CheckLinkedList(int number)
     {
-        if (key_len < sizeof(uint16_t)) {
-            return (uint16_t) (key[0] & KEYFRAGMASK);
+        if(!m_hashtable[number])
+        {
+            LinkedList *entry_list = new LinkedList;
+            m_hashtable[number] = entry_list;
         }
-        return (uint16_t) ((key[key_len-2]<<8) + key[key_len-1]) & KEYFRAGMASK;
-    }
-    
-    bool IndexManager::deleted(int32_t index) const
-    {
-        return (m_hashtable[index].present_key & DELETEDBITMASK);
+        return;
     }
 
-    bool IndexManager::valid(int32_t index) const
+    void IndexManager::InitHashTable(int size)
     {
-        return (m_hashtable[index].present_key & VALIDBITMASK);
+        m_hashtable =  new LinkedList*[m_size];
+        //memset(m_hashtable, 0, sizeof(LinkedList*)*m_size);
+        for(int i=0; i<size; i++)
+            m_hashtable[i]=NULL;
+        return;
     }
 
-    bool IndexManager::exists(int32_t index) const
+    void IndexManager::DestroyHashTable()
     {
-        return valid(index) && !deleted(index);
+        for(int i = 0; i < m_size; i++)
+        {
+            if(m_hashtable[i])
+            {
+                delete m_hashtable[i];
+                m_hashtable[i] = NULL;
+            }
+        }
+        delete[] m_hashtable;
+        m_hashtable = NULL;
+        return;
     }
 
-    uint16_t IndexManager::verifykey(int32_t index) const
-    {
-        return (m_hashtable[index].present_key & KEYFRAGMASK);
-    }
-
-}
+}// namespace kvdb

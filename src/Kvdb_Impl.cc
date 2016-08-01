@@ -8,6 +8,7 @@
 #endif
 
 #include "Kvdb_Impl.h"
+#include "KeyDigestHandle.h"
 
 
 namespace kvdb {
@@ -29,7 +30,6 @@ namespace kvdb {
 
         KvdbDS* ds = new KvdbDS(filename);
 
-        //uint64_t db_meta_size = SuperBlockManager::GetSuperBlockSizeOnDevice() + sizeof(time_t) + sizeof(struct HashEntryOnDisk) * max_entries;
         uint64_t db_meta_size = SuperBlockManager::GetSuperBlockSizeOnDevice() + IndexManager::GetIndexSizeOnDevice(max_entries);
 
         int r = 0;
@@ -147,10 +147,16 @@ namespace kvdb {
         }
 
         if (m_sb_manager)
+        {
             delete m_sb_manager;
-        
+            m_sb_manager = NULL;
+        }
+
         if (m_index_manager)
+        {
             delete m_index_manager;
+            m_index_manager = NULL;
+        }
 
         // Now read entries from file into memory
         if (!this->ReadMetaDataFromDevice()) {
@@ -183,7 +189,7 @@ namespace kvdb {
 
     bool KvdbDS::Insert(const char* key, uint32_t key_len, const char* data, uint32_t length)
     {
-        if (key == NULL || data == NULL)
+        if (key == NULL)
             return false;
 
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
@@ -191,30 +197,34 @@ namespace kvdb {
             fprintf(stderr, "Error: hash table full!\n");
             return false;
         }
+        
+        Kvdb_Key vkey;
+        vkey.value = (char *)key;
+        vkey.len = key_len;
+        
+        Kvdb_Digest digest;
 
-        bool newObj = false; // Used to keep track of whether this has added an object (used for tracking number of elements)
-        int32_t hash_index = m_index_manager->FindIndexToInsert(key, key_len, &newObj);
+        KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        if (hash_index == -1) {
-            fprintf(stdout, "Can't find index for given key in hash table.\n");
-            return false;
-        }
+        struct DataHeader data_header;
+        memcpy(&(data_header.key), &(digest.value), 20);
+        data_header.data_size = length;
+        data_header.data_offset = sb.data_insertion_point + sizeof(struct DataHeader);
+        data_header.next_header_offset = sb.data_insertion_point + sizeof(struct DataHeader) + length;
 
-        // Do the underlying write to the datstore
-        //if (!WriteDataToDevice(key, key_len, data, length, sb.data_insertion_point)) {
-        if (!m_data_handle->WriteData(key, key_len, data, length, sb.data_insertion_point)) {
+
+        if (!m_data_handle->WriteData(&data_header, data, length, sb.data_insertion_point)) {
             fprintf(stderr, "Can't write to underlying datastore\n");
             return false;
         }
 
-        //// update the hashtable (since the data was successfully written).
-        m_index_manager->UpdateIndexValid(key, key_len, hash_index, sb.data_insertion_point);
+        // update the hashtable (since the data was successfully written).
+        m_index_manager->UpdateIndexFromInsert(&data_header, &digest, sb.data_insertion_point);
 
-        sb.data_insertion_point += sizeof(struct DataHeader) + key_len + length;
 
-        // Update number of elements if Insert added a new object
-        if (newObj)
-            sb.number_elements++;
+        sb.data_insertion_point += sizeof(struct DataHeader) + length;
+        sb.number_elements++;
+
 
         m_sb_manager->SetSuperBlock(sb);
 
@@ -224,66 +234,38 @@ namespace kvdb {
     // External deletes always write a writeLog
     bool KvdbDS::Delete(const char* key, uint32_t key_len)
     {
-        return Delete(key, key_len, true);
-    }
-
-    bool KvdbDS::Delete(const char* key, uint32_t key_len, bool writeLog)
-    {
-        if (key == NULL)
-            return false;
-
-        DataHeader data_header;
-        int32_t hash_index = m_index_manager->FindItemIndexAndHeader(key, key_len, &data_header);
-
-        // Key is not in table
-        if (hash_index == -1) {
-            //fprintf(stderr, "Can't find index for given key in hash table.\n");
-            return false;
-        }
-
-        // if writeLog == false, we may be ensuring that the entry was invalidated, so it's okay to check again
-        if (writeLog && !m_index_manager->valid(hash_index)) {
-            fprintf(stderr, "Warning: tried to delete non-existent item\n");
-            return false;
-        }
-
-        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
-
-        if (writeLog) {
-            //if (!DeleteOnDevice(key, key_len, sb.data_insertion_point)) {
-            if (!m_data_handle->DeleteData(key, key_len, sb.data_insertion_point)) {
-                fprintf(stderr, "Could not delete from underlying datastore\n");
-                return false;
-            }
-            // Update head pointer
-            sb.data_insertion_point += sizeof(struct DataHeader) + key_len;
-
-        }
-
-
-        /*********   UPDATE TABLE   **********/
-        m_index_manager->UpdateIndexDeleted(hash_index);
-        sb.deleted_elements++;
-
-        // Eliminate stale entries on delete (exhaustive search)
-        while ((hash_index = m_index_manager->FindItemIndexAndHeader(key, key_len, &data_header)) != -1) {
-            m_index_manager->UpdateIndexDeleted(hash_index);
-        }
-
-        m_sb_manager->SetSuperBlock(sb);
-
-        return true;
+        return Insert(key, key_len, NULL, 0);
     }
 
     bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) const
     {
         if (key == NULL)
             return false;
+
+        Kvdb_Key vkey;
+        vkey.value = (char *)key;
+        vkey.len = key_len;
         
-        if (!m_index_manager->GetItemData(key, key_len, data)) 
+        Kvdb_Digest digest;
+
+        KeyDigestHandle::ComputeDigest(&vkey, digest);
+
+        struct HashEntry entry;
+
+        if(!m_index_manager->GetHashEntry(&digest, entry))
             return false;
+
+        if(entry.hash_entry.dataheader.data_size == 0 )
+            return false;
+
+        if (!m_data_handle->ReadData(&(entry.hash_entry.dataheader), data)) {
+            fprintf(stderr, "Can't write to underlying datastore\n");
+            return false;
+        }
+        __DEBUG("get data offset %d", entry.hash_entry.dataheader.data_offset);
 
         return true;
     }
+    
+}// namespace kvdb 
 
-}  // namesiace kvdb

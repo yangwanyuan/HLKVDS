@@ -4,7 +4,7 @@
 #include "Kvdb.h"
 
 
-#define TEST_RECORD_NUM 3000
+#define TEST_RECORD_NUM 40
 
 //#define TEST_DB_FILENAME "000_db"
 //#define TEST_DB_FILENAME "/dev/loop0"

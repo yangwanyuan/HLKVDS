@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "KeyDigestHandle.h"
 
 using namespace std;
 
@@ -13,8 +14,8 @@ namespace kvdb{
     public:
         bool ReadDataHeader(off_t offset, DataHeader &data_header, string &key);
         bool WriteDataHeader();
-        bool ReadData(const char* key, uint32_t key_len, off_t offset, string &data);
-        bool WriteData(const char* key, uint32_t key_len, const char* data, uint32_t length, off_t offset);
+        bool ReadData(DataHeader* data_header, string &data);
+        bool WriteData(DataHeader* data_header, const char* data, uint32_t length, off_t offset);
         bool DeleteData(const char* key, uint32_t key_len, off_t offset); 
 
         DataHandle(BlockDevice* bdev);
