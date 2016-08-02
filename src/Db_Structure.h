@@ -56,47 +56,15 @@ namespace kvdb {
     }__attribute__((__packed__));
 
     struct HashEntryOnDisk {
-        struct DataHeader dataheader;
-        struct DataHeaderOffset offset;
+        DataHeader dataheader;
+        DataHeaderOffset offset;
     } __attribute__((__packed__));
 
     struct HashEntry {
-        struct HashEntryOnDisk hash_entry;
+        HashEntryOnDisk hash_entry;
         uint32_t pointer;
     } __attribute__((__packed__));
 
-    /*
-      Hash Entry Format
-      D = Is slot deleted: 1 means deleted, 0 means not deleted.  Needed for lazy deletion
-      V = Is slot empty: 0 means empty, 1 means taken
-      K = Key fragment
-      O = Offset bits
-      ________________________________________________
-      |DVKKKKKKKKKKKKKKOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO|
-      ¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯
-    */
-    //struct HashEntryOnDisk {
-    //    uint16_t present_key;
-    //    uint32_t offset;
-    //} __attribute__((__packed__));
-
-    //struct DataHeader {
-    //    uint32_t data_length;
-    //    uint32_t key_length;
-    //    //bool deleteLog;
-    //} __attribute__((__packed__));
-
-    //struct HashEntry {
-    //    uint16_t present_key;
-    //    uint32_t offset;
-    //    uint32_t pointer;
-    //} __attribute__((__packed__));
-
-    //struct SegmentHeader {
-    //    time_t time_stamp;
-    //    uint16_t check_sum;
-    //    int nkeys;
-    //} __attribute__ ((__packed__));
 
 }  // namespace kvdb
 

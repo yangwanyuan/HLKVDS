@@ -130,7 +130,7 @@ namespace kvdb{
             EntryNode* tempNode = nodePtr->next;
     
             //If the head is the node we want to remove
-            if(!memcmp(&(m_head->data.hash_entry.dataheader.key), &(toBeRemoved.hash_entry.dataheader.key), 20))
+            if(!memcmp(&(m_head->data.hash_entry.dataheader.key), &(toBeRemoved.hash_entry.dataheader.key), KEYDIGEST_SIZE))
             {
                 m_head = tempNode;
                 delete nodePtr;
@@ -143,7 +143,7 @@ namespace kvdb{
                 while(tempNode != NULL)
                 {
                     //If we found the node
-                    if(!memcmp(&(m_head->data.hash_entry.dataheader.key), &(toBeRemoved.hash_entry.dataheader.key), 20))
+                    if(!memcmp(&(m_head->data.hash_entry.dataheader.key), &(toBeRemoved.hash_entry.dataheader.key), KEYDIGEST_SIZE))
                     {
                         // Point the node before the current to the node after the current
                         nodePtr->next = tempNode->next;
@@ -170,7 +170,7 @@ namespace kvdb{
         while(tempNode != NULL)
         {
             // If the current node contain the data that user wanted to check
-            if(!memcmp(&(tempNode->data.hash_entry.dataheader.key), &(toBeSearched.hash_entry.dataheader.key), 20))
+            if(!memcmp(&(tempNode->data.hash_entry.dataheader.key), &(toBeSearched.hash_entry.dataheader.key), KEYDIGEST_SIZE))
             {
                 return true;
             }

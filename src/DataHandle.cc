@@ -43,27 +43,28 @@ namespace kvdb{
         /**************************************************************************************
         //Struct DataHeader *data_header = new DataHeader;
         ////data_header.key = digest->value;
-        //Memcpy(data_header->key, (digest->value), 20);
+        //memcpy(data_header->key, (digest->value), sizeof(Kvdb_Digest));
         //Data_header->data_size = length;
-        //Data_header->data_offset = offset + sizeof(struct DataHeader);
-        //Data_header->next_header_offset = offset + sizeof(struct DataHeader) + length;
+        //Data_header->data_offset = offset + sizeof(DataHeader);
+        //Data_header->next_header_offset = offset + sizeof(DataHeader) + length;
 
         //struct iovec iov[3];
         //iov[0].iov_base = &data_header;
-        //iov[0].iov_len = sizeof(struct DataHeader);
+        //iov[0].iov_len = sizeof(DataHeader);
         //iov[1].iov_base = const_cast<char *>(key);
         //iov[1].iov_len = key_len;
         //iov[2].iov_base = const_cast<char *>(data);
         //iov[2].iov_len = length;
 
-        //if (m_bdev->pWritev(iov, 3, offset) != (ssize_t) (sizeof(struct DataHeader) + key_len + length)) {
+        //if (m_bdev->pWritev(iov, 3, offset) != (ssize_t) (sizeof(DataHeader) + key_len + length)) {
         //    fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
         //    return false;
         //}
+        //delete data_header;
         ************************************************************************************/
 
 
-        //ssize_t dataheader_len = sizeof(struct DataHeader);
+        //ssize_t dataheader_len = sizeof(DataHeader);
         //if(m_bdev->pWrite(&data_header, dataheader_len, offset) != dataheader_len){
         //    fprintf(stderr, "Could not write dataheader: %s\n", strerror(errno));
         //    return false;
@@ -75,7 +76,7 @@ namespace kvdb{
         //    return false;
         //}
 
-        ssize_t dataheader_len = sizeof(struct DataHeader);
+        ssize_t dataheader_len = sizeof(DataHeader);
         ssize_t data_all_len = dataheader_len + length;
 
         unsigned char* data_all = (unsigned char*)malloc(data_all_len);
@@ -89,8 +90,6 @@ namespace kvdb{
         free(data_all);
         __DEBUG("offset: %ld, data_len:%ld, header_len:%ld", offset, data_all_len, dataheader_len );
         
-
-        //delete data_header;
 
         return true;
     }

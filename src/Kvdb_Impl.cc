@@ -206,11 +206,11 @@ namespace kvdb {
 
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        struct DataHeader data_header;
-        memcpy(&(data_header.key), &(digest.value), 20);
+        DataHeader data_header;
+        memcpy(&(data_header.key), &(digest.value), sizeof(Kvdb_Digest));
         data_header.data_size = length;
-        data_header.data_offset = sb.data_insertion_point + sizeof(struct DataHeader);
-        data_header.next_header_offset = sb.data_insertion_point + sizeof(struct DataHeader) + length;
+        data_header.data_offset = sb.data_insertion_point + sizeof(DataHeader);
+        data_header.next_header_offset = sb.data_insertion_point + sizeof(DataHeader) + length;
 
 
         if (!m_data_handle->WriteData(&data_header, data, length, sb.data_insertion_point)) {
@@ -222,7 +222,7 @@ namespace kvdb {
         m_index_manager->UpdateIndexFromInsert(&data_header, &digest, sb.data_insertion_point);
 
 
-        sb.data_insertion_point += sizeof(struct DataHeader) + length;
+        sb.data_insertion_point += sizeof(DataHeader) + length;
         sb.number_elements++;
 
 
@@ -250,7 +250,7 @@ namespace kvdb {
 
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        struct HashEntry entry;
+        HashEntry entry;
 
         if(!m_index_manager->GetHashEntry(&digest, entry))
             return false;

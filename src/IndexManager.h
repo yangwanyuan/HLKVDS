@@ -34,9 +34,17 @@ namespace kvdb{
 
     private:
         uint32_t ComputeHashSizeForCreateDB(uint32_t number);
-        void CheckLinkedList(int number);
-        void InitHashTable(int size);
+        void CreateListIfNotExist(int index);
+
+        bool InitHashTable(int size);
         void DestroyHashTable();
+
+        bool _RebuildHashTable(uint64_t offset);
+        bool _LoadDataFromDevice(void* data, uint64_t length, uint64_t offset); 
+        bool _ConvertHashEntryFromDiskToMem(int* counter, HashEntryOnDisk* entry_ondisk);
+
+        bool _PersistHashTable(uint64_t offset);
+        bool _WriteDataToDevice(void* data, uint64_t length, uint64_t offset);
 
 
         DataHandle* m_data_handle;

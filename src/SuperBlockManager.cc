@@ -8,24 +8,17 @@
 namespace kvdb{
     bool SuperBlockManager::InitSuperBlockForCreateDB()
     {
-        m_superblock = (struct DBSuperBlock*)malloc(sizeof(struct DBSuperBlock));
-        if(m_superblock == NULL){
-            perror("could not malloc superblock\n");
-            return false;
-        }
-        memset(m_superblock, 0, sizeof(struct DBSuperBlock));
+        m_superblock = new DBSuperBlock;
+
+        memset(m_superblock, 0, sizeof(DBSuperBlock));
         return true;
     }
 
     bool SuperBlockManager::LoadSuperBlockFromDevice(uint64_t offset)
     {   
-        m_superblock = (struct DBSuperBlock*)malloc(sizeof(DBSuperBlock));
-        if(m_superblock == NULL){
-            perror("could not malloc superblock file\n");
-            return false;
-        }
+        m_superblock = new DBSuperBlock;
         
-        uint64_t length = sizeof(struct DBSuperBlock);
+        uint64_t length = sizeof(DBSuperBlock);
         if((uint64_t)m_bdev->pRead(m_superblock, length, offset) != length){
             perror("Could not read superblock from device\n"); 
             return false;
@@ -35,15 +28,15 @@ namespace kvdb{
 
     bool SuperBlockManager::WriteSuperBlockToDevice(uint64_t offset)
     {
-        uint64_t length = sizeof(struct DBSuperBlock);
+        uint64_t length = sizeof(DBSuperBlock);
         if((uint64_t)m_bdev->pWrite(m_superblock, length, offset) != length){
-            perror("Could not write malloc'd superblock at position 0\n");
+            perror("Could not write superblock at position 0\n");
             return false;
         }
         return true;
     }
     
-    void SuperBlockManager::SetSuperBlock(struct DBSuperBlock sb)
+    void SuperBlockManager::SetSuperBlock(DBSuperBlock sb)
     {
         m_superblock->hashtable_size        = sb.hashtable_size;
         m_superblock->number_elements       = sb.number_elements;
@@ -61,7 +54,7 @@ namespace kvdb{
 
     uint64_t SuperBlockManager::GetSuperBlockSizeOnDevice()
     {
-        uint64_t sb_size_pages = sizeof(struct DBSuperBlock) / getpagesize();
+        uint64_t sb_size_pages = sizeof(DBSuperBlock) / getpagesize();
         return (sb_size_pages + 1) * getpagesize();
     }
 
@@ -74,7 +67,7 @@ namespace kvdb{
     SuperBlockManager::~SuperBlockManager()
     {
         if (m_superblock)
-            free(m_superblock);
+            delete m_superblock;
     }
 
 } // namespace kvdb

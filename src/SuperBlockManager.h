@@ -16,7 +16,7 @@ namespace kvdb{
         bool LoadSuperBlockFromDevice(uint64_t offset);
         bool WriteSuperBlockToDevice(uint64_t offset);
 
-        void SetSuperBlock(struct DBSuperBlock sb);
+        void SetSuperBlock(DBSuperBlock sb);
         DBSuperBlock GetSuperBlock();
 
         bool IsElementFull() { return m_superblock->number_elements == m_superblock->hashtable_size;}

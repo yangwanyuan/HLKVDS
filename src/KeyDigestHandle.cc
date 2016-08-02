@@ -67,8 +67,9 @@ namespace kvdb{
     
     string KeyDigestHandle::Tostring(Kvdb_Digest *digest)
     {
-        char *res = (char*)malloc(40);
-        for (int i = 0; i < 20; i++)
+        int str_len = 2 * DIGEST_LEN; 
+        char *res = (char*)malloc(str_len);
+        for (int i = 0; i < DIGEST_LEN; i++)
         {
             sprintf(&res[2 * i], "%02x", digest->value[i]);
         }
