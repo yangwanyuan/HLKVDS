@@ -9,6 +9,31 @@
 
 namespace kvdb{
 
+    //template class LinkedList<HashEntry>;
+
+    HashEntry::HashEntry()
+    {
+        return;
+    }
+
+    HashEntry::HashEntry(HashEntryOnDisk entry_ondisk)
+    {
+        entryOndisk = entry_ondisk;
+        pointer = 0;
+    }
+
+    HashEntry::~HashEntry()
+    {
+        return;
+    }
+
+    bool HashEntry::operator==(const HashEntry& compare)
+    {
+        if (!memcmp(&(entryOndisk.header.key), &(compare.entryOndisk.header.key), KEYDIGEST_SIZE))
+            return true;
+        return false;
+    }
+
     bool IndexManager::InitIndexForCreateDB(uint64_t numObjects)
     {
         m_size = ComputeHashSizeForCreateDB(numObjects);
@@ -58,17 +83,17 @@ namespace kvdb{
     bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset)
     {
         HashEntryOnDisk entry_ondisk;
-        memcpy(&entry_ondisk.dataheader, data_header, sizeof(DataHeader));
-        entry_ondisk.offset.header_offset = header_offset;
+        memcpy(&entry_ondisk.header, data_header, sizeof(DataHeader));
+        entry_ondisk.header_offset.physical_offset = header_offset;
 
         HashEntry entry;
-        memcpy(&entry.hash_entry, &entry_ondisk, sizeof(HashEntryOnDisk));
+        memcpy(&entry.entryOndisk, &entry_ondisk, sizeof(HashEntryOnDisk));
 
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
 
         CreateListIfNotExist(hash_index);
 
-        LinkedList *entry_list = m_hashtable[hash_index];
+        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
         entry_list->insert(entry);
 
         return true; 
@@ -80,16 +105,16 @@ namespace kvdb{
 
         CreateListIfNotExist(hash_index);
 
-        LinkedList *entry_list = m_hashtable[hash_index];
+        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
 
-        memcpy(&entry.hash_entry.dataheader.key, &digest->value, sizeof(Kvdb_Digest) );
+        memcpy(&entry.entryOndisk.header.key, &digest->value, sizeof(Kvdb_Digest) );
         
         if(entry_list->search(entry))
         {
              vector<HashEntry> tmp_vec = entry_list->get();
              for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
              {
-                 if(!memcmp(iter->hash_entry.dataheader.key, entry.hash_entry.dataheader.key, sizeof(Kvdb_Digest)))
+                 if(!memcmp(iter->entryOndisk.header.key, entry.entryOndisk.header.key, sizeof(Kvdb_Digest)))
                  {
                      memcpy(&entry, (const void*)(&*iter), sizeof(HashEntry));
                      return true;
@@ -141,7 +166,7 @@ namespace kvdb{
     {
         if(!m_hashtable[index])
         {
-            LinkedList *entry_list = new LinkedList;
+            LinkedList<HashEntry> *entry_list = new LinkedList<HashEntry>;
             m_hashtable[index] = entry_list;
         }
         return;
@@ -149,7 +174,7 @@ namespace kvdb{
 
     bool IndexManager::InitHashTable(int size)
     {
-        m_hashtable =  new LinkedList*[m_size];
+        m_hashtable =  new LinkedList<HashEntry>*[m_size];
 
         //memset(m_hashtable, 0, sizeof(LinkedList*)*m_size);
         for(int i=0; i<size; i++)
@@ -245,7 +270,7 @@ namespace kvdb{
             for(int j=0; j< entry_num; j++)
             {
                 HashEntry entry;
-                entry.hash_entry = entry_ondisk[entry_index];
+                entry.entryOndisk = entry_ondisk[entry_index];
                 entry.pointer = 0;
 
                 CreateListIfNotExist(i);
@@ -282,7 +307,7 @@ namespace kvdb{
             vector<HashEntry> tmp_vec = m_hashtable[i]->get();
             for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
             {
-                entry_ondisk[i] = (iter->hash_entry);
+                entry_ondisk[i] = (iter->entryOndisk);
             }
         }
         if(!_WriteDataToDevice((void *)entry_ondisk, length, offset))

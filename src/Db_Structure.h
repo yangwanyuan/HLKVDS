@@ -52,18 +52,18 @@ namespace kvdb {
     //    uint32_t header_offset;
     //}__attribute__((__packed__));
     struct DataHeaderOffset{
-        uint32_t header_offset;
+        uint32_t physical_offset;
     }__attribute__((__packed__));
 
     struct HashEntryOnDisk {
-        DataHeader dataheader;
-        DataHeaderOffset offset;
+        DataHeader header;
+        DataHeaderOffset header_offset;
     } __attribute__((__packed__));
 
-    struct HashEntry {
-        HashEntryOnDisk hash_entry;
-        uint32_t pointer;
-    } __attribute__((__packed__));
+    //struct HashEntry {
+    //    HashEntryOnDisk hash_entry;
+    //    uint32_t pointer;
+    //} __attribute__((__packed__));
 
 
 }  // namespace kvdb

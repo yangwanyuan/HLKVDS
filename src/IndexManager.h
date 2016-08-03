@@ -15,6 +15,24 @@ using namespace std;
 
 namespace kvdb{
 
+    //class HashEntry;
+    //template class LinkedList<HashEntry>;
+
+    class HashEntry
+    {
+    public:
+        //HashEntryOnDisk hash_entry;
+        HashEntryOnDisk entryOndisk;
+        uint32_t pointer;
+        HashEntry();
+        HashEntry(HashEntryOnDisk entry_ondisk);
+        //HashEntry(const HashEntry&);
+        ~HashEntry();
+        bool operator== (const HashEntry&);
+    } __attribute__((__packed__));
+
+    
+
     class IndexManager{
     public:
         static uint64_t GetIndexSizeOnDevice(uint64_t ht_size);
@@ -48,16 +66,12 @@ namespace kvdb{
 
 
         DataHandle* m_data_handle;
-        //vector< LinkedList* > m_hashtable;  
-        LinkedList*  *m_hashtable;  
+        LinkedList<HashEntry>** m_hashtable;  
         int m_size;
         BlockDevice* m_bdev;
 
         Timing* m_last_timestamp;
 
-    public:
-
-        static const double EXCESS_BUCKET_FACTOR = 1.1;
     };
 
 }// namespace kvdb

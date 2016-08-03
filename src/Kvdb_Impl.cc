@@ -255,10 +255,10 @@ namespace kvdb {
         if(!m_index_manager->GetHashEntry(&digest, entry))
             return false;
 
-        if(entry.hash_entry.dataheader.data_size == 0 )
+        if(entry.entryOndisk.header.data_size == 0 )
             return false;
 
-        if (!m_data_handle->ReadData(&(entry.hash_entry.dataheader), data)) {
+        if (!m_data_handle->ReadData(&(entry.entryOndisk.header), data)) {
             fprintf(stderr, "Can't write to underlying datastore\n");
             return false;
         }
@@ -266,6 +266,4 @@ namespace kvdb {
 
         return true;
     }
-    
-}// namespace kvdb 
-
+} 
