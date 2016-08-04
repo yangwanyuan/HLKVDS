@@ -29,7 +29,7 @@ int leveldb_interface::open(const char* db_name)
     printf("[DBG] open db: %s\n", db_name);
     leveldb::Options settings;
 
-    settings.create_if_missing = true;//TODO - this should communicate with user
+    settings.create_if_missing = true;//TODO - 
 /*  
     settings.block_cache = cache_;
     settings.write_buffer_size = FLAGS_write_buffer_size;
@@ -55,10 +55,11 @@ int leveldb_interface::destroy(const char* db_name)
 	return status.ok() ? 0 : -1;
 }
 
+//@key and @value end with '\0'
 int leveldb_interface::put(const char* key, const char* val)
 {
 //	assert(db != NULL);
-//	printf("[DBG] %s, %s\n", key, val);
+	printf("[DBG] %s, %s\n", key, val);
 	leveldb::Status status = db->Put(w_ops, key, val);
 	return status.ok() ? 0 : -1;
 }
