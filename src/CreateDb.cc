@@ -4,7 +4,7 @@
 #include "Kvdb.h"
 
 
-#define TEST_HT_SIZE 500
+#define TEST_HT_SIZE 400
 #define TEST_HT_MAX_DELETE_RATIO 0.9
 #define TEST_HT_MAX_LOAD_FACTOR 0.8
 #define TEST_SEGMENT_SIZE 256*1024

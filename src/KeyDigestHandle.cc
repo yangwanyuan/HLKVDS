@@ -44,7 +44,7 @@ namespace kvdb{
         }
      
         //return (unsigned char*)hashcode;
-        memcpy(digest.value, hashcode, DIGEST_LEN);
+        memcpy(digest.value, hashcode, sizeof(Kvdb_Digest));
     }
     
     uint32_t KeyDigestHandle::Hash(Kvdb_Key *key)
@@ -61,22 +61,33 @@ namespace kvdb{
     uint32_t KeyDigestHandle::Hash(Kvdb_Digest *digest)
     {
         uint32_t hash_value;
-        hash_value = (digest->value[16]) + (digest->value[17] << 8) + (digest->value[18] << 16) + (digest->value[19] << 24);
+        uint32_t *pi = &digest->value[4];
+        unsigned char key_char[4];
+        key_char[0] = *((char *)pi+0);
+        key_char[1] = *((char *)pi+1);
+        key_char[2] = *((char *)pi+2);
+        key_char[3] = *((char *)pi+3);
+        hash_value = (key_char[0]) + (key_char[1] << 8) + (key_char[2] << 16) + (key_char[3] << 24);
         return hash_value;
     }
     
     string KeyDigestHandle::Tostring(Kvdb_Digest *digest)
     {
-        int str_len = 2 * DIGEST_LEN; 
+        int digest_size = sizeof(Kvdb_Digest);
+        unsigned char *temp = (unsigned char*)malloc(digest_size);
+        memcpy(temp, digest, digest_size);
+
+        int str_len = 2 * digest_size + 1;
         char *res = (char*)malloc(str_len);
-        for (int i = 0; i < DIGEST_LEN; i++)
+        for (int i = 0; i < digest_size; i++)
         {
-            sprintf(&res[2 * i], "%02x", digest->value[i]);
+            sprintf(&res[2 * i],  "%02x",  temp[i]);
         }
+        //res[str_len-1]= '\0';
         string result = string((const char*)res);
         free(res);
+        free(temp);
         return result;
     }
-    
-} // namespace kvdb
+}
     

@@ -90,6 +90,12 @@ namespace kvdb{
             goto create_fail;
         }
 
+        r = set_metazone_zero(size);
+        if (r<0){
+            perror("couldn't set metazone zero");
+            goto create_fail;
+        }
+
         r = set_device_zero();
         if (r < 0){
             perror("couldn't set device zero");
@@ -123,6 +129,25 @@ create_fail:
             return ERR;
         }    
 
+        return OK;
+    }
+
+    int KernelDevice::set_metazone_zero(uint64_t meta_size)
+    {
+        size_t nbytes = meta_size;
+
+        static const size_t BLOCKSIZE = 8192;
+        char zeros[BLOCKSIZE];
+        memset(zeros, 0, BLOCKSIZE);
+        while (nbytes > 0) {
+            size_t bytes_to_write = min(nbytes, BLOCKSIZE);
+            ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
+            if (ret < 0) {
+                fprintf(stderr, "error in fill_file_with_zeros write: %s\n", strerror(errno));
+                return ERR;
+            }
+            nbytes -= bytes_to_write;
+        }
         return OK;
     }
 

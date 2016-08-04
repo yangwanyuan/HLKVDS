@@ -6,9 +6,11 @@
 
 #define MAGIC_NUMBER 0xffff0001
 
-#define KEYDIGEST_SIZE 20 // RIPEMD-160/(sizeof(char)*8)  160/8
+#define RMDsize 160
+#define KEYDIGEST_SIZE 5 // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
-//#define DEBUG
+
+#define DEBUG
 
 #ifdef DEBUG
 #include <unistd.h>
@@ -41,7 +43,7 @@ namespace kvdb {
 
 
     struct DataHeader {
-        unsigned char key[KEYDIGEST_SIZE];
+        uint32_t key[KEYDIGEST_SIZE];
         uint16_t data_size;
         uint32_t data_offset;
         uint32_t next_header_offset;

@@ -262,7 +262,7 @@ namespace kvdb {
             fprintf(stderr, "Can't write to underlying datastore\n");
             return false;
         }
-        __DEBUG("get data offset %d", entry.hash_entry.dataheader.data_offset);
+        __DEBUG("get data offset %d", entry.entryOndisk.header.data_offset);
 
         return true;
     }

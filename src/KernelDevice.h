@@ -34,6 +34,7 @@ namespace kvdb{
         device_type m_dtype;
         
         int set_device_zero();
+        int set_metazone_zero(uint64_t meta_size);
         int fill_file_with_zeros();
         uint64_t get_block_device_capacity();
         int disable_readahead();

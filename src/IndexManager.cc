@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <iostream>
+
 
 #include "IndexManager.h"
 
@@ -29,7 +31,7 @@ namespace kvdb{
 
     bool HashEntry::operator==(const HashEntry& compare)
     {
-        if (!memcmp(&(entryOndisk.header.key), &(compare.entryOndisk.header.key), KEYDIGEST_SIZE))
+        if (!memcmp(&(entryOndisk.header.key), &(compare.entryOndisk.header.key), sizeof(uint32_t) * KEYDIGEST_SIZE ))
             return true;
         return false;
     }
@@ -94,8 +96,15 @@ namespace kvdb{
         CreateListIfNotExist(hash_index);
 
         LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
-        entry_list->insert(entry);
-
+        if (!entry_list->search(entry))
+        {
+            entry_list->insert(entry);
+        }
+        else
+        {
+            entry_list->remove(entry);
+            entry_list->insert(entry);
+        }
         return true; 
     }
 
@@ -203,12 +212,15 @@ namespace kvdb{
         if(!InitHashTable(m_size))
             return false;
         
+        __DEBUG("InitHashTable success");
+
         //Read hashtable 
         uint64_t table_length = sizeof(int) * m_size;
         int* counter = new int[m_size];
         if(!_LoadDataFromDevice((void*)counter, table_length, offset))
             return false;
         offset += table_length;
+        __DEBUG("Read hashtable success");
 
         //Read all hash_entry
         uint64_t length = sizeof(HashEntryOnDisk) * m_size;
@@ -216,10 +228,19 @@ namespace kvdb{
         if(!_LoadDataFromDevice((void*)entry_ondisk, length, offset))
             return false;
         offset += length;
+        __DEBUG("Read all hash_entry success");
+        //uint64_t length = sizeof(HashEntryOnDisk) * m_size;
+        //HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
+        //for(int i = 0; i< m_size; i++)
+        //{
+        //    m_bdev->pRead(&entry_ondisk[i], sizeof(HashEntryOnDisk), offset);
+        //    offset += sizeof(HashEntryOnDisk);
+        //}
        
         //Convert hashtable from device to memory
         if(!_ConvertHashEntryFromDiskToMem(counter, entry_ondisk))
             return false;
+        __DEBUG("rebuild hash_table success");
 
         delete entry_ondisk;
         delete counter;
@@ -277,29 +298,35 @@ namespace kvdb{
                 m_hashtable[i]->insert(entry);
                 entry_index++;
             }
-            __DEBUG("read hashtable[%d]=%d", i, entry_num);
+            if (entry_num > 0)
+                __DEBUG("read hashtable[%d]=%d", i, entry_num);
         }
         return true;
     }
 
     bool IndexManager::_PersistHashTable(uint64_t offset)
     {
+        uint64_t entry_total = 0;
+
         //write hashtable to device
         uint64_t table_length = sizeof(int) * m_size;
         int* counter = new int[m_size];
         for(int i=0; i<m_size; i++)
         {
             counter[i] = (m_hashtable[i]? m_hashtable[i]->get_size(): 0);
+            entry_total += counter[i];
         }
         if(!_WriteDataToDevice((void*)counter, table_length, offset))
             return false;
         offset += table_length;
         delete[] counter;
+        __DEBUG("write hashtable to device success");
 
 
         //write hash entry to device
-        uint64_t length = sizeof(HashEntryOnDisk) * m_size;
-        HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
+        uint64_t length = sizeof(HashEntryOnDisk) * entry_total;
+        HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
+        int entry_index = 0;
         for(int i=0; i<m_size; i++)
         {
             if (!m_hashtable[i])
@@ -307,12 +334,26 @@ namespace kvdb{
             vector<HashEntry> tmp_vec = m_hashtable[i]->get();
             for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
             {
-                entry_ondisk[i] = (iter->entryOndisk);
+                entry_ondisk[entry_index++] = (iter->entryOndisk);
             }
         }
         if(!_WriteDataToDevice((void *)entry_ondisk, length, offset))
             return false;
         delete[] entry_ondisk;
+        __DEBUG("write all hash entry to device success");
+        //for(int i=0; i<m_size; i++)
+        //{
+        //    if (!m_hashtable[i])
+        //        continue;
+        //    vector<HashEntry> tmp_vec = m_hashtable[i]->get();
+        //    for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
+        //    {
+        //        HashEntryOnDisk entry_ondisk;
+        //        entry_ondisk = (iter->entryOndisk);
+        //        m_bdev->pWrite( &entry_ondisk, sizeof(HashEntryOnDisk), offset);
+        //        offset += sizeof(HashEntryOnDisk);
+        //    }
+        //}
 
         return true;
     

@@ -7,13 +7,13 @@ using namespace std;
 using namespace kvdb;
 
 //#define FILENAME  "0000_db"
-#define FILENAME  "/dev/loop0"
-//#define FILENAME  "/dev/sdc1"
+//#define FILENAME  "/dev/loop0"
+#define FILENAME  "/dev/sdc1"
 
 void Create_DB_Test(string filename)
 {
     
-    int record_num = 2;
+    int record_num = 10;
     int ht_size = record_num * 2;
     double delete_ratio = 0.9;
     double load_ratio = 0.8;

@@ -6,8 +6,10 @@
 #include <string>
 #include "rmd160.h"
 
-#define RMDsize 160
-#define DIGEST_LEN RMDsize/8
+#include "Db_Structure.h"
+
+//#define RMDsize 160
+//#define DIGEST_LEN RMDsize/8
 
 using namespace std;
 
@@ -18,7 +20,8 @@ namespace kvdb{
     };
 
     struct Kvdb_Digest{
-        unsigned char value[DIGEST_LEN];
+        //unsigned char value[DIGEST_LEN];
+        uint32_t value[KEYDIGEST_SIZE];
     };
 
     class KeyDigestHandle{

@@ -88,7 +88,7 @@ namespace kvdb{
             return false;
         }
         free(data_all);
-        __DEBUG("offset: %ld, data_len:%ld, header_len:%ld", offset, data_all_len, dataheader_len );
+        __DEBUG("offset: %ld, data_len:%ld, header_len:%ld", offset, (ssize_t)length, dataheader_len );
         
 
         return true;
