@@ -1,3 +1,4 @@
+#include <iostream>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,7 +14,7 @@ my_kv_interface::~my_kv_interface(){ }
 class kv_db_interface : public my_kv_interface{
 	public:
 		kv_db_interface() : db(NULL){ }
-		~kv_db_interface();
+		~kv_db_interface(){ }
 		
 		virtual int open(const char* db_name);
 		virtual int destroy(const char* db_name);
@@ -57,12 +58,12 @@ int kv_db_interface::Create_DB(string filename, int db_size)
     KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, delete_ratio, load_ratio, segment_size);
 
     if (db->WriteMetaDataToDevice() < 0){
-        cout << "Create DB failed !" << endl;
+        std::cout << "Create DB failed !" << std::endl;
         return -1;
     }
     gettimeofday(&tv_end, NULL);
     double diff_time = timeval_diff(&tv_start, &tv_end);
-    cout << "Create DB use time: " << diff_time << "s" << endl;
+    std::cout << "Create DB use time: " << diff_time << "s" << std::endl;
     delete db;
     db = NULL;
     return 0;
@@ -113,3 +114,11 @@ const char* kv_db_interface::get(const char* key)
 	return temp.c_str();
 }
 
+
+kv_db_interface my_kv_db;
+int main(int argc, char* argv[])
+{
+    general_db_bench::Benchmark bench(argc, argv, &my_kv_db);                   
+    bench.Run();                                                                   
+    return 0;
+}

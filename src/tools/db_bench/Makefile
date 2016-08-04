@@ -1,9 +1,14 @@
 current_dir=$(shell pwd)
 leveldb_dir=$(current_dir)/src/db/leveldb
+kv_db_dir=$(current_dir)/src/db/kv_db
+kv_objs_dir=$(current_dir)/../../
 benchmark_dir=$(current_dir)/src/benchmark
+
+
 bin=db_bench
 
-all: leveldb_test kv_db_test
+all:
+	@echo "Please specify a target \`leveldb_test\` or \`kv_db_test\`"
 
 leveldb_test:
 	@echo "tests for leveldb"
@@ -12,6 +17,10 @@ leveldb_test:
 
 kv_db_test:
 	@echo "tests for kv-db"
+	$(MAKE) -C $(kv_objs_dir) clean
+	$(MAKE) -C $(kv_objs_dir)
+	$(MAKE) -C $(benchmark_dir) KV_PATH=$(kv_db_dir) KV_OBJS_DIR=$(kv_objs_dir)
+	cp $(benchmark_dir)/$(bin) .
 
 clean:
 	$(MAKE) -C src/benchmark clean

@@ -7,6 +7,7 @@ UTIL_SRC=env.cc \
 	testutil.cc
 UTIL_OBJ=$(patsubst %.cc, %.o, $(UTIL_SRC))
 BENCH_SRC=db_bench.hpp
+BENCH_LIBS=-lpthread
 
 KV_COMMON_INC=-I../db
 
@@ -28,7 +29,7 @@ $(UTIL_OBJ):%.o:%.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 db_bench:$(UTIL_OBJ) kv_example $(BENCH_SRC)
-	$(CXX) $(CXXFLAGS) -o $@ $(UTIL_OBJ) $(notdir $(KV_SRC)) $(BENCH_SRC) $(KV_DB_INC) $(KV_DB_LIB_PATH) $(KV_DB_LIB) $(KV_COMMON_INC)
+	$(CXX) $(CXXFLAGS) -o $@ $(UTIL_OBJ) $(KV_OBJS) $(notdir $(KV_SRC)) $(BENCH_SRC) $(KV_DB_INC) $(KV_DB_LIB_PATH) $(KV_DB_LIB) $(BENCH_LIBS) $(KV_COMMON_INC)
 	
 	 
 
