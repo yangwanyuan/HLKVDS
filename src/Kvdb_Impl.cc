@@ -198,20 +198,13 @@ namespace kvdb {
             return false;
         }
         
-        Kvdb_Key vkey;
-        vkey.value = (char *)key;
-        vkey.len = key_len;
-        
+        Kvdb_Key vkey(key, key_len);
         Kvdb_Digest digest;
-
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        DataHeader data_header;
-        memcpy(&(data_header.key), &(digest.value), sizeof(Kvdb_Digest));
-        data_header.data_size = length;
-        data_header.data_offset = sb.data_insertion_point + sizeof(DataHeader);
-        data_header.next_header_offset = sb.data_insertion_point + sizeof(DataHeader) + length;
-
+        uint64_t offset = sb.data_insertion_point + sizeof(DataHeader);
+        uint64_t next_offset = sb.data_insertion_point + sizeof(DataHeader) + length;
+        DataHeader data_header(digest, length, offset, next_offset);
 
         if (!m_data_handle->WriteData(&data_header, data, length, sb.data_insertion_point)) {
             fprintf(stderr, "Can't write to underlying datastore\n");
@@ -242,16 +235,11 @@ namespace kvdb {
         if (key == NULL)
             return false;
 
-        Kvdb_Key vkey;
-        vkey.value = (char *)key;
-        vkey.len = key_len;
-        
+        Kvdb_Key vkey(key, key_len);
         Kvdb_Digest digest;
-
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
         HashEntry entry;
-
         if(!m_index_manager->GetHashEntry(&digest, entry))
             return false;
 
@@ -259,7 +247,6 @@ namespace kvdb {
             return false;
 
         if (!m_data_handle->ReadData(&(entry.entryOndisk.header), data)) {
-            fprintf(stderr, "Can't write to underlying datastore\n");
             return false;
         }
         __DEBUG("get data offset %d", entry.entryOndisk.header.data_offset);

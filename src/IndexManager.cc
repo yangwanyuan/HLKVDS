@@ -11,29 +11,77 @@
 
 namespace kvdb{
 
-    //template class LinkedList<HashEntry>;
-
-    HashEntry::HashEntry()
+    HashEntryOnDisk::HashEntryOnDisk()
     {
+        ;
+    }
+
+    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset)
+    {
+        header = dataheader;
+        header_offset = offset;
         return;
     }
 
-    HashEntry::HashEntry(HashEntryOnDisk entry_ondisk)
+    HashEntryOnDisk::HashEntryOnDisk(const HashEntryOnDisk& toBeCopied)
+    {
+        header = toBeCopied.header;
+        header_offset = toBeCopied.header_offset;
+    }
+
+    HashEntryOnDisk::~HashEntryOnDisk()
+    {
+        ;
+    }
+
+    bool HashEntryOnDisk::operator== (const HashEntryOnDisk& toBeCompare)
+    {
+        return true;
+    }
+
+    HashEntryOnDisk& HashEntryOnDisk::operator= (const HashEntryOnDisk& toBeCopied)
+    {
+        header = toBeCopied.header;
+        header_offset = toBeCopied.header_offset;
+        return *this;
+    }
+
+    HashEntry::HashEntry()
+    {
+        pointer = NULL;
+        return;
+    }
+
+    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr)
     {
         entryOndisk = entry_ondisk;
-        pointer = 0;
+        pointer = read_ptr;
+    }
+
+    HashEntry::HashEntry(const HashEntry& toBeCopied)
+    {
+        entryOndisk = toBeCopied.entryOndisk;
+        pointer = toBeCopied.pointer;
     }
 
     HashEntry::~HashEntry()
     {
+        pointer = NULL;
         return;
     }
 
-    bool HashEntry::operator==(const HashEntry& compare)
+    bool HashEntry::operator==(const HashEntry& toBeCompare)
     {
-        if (!memcmp(&(entryOndisk.header.key), &(compare.entryOndisk.header.key), sizeof(uint32_t) * KEYDIGEST_SIZE ))
+        if (!memcmp(&(entryOndisk.header.key_digest), &(toBeCompare.entryOndisk.header.key_digest), sizeof(Kvdb_Digest) ))
             return true;
         return false;
+    }
+
+    HashEntry& HashEntry::operator=(const HashEntry& toBeCopied)
+    {
+        entryOndisk = toBeCopied.entryOndisk;
+        pointer = toBeCopied.pointer;
+        return *this;
     }
 
     bool IndexManager::InitIndexForCreateDB(uint64_t numObjects)
@@ -85,11 +133,13 @@ namespace kvdb{
     bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset)
     {
         HashEntryOnDisk entry_ondisk;
-        memcpy(&entry_ondisk.header, data_header, sizeof(DataHeader));
+        //memcpy(&entry_ondisk.header, data_header, sizeof(DataHeader));
+        entry_ondisk.header = *data_header;
         entry_ondisk.header_offset.physical_offset = header_offset;
 
-        HashEntry entry;
-        memcpy(&entry.entryOndisk, &entry_ondisk, sizeof(HashEntryOnDisk));
+        //HashEntry entry;
+        //memcpy(&entry.entryOndisk, &entry_ondisk, sizeof(HashEntryOnDisk));
+        HashEntry entry(entry_ondisk, NULL);
 
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
 
@@ -116,16 +166,22 @@ namespace kvdb{
 
         LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
 
-        memcpy(&entry.entryOndisk.header.key, &digest->value, sizeof(Kvdb_Digest) );
+        //memcpy(&entry.entryOndisk.header.key_digest, &digest->value, sizeof(Kvdb_Digest) );
+        entry.entryOndisk.header.key_digest = *digest;
         
         if(entry_list->search(entry))
         {
              vector<HashEntry> tmp_vec = entry_list->get();
              for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
              {
-                 if(!memcmp(iter->entryOndisk.header.key, entry.entryOndisk.header.key, sizeof(Kvdb_Digest)))
+                 //if(!memcmp(iter->entryOndisk.header.key_digest, entry.entryOndisk.header.key_digest, sizeof(Kvdb_Digest)))
+                 //{
+                 //    memcpy(&entry, (const void*)(&*iter), sizeof(HashEntry));
+                 //    return true;
+                 //}
+                 if(iter->entryOndisk.header.key_digest == entry.entryOndisk.header.key_digest)
                  {
-                     memcpy(&entry, (const void*)(&*iter), sizeof(HashEntry));
+                     entry = *iter;
                      return true;
                  }
              }
@@ -242,8 +298,8 @@ namespace kvdb{
             return false;
         __DEBUG("rebuild hash_table success");
 
-        delete entry_ondisk;
-        delete counter;
+        delete[] entry_ondisk;
+        delete[] counter;
 
         return true; 
     }
@@ -290,9 +346,9 @@ namespace kvdb{
             int entry_num = counter[i];
             for(int j=0; j< entry_num; j++)
             {
-                HashEntry entry;
-                entry.entryOndisk = entry_ondisk[entry_index];
-                entry.pointer = 0;
+                HashEntry entry(entry_ondisk[entry_index], 0);
+                //entry.entryOndisk = entry_ondisk[entry_index];
+                //entry.pointer = 0;
 
                 CreateListIfNotExist(i);
                 m_hashtable[i]->insert(entry);
@@ -324,6 +380,8 @@ namespace kvdb{
 
 
         //write hash entry to device
+        //uint64_t length = sizeof(HashEntryOnDisk) * m_size;
+        //HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
         uint64_t length = sizeof(HashEntryOnDisk) * entry_total;
         HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
         int entry_index = 0;
@@ -337,6 +395,12 @@ namespace kvdb{
                 entry_ondisk[entry_index++] = (iter->entryOndisk);
             }
         }
+        //for(int i = entry_index; i< m_size; i++)
+        //{
+        //    memset(&entry_ondisk[i], 0, sizeof(HashEntryOnDisk));
+        //}
+        //uint64_t empty_length = sizeof(HashEntryOnDisk) *(m_size- entry_total);
+        //memset(((HashEntryOnDisk *)entry_ondisk + entry_index), 0 , empty_length);
         if(!_WriteDataToDevice((void *)entry_ondisk, length, offset))
             return false;
         delete[] entry_ondisk;
@@ -358,5 +422,5 @@ namespace kvdb{
         return true;
     
     }
+}
 
-}// namespace kvdb

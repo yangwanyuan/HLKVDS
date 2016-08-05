@@ -10,6 +10,41 @@
 using namespace std;
 
 namespace kvdb{
+
+    class DataHeader {
+    public:
+        //uint32_t key_digest[KEYDIGEST_SIZE];
+        Kvdb_Digest key_digest;
+        uint16_t data_size;
+        uint32_t data_offset;
+        uint32_t next_header_offset;
+
+    public:
+        DataHeader();
+        DataHeader(Kvdb_Digest &digest, uint16_t data_size, uint32_t data_offset, uint32_t next_header_offset);
+        DataHeader(const DataHeader& toBeCopied);
+        ~DataHeader();
+        DataHeader& operator=(const DataHeader& toBeCopied);
+
+    } __attribute__((__packed__));
+
+    //struct DataHeaderOffset{
+    //    uint32_t segment_id;
+    //    uint32_t header_offset;
+    //}__attribute__((__packed__));
+    class DataHeaderOffset{
+    public:
+        uint32_t physical_offset;
+
+    public:
+        DataHeaderOffset(): physical_offset(0){}
+        DataHeaderOffset(uint32_t offset);
+        DataHeaderOffset(const DataHeaderOffset& toBeCopied);
+        ~DataHeaderOffset();
+        DataHeaderOffset& operator=(const DataHeaderOffset& toBeCopied);
+
+    }__attribute__((__packed__));
+
     class DataHandle{
     public:
         bool ReadDataHeader(off_t offset, DataHeader &data_header, string &key);

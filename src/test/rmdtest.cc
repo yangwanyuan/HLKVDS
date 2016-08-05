@@ -26,16 +26,11 @@ void IntKeyTest()
         key_char[2] = *((char *)pi+2);  
         key_char[3] = *((char *)pi+3);  
 
-        kvdb::Kvdb_Key key;
-        key.value = key_char;
-        key.len = 4;
+        kvdb::Kvdb_Key key(key_char, 4);
+        kvdb::Kvdb_Digest result;
+        KeyDigestHandle::ComputeDigest(&key, result);
 
-        
-        kvdb::Kvdb_Digest *result = new kvdb::Kvdb_Digest;
-
-        KeyDigestHandle::ComputeDigest(&key, *result);
-
-        string final_res = KeyDigestHandle::Tostring(result);
+        string final_res = KeyDigestHandle::Tostring(&result);
 
 
         if(result_set.count(final_res))
@@ -50,8 +45,6 @@ void IntKeyTest()
 
         delete key_char;
         key_char = NULL;
-        delete result;
-        result = NULL;
 
         if(i %1000000 == 0)
             cout << "now compute i is : " << i << " , conflict is : " << conflict <<endl;
@@ -71,15 +64,11 @@ void RegularTest()
 
     int key_len = strlen(key_raw);
 
-    kvdb::Kvdb_Key key;
-    key.value = key_raw;
-    key.len = key_len; 
+    kvdb::Kvdb_Key key(key_raw, key_len);
+    kvdb::Kvdb_Digest result;
+    KeyDigestHandle::ComputeDigest(&key, result);
 
-    kvdb::Kvdb_Digest *result = new kvdb::Kvdb_Digest;
-
-    KeyDigestHandle::ComputeDigest(&key, *result);
-
-    string final_res = KeyDigestHandle::Tostring(result);
+    string final_res = KeyDigestHandle::Tostring(&result);
     std::cout << final_res << std::endl;
 
     printf("hash index from key is:\t");
@@ -87,11 +76,9 @@ void RegularTest()
     printf("\n");
 
     printf("hash index from digest is:\t");
-    printf("%u", KeyDigestHandle::Hash(result));
+    printf("%u", KeyDigestHandle::Hash(&result));
     printf("\n");
     
-    delete result;
-
 }
 
 int main(){

@@ -7,6 +7,20 @@
 using namespace std;
 
 namespace kvdb{
+
+    struct DBSuperBlock {
+        uint64_t magic_number;
+        uint64_t hashtable_size;
+        uint64_t number_elements;
+        uint64_t deleted_elements;
+        double max_deleted_ratio;
+        double max_load_factor;
+        off_t data_insertion_point;  // offset to where the next record should go
+        off_t data_start_point;  // offset showing where first record is
+        uint64_t segment_size;
+        uint64_t number_segments;
+    } __attribute__((__packed__));
+
     class SuperBlockManager{
     public:
         static uint64_t GetSuperBlockSizeOnDevice(); 

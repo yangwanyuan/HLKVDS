@@ -15,20 +15,54 @@ using namespace std;
 
 namespace kvdb{
 
-    //class HashEntry;
-    //template class LinkedList<HashEntry>;
+    //struct DataHeader {
+    //    uint32_t key[KEYDIGEST_SIZE];
+    //    uint16_t data_size;
+    //    uint32_t data_offset;
+    //    uint32_t next_header_offset;
+    //} __attribute__((__packed__));
+
+    ////struct DataHeaderOffset{
+    ////    uint32_t segment_id;
+    ////    uint32_t header_offset;
+    ////}__attribute__((__packed__));
+    //struct DataHeaderOffset{
+    //    uint32_t physical_offset;
+    //}__attribute__((__packed__));
+
+    //struct HashEntryOnDisk {
+    //    DataHeader header;
+    //    DataHeaderOffset header_offset;
+    //} __attribute__((__packed__));
+    class HashEntryOnDisk {
+    public:
+        DataHeader header;
+        DataHeaderOffset header_offset;
+
+    public:
+        HashEntryOnDisk();
+        HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset);
+        HashEntryOnDisk(const HashEntryOnDisk& toBeCopied);
+        ~HashEntryOnDisk();
+
+        bool operator== (const HashEntryOnDisk& toBeCompare);
+        HashEntryOnDisk& operator= (const HashEntryOnDisk& toBeCopied);
+    } __attribute__((__packed__));
+
 
     class HashEntry
     {
     public:
-        //HashEntryOnDisk hash_entry;
         HashEntryOnDisk entryOndisk;
-        uint32_t pointer;
+        void* pointer;
+
+    public:
         HashEntry();
-        HashEntry(HashEntryOnDisk entry_ondisk);
-        //HashEntry(const HashEntry&);
+        HashEntry(HashEntryOnDisk& entry_ondisk, void* read_point);
+        HashEntry(const HashEntry&);
         ~HashEntry();
-        bool operator== (const HashEntry&);
+        bool operator== (const HashEntry& toBeCompare);
+        HashEntry& operator= (const HashEntry& toBeCopied);
     } __attribute__((__packed__));
 
     

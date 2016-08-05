@@ -14,15 +14,31 @@
 using namespace std;
 
 namespace kvdb{
-    struct Kvdb_Key{
+    class Kvdb_Key{
+    private:
         char* value;
         size_t len;
-    };
 
-    struct Kvdb_Digest{
-        //unsigned char value[DIGEST_LEN];
-        uint32_t value[KEYDIGEST_SIZE];
-    };
+    public:
+        size_t GetLen(){return len;}
+        char* GetValue(){return value;}
+        Kvdb_Key(): value(NULL), len(0){}
+        Kvdb_Key(const char* key, uint32_t key_len);
+        Kvdb_Key(Kvdb_Key& toBeCopied);
+        ~Kvdb_Key();
+    }__attribute__((__packed__));
+
+    class Kvdb_Digest{
+    public:
+        uint32_t value[KEYDIGEST_INT_NUM];
+
+    public:
+        Kvdb_Digest();
+        Kvdb_Digest(Kvdb_Digest &toBeCopied);
+        ~Kvdb_Digest();
+        Kvdb_Digest& operator=(const Kvdb_Digest& toBeCopied);
+        bool operator==(const Kvdb_Digest& toBeCompare);
+    }__attribute__((__packed__));
 
     class KeyDigestHandle{
     public:
