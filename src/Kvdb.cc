@@ -7,15 +7,15 @@ DB *DB::m_db = NULL;
 
 bool DB::CreateDB(string filename, 
                 uint64_t hash_table_size,
-                double max_deleted_ratio, 
-                double max_load_factor,
+                //double max_deleted_ratio, 
+                //double max_load_factor,
                 uint64_t segment_size){
         
     KvdbDS* kvdb_db;
     kvdb_db = KvdbDS::Create_KvdbDS(filename.c_str(), 
                                                 hash_table_size, 
-                                                max_deleted_ratio, 
-                                                max_load_factor,
+                                                //max_deleted_ratio, 
+                                                //max_load_factor,
                                                 segment_size);
     if (!kvdb_db){
         std::cout << "CreateDB failed" << std::endl;

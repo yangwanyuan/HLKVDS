@@ -43,14 +43,15 @@ int Create_DB(string filename, int db_size)
 {
     //int ht_size = db_size * 2;
     int ht_size = db_size ;
-    double delete_ratio = 0.9;
-    double load_ratio = 0.8;
+    //double delete_ratio = 0.9;
+    //double load_ratio = 0.8;
     int segment_size = 256*1024;
 
     struct timeval tv_start, tv_end;
     gettimeofday(&tv_start, NULL);
 
-    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, delete_ratio, load_ratio, segment_size);
+    //KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, delete_ratio, load_ratio, segment_size);
+    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, segment_size);
 
     if (db->WriteMetaDataToDevice() < 0){
         cout << "Create DB failed !" << endl;

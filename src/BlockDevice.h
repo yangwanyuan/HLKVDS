@@ -22,6 +22,8 @@ namespace kvdb{
         virtual int Open(string path) = 0;
         virtual void Close() = 0;
 
+        virtual uint64_t GetDeviceCapacity() = 0;
+
         virtual ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf = true) = 0;
         virtual ssize_t pRead(void* buf, size_t count, off_t offset, bool readbuf = true) = 0; 
         //virtual ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf = false) = 0;

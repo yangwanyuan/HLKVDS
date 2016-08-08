@@ -32,41 +32,43 @@ namespace kvdb{
 
         int r = 0;
         //check file exist, if not create a reg file.
-        if (access(m_path.c_str(), F_OK)){
-            m_dtype = REG_FILE;
+        //if (access(m_path.c_str(), F_OK)){
+        //    m_dtype = REG_FILE;
 
-            r = open(m_path.c_str(), O_RDWR | O_CREAT | O_DIRECT, 0666);
-            if (r < 0){
-                fprintf(stderr, "Could not create file: %s\n", strerror(errno));
-                goto create_fail;
-            }
-            m_direct_fd = r;
+        //    r = open(m_path.c_str(), O_RDWR | O_CREAT | O_DIRECT, 0666);
+        //    if (r < 0){
+        //        fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+        //        goto create_fail;
+        //    }
+        //    m_direct_fd = r;
 
-            r = open(m_path.c_str(), O_RDWR | O_CREAT, 0666);
-            if (r < 0){
-                fprintf(stderr, "Could not create file: %s\n", strerror(errno));
-                goto create_fail;
-            }
-            m_buffer_fd = r;
+        //    r = open(m_path.c_str(), O_RDWR | O_CREAT, 0666);
+        //    if (r < 0){
+        //        fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+        //        goto create_fail;
+        //    }
+        //    m_buffer_fd = r;
 
-        }else{
-            r = open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
-            if (r < 0){
-                fprintf(stderr, "Could not create file: %s\n", strerror(errno));
-                goto create_fail;
-            }
-            m_direct_fd = r;
+        //}else{
+        //
 
-            //r = open(m_path.c_str(), O_RDWR, 0666);
-            //r = open(m_path.c_str(), O_RDWR | O_SYNC, 0666);
-            r = open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
-            if (r < 0){
-                fprintf(stderr, "Could not create file: %s\n", strerror(errno));
-                goto create_fail;
-            }
-            m_buffer_fd = r;
+        r = open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
+        if (r < 0){
+            fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+            goto create_fail;
         }
-        
+        m_direct_fd = r;
+
+        //r = open(m_path.c_str(), O_RDWR, 0666);
+        //r = open(m_path.c_str(), O_RDWR | O_SYNC, 0666);
+        r = open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
+        if (r < 0){
+            fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+            goto create_fail;
+        }
+        m_buffer_fd = r;
+
+        //}
         struct stat statbuf;
         r = fstat(m_direct_fd, &statbuf);
         if (r < 0){
@@ -239,6 +241,7 @@ open_fail:
         if (m_buffer_fd != -1)
             close(m_buffer_fd);
     }
+
 
     off_t KernelDevice::LowerAligned(off_t offset, int pagesize)
     {

@@ -19,8 +19,8 @@ void CreateExample()
 
     if (!kvdb::DB::CreateDB(TEST_DB_FILENAME, 
                             TEST_HT_SIZE, 
-                            TEST_HT_MAX_DELETE_RATIO, 
-                            TEST_HT_MAX_LOAD_FACTOR,
+                            //TEST_HT_MAX_DELETE_RATIO, 
+                            //TEST_HT_MAX_LOAD_FACTOR,
                             TEST_SEGMENT_SIZE)){
         std::cout << "CreateDB Failed!" << std::endl;
         return;

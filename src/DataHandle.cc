@@ -85,11 +85,10 @@ namespace kvdb{
             return true;
         }
     
-        //char *mdata = (char*)malloc(data_len);
         char *mdata = new char[data_len];
         if((uint64_t)m_bdev->pRead(mdata, data_len, data_offset) != data_len){
             perror("Could not read data at position");
-            free(mdata);
+            delete[] mdata;
             return false; 
         }
         data.assign(mdata, data_len);
@@ -138,15 +137,18 @@ namespace kvdb{
         ssize_t dataheader_len = sizeof(DataHeader);
         ssize_t data_all_len = dataheader_len + length;
 
-        unsigned char* data_all = (unsigned char*)malloc(data_all_len);
+        //unsigned char* data_all = (unsigned char*)malloc(data_all_len);
+        unsigned char* data_all = new unsigned char[data_all_len];
         memcpy(data_all, (char *)&data_header, dataheader_len);
         memcpy(data_all + dataheader_len, data, length);
         if(m_bdev->pWrite(data_all, data_all_len, offset) != data_all_len){
             fprintf(stderr, "Could not write data: %s\n", strerror(errno));
-            free(data_all);
+            //free(data_all);
+            delete[] data_all;
             return false;
         }
-        free(data_all);
+        //free(data_all);
+        delete[] data_all;
         __DEBUG("offset: %ld, data_len:%ld, header_len:%ld", offset, (ssize_t)length, dataheader_len );
         
 

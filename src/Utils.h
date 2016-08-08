@@ -2,29 +2,28 @@
 #define _KV_DB_UTILS_H_
 
 #include <time.h>
+#include <inttypes.h>
 #include <sys/types.h>
 
-#include "BlockDevice.h"
 namespace kvdb{
     class Timing{
     public:
         static size_t GetTimeSizeOf(){ return sizeof(time_t);}
+        static char* TimeToChar(Timing& _time);
+        static time_t GetNow();
+        static char* GetNowChar();
 
-        bool LoadTimeFromDevice(off_t offset);
-        bool WriteTimeToDevice(off_t offset);
+        void SetTime(time_t _time);
+        time_t GetTime();
+        void Update();
 
-        void UpdateTimeToNow();
+        bool IsLate(Timing& time_now);
 
-        char* TimeToChar();
-
-        bool IsLate(Timing &time_now);
-
-        Timing(BlockDevice* bdev);
-        //Timing(time_t &time_stamp);
+        Timing();
+        Timing(uint64_t _time);
         ~Timing();
     private:
         time_t m_time_stamp;
-        BlockDevice* m_bdev;
     };
 
 }

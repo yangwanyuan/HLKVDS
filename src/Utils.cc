@@ -2,14 +2,40 @@
 #include "Utils.h"
 
 namespace kvdb{
-    void Timing::UpdateTimeToNow()
+    
+    char* Timing::TimeToChar(Timing& _time)
+    {
+        return asctime(localtime(&_time.m_time_stamp));
+    }
+
+    time_t Timing::GetNow()
+    {
+        time_t now;
+        time(&now);
+        return now;
+    }
+
+    char* Timing::GetNowChar()
+    {
+        time_t now;
+        time(&now);
+        return asctime(localtime(&now));
+    }
+
+
+    void Timing::SetTime(time_t _time)
+    {
+        m_time_stamp = _time;
+    }
+
+    time_t Timing::GetTime()
+    {
+        return m_time_stamp;
+    }
+
+    void Timing::Update()
     {
         time(&m_time_stamp);
-    }
-    
-    char* Timing::TimeToChar()
-    {
-        return asctime(localtime(&m_time_stamp));
     }
     
     bool Timing::IsLate(Timing &time_now)
@@ -19,40 +45,21 @@ namespace kvdb{
         return false;
     }
     
-    Timing::Timing(BlockDevice* bdev):m_bdev(bdev)
+
+    Timing::Timing()
     {
-        ;
+        time(&m_time_stamp);
+    }
+
+    Timing::Timing(uint64_t _time): m_time_stamp(_time)
+    {
+        return;
     }
     
-    //Timing::Timing(time_t &time_stamp)
-    //{
-    //    m_time_stamp = time_stamp;
-    //}
     
     Timing::~Timing()
     {
         ;
-    }
-    
-    bool Timing::LoadTimeFromDevice(off_t offset)
-    {
-        ssize_t timeLength = GetTimeSizeOf();
-        if(m_bdev->pRead(&m_time_stamp, timeLength, offset) != timeLength){
-            perror("Error in reading timestamp from file\n");
-            return false;
-        }
-        return true;
-    }
-    
-    bool Timing::WriteTimeToDevice(off_t offset)
-    {
-        ssize_t timeLength = GetTimeSizeOf();
-        if(m_bdev->pWrite((void *)&m_time_stamp, timeLength, offset ) != timeLength)
-        {
-            perror("Error write timestamp to file\n");
-            return false;
-        }
-        return true;
     }
 
 } // namespace kvdb

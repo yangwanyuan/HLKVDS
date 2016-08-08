@@ -100,9 +100,11 @@ namespace kvdb{
 
         //Read timestamp from device
         ssize_t timeLength = Timing::GetTimeSizeOf();
-        if(!m_last_timestamp->LoadTimeFromDevice(offset))
+        //if(!m_last_timestamp->LoadTimeFromDevice(offset))
+        //    return false;
+        if(!_RebuildTime(offset))
             return false;
-        __DEBUG("Load Hashtable timestamp: %s", m_last_timestamp->TimeToChar());
+        __DEBUG("Load Hashtable timestamp: %s", Timing::TimeToChar(*m_last_timestamp));
         offset += timeLength;
         
         if(!_RebuildHashTable(offset))
@@ -112,14 +114,29 @@ namespace kvdb{
         return true;
     }
 
+    bool IndexManager::_RebuildTime(uint64_t offset)
+    {
+        ssize_t timeLength = Timing::GetTimeSizeOf();
+        time_t _time;
+        if(m_bdev->pRead(&_time, timeLength, offset) != timeLength)
+        {
+            perror("Error in reading timestamp from file\n");
+            return false;
+        }
+        m_last_timestamp->SetTime(_time);
+        return true;
+    }
+
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
         //Write timestamp to device
         ssize_t timeLength = Timing::GetTimeSizeOf();
-        m_last_timestamp->UpdateTimeToNow();
-        if(!m_last_timestamp->WriteTimeToDevice(offset))
+        //m_last_timestamp->UpdateTimeToNow();
+        //if(!m_last_timestamp->WriteTimeToDevice(offset))
+        //    return false;
+        if(!_PersistTime(offset))
             return false;
-        __DEBUG("Write Hashtable timestamp: %s", m_last_timestamp->TimeToChar());
+        __DEBUG("Write Hashtable timestamp: %s", Timing::TimeToChar(*m_last_timestamp));
         offset += timeLength;
 
 
@@ -127,6 +144,20 @@ namespace kvdb{
             return false;
         __DEBUG("Persist Hashtable Success");
     
+        return true;
+    }
+
+    bool IndexManager::_PersistTime(uint64_t offset)
+    {
+        ssize_t timeLength = Timing::GetTimeSizeOf();
+        m_last_timestamp->Update();
+        time_t _time =m_last_timestamp->GetTime();
+
+        if(m_bdev->pWrite((void *)&_time, timeLength, offset ) != timeLength)
+        {
+            perror("Error write timestamp to file\n");
+            return false;
+        }
         return true;
     }
 
@@ -200,7 +231,7 @@ namespace kvdb{
     IndexManager::IndexManager(DataHandle* data_handle, BlockDevice* bdev):
         m_data_handle(data_handle), m_hashtable(NULL), m_size(0), m_bdev(bdev)
     {
-        m_last_timestamp = new Timing(bdev);
+        m_last_timestamp = new Timing();
         return ;
     }
 

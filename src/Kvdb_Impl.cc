@@ -14,23 +14,23 @@
 namespace kvdb {
 
     KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
-                                        uint64_t hash_table_size,
-                                        double max_deleted_ratio,
-                                        double max_load_factor,
-                                        uint64_t segment_size)
+                                    uint64_t hash_table_size,
+                                    uint64_t segment_size)
     {
         if (filename == NULL)
             return NULL;
 
         uint64_t num_entries = 0;
         uint64_t deleted_entries = 0;
-        //uint64_t segment_size = 0;
         uint64_t number_segments = 0;
-        uint64_t max_entries = hash_table_size * KvdbDS::EXCESS_BUCKET_FACTOR;
+        uint64_t db_meta_size = 0;
+        uint64_t device_size = 0;
+        
 
         KvdbDS* ds = new KvdbDS(filename);
 
-        uint64_t db_meta_size = SuperBlockManager::GetSuperBlockSizeOnDevice() + IndexManager::GetIndexSizeOnDevice(max_entries);
+        db_meta_size = SuperBlockManager::GetSuperBlockSizeOnDevice() + IndexManager::GetIndexSizeOnDevice(hash_table_size);
+        __DEBUG("The DB meta size is %ld Byte.", db_meta_size);
 
         int r = 0;
         r = ds->m_bdev->CreateNewDB(filename, db_meta_size);
@@ -39,26 +39,32 @@ namespace kvdb {
             return NULL;
         }
 
+        device_size = ds->m_bdev->GetDeviceCapacity();
+        __DEBUG("The device size is %ld Byte.", device_size);
+
         if(!ds->m_sb_manager->InitSuperBlockForCreateDB()){
             delete ds;
             return NULL;
         }
 
-        if (!ds->m_index_manager->InitIndexForCreateDB(max_entries)){
+        if (!ds->m_index_manager->InitIndexForCreateDB(hash_table_size)){
+            delete ds;
+            return NULL;
+        }
+
+        if(!ds->m_segment_manager->InitSegmentForCreateDB(device_size ,db_meta_size, segment_size)){
             delete ds;
             return NULL;
         }
 
         hash_table_size = ds->m_index_manager->GetHashTableSize();
-        // REMEMBER TO WRITE OUT HEADER/HASHTABLE AFTER SPLIT/MERGE/REWRITE!
+        
 
         // populate the database header.
         DBSuperBlock sb = {MAGIC_NUMBER,
                             hash_table_size, 
                             num_entries, 
                             deleted_entries, 
-                            max_deleted_ratio, 
-                            max_load_factor, 
                             (off_t)db_meta_size, 
                             (off_t)db_meta_size,
                             segment_size,
@@ -77,7 +83,7 @@ namespace kvdb {
                "\t Number of segments: %"PRIu64"\n",
                hash_table_size, num_entries, deleted_entries,
                SuperBlockManager::GetSuperBlockSizeOnDevice(), 
-               db_meta_size, max_entries, 
+               db_meta_size, hash_table_size, 
                segment_size, number_segments);
 
 
@@ -184,6 +190,7 @@ namespace kvdb {
         m_data_handle = new DataHandle(m_bdev);
         m_sb_manager = new SuperBlockManager(m_bdev);
         m_index_manager = new IndexManager(m_data_handle, m_bdev);
+        m_segment_manager = new SegmentManager(m_bdev);
     }
 
 

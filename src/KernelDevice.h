@@ -20,6 +20,8 @@ namespace kvdb{
         int Open(string path);
         void Close();
 
+        uint64_t GetDeviceCapacity(){return get_capacity();}
+
         ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf);
         ssize_t pRead(void* buf, size_t count, off_t offset, bool readbuf);
         ssize_t pWritev(const struct iovec *iov, int iovcnt, off_t offset);

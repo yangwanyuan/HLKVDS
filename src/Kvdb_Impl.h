@@ -8,6 +8,7 @@
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "DataHandle.h"
+#include "SegmentManager.h"
 
 using namespace std;
 
@@ -16,7 +17,6 @@ namespace kvdb {
     class KvdbDS {
     public:
         static KvdbDS* Create_KvdbDS(const char* filename, uint64_t hash_table_size,
-                                        double max_deleted_ratio, double max_load_factor,
                                         uint64_t segment_size)
             __attribute__ ((warn_unused_result));
 
@@ -25,7 +25,6 @@ namespace kvdb {
         bool Insert(const char* key, uint32_t key_len, const char* data, uint32_t length)
             __attribute__ ((warn_unused_result));
         bool Delete(const char* key, uint32_t key_len) __attribute__ ((warn_unused_result));
-        bool Delete(const char* key, uint32_t key_len, bool writeLog) __attribute__ ((warn_unused_result));
         bool Get(const char* key, uint32_t key_len, string &data) const
             __attribute__ ((warn_unused_result));
 
@@ -43,6 +42,7 @@ namespace kvdb {
         IndexManager* m_index_manager;
         DataHandle* m_data_handle;
         BlockDevice* m_bdev;
+        SegmentManager* m_segment_manager;
         string m_filename;
 
         static const double EXCESS_BUCKET_FACTOR = 1.1;

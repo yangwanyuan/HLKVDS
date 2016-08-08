@@ -92,10 +92,12 @@ namespace kvdb{
         void DestroyHashTable();
 
         bool _RebuildHashTable(uint64_t offset);
+        bool _RebuildTime(uint64_t offset);
         bool _LoadDataFromDevice(void* data, uint64_t length, uint64_t offset); 
         bool _ConvertHashEntryFromDiskToMem(int* counter, HashEntryOnDisk* entry_ondisk);
 
         bool _PersistHashTable(uint64_t offset);
+        bool _PersistTime(uint64_t offset);
         bool _WriteDataToDevice(void* data, uint64_t length, uint64_t offset);
 
 

@@ -31,7 +31,7 @@ namespace kvdb{
         //};
 
     public:
-        LinkedList();
+        LinkedList(): m_head(NULL), m_size(0){}
         LinkedList(const LinkedList<T> &);
         ~LinkedList();
         LinkedList& operator= (const LinkedList<T> &);
@@ -51,12 +51,12 @@ namespace kvdb{
 
     };
 
-    template <typename T>
-    LinkedList<T>::LinkedList()
-    {
-        m_head = NULL;
-        m_size = 0;
-    }
+    //template <typename T>
+    //LinkedList<T>::LinkedList()
+    //{
+    //    m_head = NULL;
+    //    m_size = 0;
+    //}
 
     template <typename T>
     LinkedList<T>::LinkedList(const LinkedList<T> &toBeCopied)

@@ -13,7 +13,8 @@ namespace kvdb{
 
 class DB{
     public:
-        static bool CreateDB(string filename, uint64_t hash_table_size, double max_deleted_ratio, double max_load_factor, uint64_t segment_size);
+        //static bool CreateDB(string filename, uint64_t hash_table_size, double max_deleted_ratio, double max_load_factor, uint64_t segment_size);
+        static bool CreateDB(string filename, uint64_t hash_table_size, uint64_t segment_size);
         static bool OpenDB(string filename, DB** db);
         //static DB* GetDB();
 
