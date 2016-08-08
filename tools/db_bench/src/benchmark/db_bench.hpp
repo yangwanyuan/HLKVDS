@@ -142,26 +142,26 @@ namespace general_db_bench {
 		exit(-1);                                                                          
 	}
 	void parse_args(int argc, char*argv[], struct benchoptions *ret)                
-	{                                                                                                                                                                                              
-		struct option long_options[] = {                                            
+	{
+		struct option long_options[] = {
 			{"benchmark", optional_argument, NULL, 'b'}, 
 			{"db_name", required_argument, NULL, 'd'},
 			{"histogram", no_argument, NULL, 'z' + 1},//only long format supported
-			{"help", no_argument, NULL, 'h'},                                       
-			{"num", required_argument, NULL, 'n'},                                  
-			{"read_ratio", required_argument, NULL, 'r'},                            
-			{"threads_num", required_argument, NULL, 't'},                            
+			{"help", no_argument, NULL, 'h'}, 
+			{"num", required_argument, NULL, 'n'},
+			{"read_ratio", required_argument, NULL, 'r'},
+			{"threads_num", required_argument, NULL, 't'},
 			{"use_exsisting", no_argument, NULL, 'u'},
 			{"value_size", required_argument, NULL, 'v'},
-			{"key_size", required_argument, NULL, 'k'}
-			{0,0,0,0}                                                               
-		};                                                                          
-		int opt_index, c;                                                           
-		while(1){                                                                   
-			c = getopt_long(argc, argv, "b:d:hn:r:t:uv:", long_options, &opt_index);    
-			if(-1 == c)                                                             
-				break;                                                              
-			switch(c){                                                              
+			{"key_size", required_argument, NULL, 'k'},
+			{0,0,0,0}
+		};
+		int opt_index, c;
+		while(1){
+			c = getopt_long(argc, argv, "b:d:hn:r:t:uv:", long_options, &opt_index);
+			if(-1 == c)
+				break;
+			switch(c){
 				case 'b':
 					if(ret)
 						ret->benchmark = optarg;//if null, all bench model will be run. 
@@ -221,209 +221,208 @@ namespace general_db_bench {
 				default:
 					help(argv[0]);
 			};                                                  
-		}                                                                           
-	}
+		}
+	}//void parse_args(int argc, char*argv[], struct benchoptions *ret)
 	namespace {
-	static Slice TrimSpace(Slice s) {
-	  int start = 0;
-	  while (start < s.size() && isspace(s[start])) {
-		start++;
-	  }
-	  int limit = s.size();
-	  while (limit > start && isspace(s[limit-1])) {
-		limit--;
-	  }
-	  return Slice(s.data() + start, limit - start);
-	}
-
-	static void AppendWithSpace(std::string* str, Slice msg) {
-	  if (msg.empty()) return;
-	  if (!str->empty()) {
-		str->push_back(' ');
-	  }
-	  str->append(msg.data(), msg.size());
-	}
-
-	class Stats {
-	 private:
-	  double start_;
-	  double finish_;
-	  double seconds_;
-	  int done_;
-	  int next_report_;
-	  int64_t bytes_;
-	  double last_op_finish_;
-	  Histogram hist_;
-	  bool histograming_;
-	  std::string message_;
-
-	 public:
-	  Stats(bool hist) : histograming_(hist) { Start(); }
-	
-	  void Start() {
-		next_report_ = 100;
-		last_op_finish_ = start_;
-		hist_.Clear();
-		done_ = 0;
-		bytes_ = 0;
-		seconds_ = 0;
-		start_ = Env::Default()->NowMicros();
-		finish_ = start_;
-		message_.clear();
-	  }
-
-	  void Merge(const Stats& other) {
-		hist_.Merge(other.hist_);
-		done_ += other.done_;
-		bytes_ += other.bytes_;
-		seconds_ += other.seconds_;
-		if (other.start_ < start_) start_ = other.start_;
-		if (other.finish_ > finish_) finish_ = other.finish_;
-
-		// Just keep the messages from one thread
-		if (message_.empty()) message_ = other.message_;
-	  }
-
-	  void Stop() {
-		finish_ = Env::Default()->NowMicros();
-		seconds_ = (finish_ - start_) * 1e-6;
-	  }
-
-	  void AddMessage(Slice msg) {
-		AppendWithSpace(&message_, msg);
-	  }
-
-	  void FinishedSingleOp() {
-		if (histograming_) {
-		  double now = Env::Default()->NowMicros();
-		  double micros = now - last_op_finish_;
-		  hist_.Add(micros);
-		  if (micros > 20000) {
-			fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
-			fflush(stderr);
-		  }
-		  last_op_finish_ = now;
-		}
-
-		done_++;
-		if (done_ >= next_report_) {
-		  if      (next_report_ < 1000)   next_report_ += 100;
-		  else if (next_report_ < 5000)   next_report_ += 500;
-		  else if (next_report_ < 10000)  next_report_ += 1000;
-		  else if (next_report_ < 50000)  next_report_ += 5000;
-		  else if (next_report_ < 100000) next_report_ += 10000;
-		  else if (next_report_ < 500000) next_report_ += 50000;
-		  else                            next_report_ += 100000;
-		  fprintf(stderr, "... finished %d ops%30s\r", done_, "");
-		  fflush(stderr);
-		}
-	  }
-
-	  void AddBytes(int64_t n) {
-		bytes_ += n;
-	  }
-
-	  void Report(const Slice& name) {
-		// Pretend at least one op was done in case we are running a benchmark
-		// that does not call FinishedSingleOp().
-		if (done_ < 1) done_ = 1;
-
-		std::string extra;
-		if (bytes_ > 0) {
-		  // Rate is computed on actual elapsed time, not the sum of per-thread
-		  // elapsed times.
-		  double elapsed = (finish_ - start_) * 1e-6;
-		  char rate[100];
-		  snprintf(rate, sizeof(rate), "%6.1f MB/s",
-				   (bytes_ / 1048576.0) / elapsed);
-		  extra = rate;
-		}
-		AppendWithSpace(&extra, message_);
-
-		fprintf(stdout, "%-12s : %11.3f micros/op;%s%s\n",
-				name.ToString().c_str(),
-				seconds_ * 1e6 / done_,
-				(extra.empty() ? "" : " "),
-				extra.c_str());
-		if (histograming_) {
-		  fprintf(stdout, "Microseconds per op:\n%s\n", hist_.ToString().c_str());
-		}
-		fflush(stdout);
-	  }
-	};//class Stats
-
-	// State shared by all concurrent executions of the same benchmark.
-	struct SharedState {
-	  port::Mutex mu;
-	  port::CondVar cv;
-	  int total;
-
-	  // Each thread goes through the following states:
-	  //    (1) initializing
-	  //    (2) waiting for others to be initialized
-	  //    (3) running
-	  //    (4) done
-
-	  int num_initialized;
-	  int num_done;
-	  bool start;
-
-	  SharedState() : cv(&mu) { }
-	};
-    class SimpleRandom{
-		public:
-            SimpleRandom(int sd) : data_(""), pos_(0){
-              int mask = 2147483647;
-              char buf[64];
-              while(data_.size() < 10000000){//approximately 9 Megabytes
-                  mask = (mask + sd) << sd;
-                  sd += sd << 5;
-                  sd += 0xabcd;
-                  memset(buf, 0, sizeof(buf));
-                  int v = mask >> 8;
-                  mask |= v;
-                  mask |= v << 8;
-                  mask |= v << 16;
-                  mask |= v << 24;
-                  snprintf(buf, sizeof(buf), "%x", mask);
-                  data_.append(buf);
-              }
-            }
-            const char* Next(int len){
-                if(pos_ > data_.size() - len){
-                    pos_ = 0;
-                }
-                const char* ret = data_.substr(pos_, len).c_str();
-                pos_ += len;
-				last_len_ = len;
-                return ret;
-            }
-			const char* Prev(){
-				return data_.substr(pos_ - last_len_, last_len_).c_str();
+		static Slice TrimSpace(Slice s) 
+		{
+			int start = 0;
+			while (start < s.size() && isspace(s[start])) {
+				start++;
 			}
-        private:
-            std::string data_;
-			int last_len_;
-            int pos_;
-    };
-	
-	// Per-thread state for concurrent executions of the same benchmark.
-	struct ThreadState {
-	  int tid;             // 0..n-1 when running in n threads
-	  SimpleRandom sr;	   // use a simple random generator
-	  vector<const char *> *prestore;  //key array prestore for read test
-	  
-	  Stats stats;
-	  SharedState* shared;
+			int limit = s.size();
+			while (limit > start && isspace(s[limit-1])) {
+				limit--;
+			}
+			return Slice(s.data() + start, limit - start);
+		}
 
-	  ThreadState(int index, bool hist)
-		  : tid(index),
-			sr(index + 0x1234),
-			stats(hist) {
-	  }
-	};
-	
+		static void AppendWithSpace(std::string* str, Slice msg) 
+		{
+			if (msg.empty()) return;
+			if (!str->empty()) {
+				str->push_back(' ');
+			}
+			str->append(msg.data(), msg.size());
+		}
 
+		class Stats {
+			private:
+				double start_;
+				double finish_;
+				double seconds_;
+				int done_;
+				int next_report_;
+				int64_t bytes_;
+				double last_op_finish_;
+				Histogram hist_;
+				bool histograming_;
+				std::string message_;
+			public:
+				Stats(bool hist) : histograming_(hist) { Start(); }
+				
+				void Start() 
+				{
+					next_report_ = 100;
+					last_op_finish_ = start_;
+					hist_.Clear();
+					done_ = 0;
+					bytes_ = 0;
+					seconds_ = 0;
+					start_ = Env::Default()->NowMicros();
+					finish_ = start_;
+					message_.clear();
+				}
+
+				void Merge(const Stats& other)
+				{
+					hist_.Merge(other.hist_);
+					done_ += other.done_;
+					bytes_ += other.bytes_;
+					seconds_ += other.seconds_;
+					if (other.start_ < start_) start_ = other.start_;
+					if (other.finish_ > finish_) finish_ = other.finish_;
+					// Just keep the messages from one thread
+					if (message_.empty()) message_ = other.message_;
+				}
+				void Stop()
+				{
+					finish_ = Env::Default()->NowMicros();
+					seconds_ = (finish_ - start_) * 1e-6;
+				}
+				void AddMessage(Slice msg)
+				{
+					AppendWithSpace(&message_, msg);
+				}
+				void FinishedSingleOp() 
+				{
+					if (histograming_) {
+						double now = Env::Default()->NowMicros();
+						double micros = now - last_op_finish_;
+						hist_.Add(micros);
+						if (micros > 20000) {
+							fprintf(stderr, "long op: %.1f micros%30s\r", micros, "");
+							fflush(stderr);
+						}
+						last_op_finish_ = now;
+					}
+
+					done_++;
+					if (done_ >= next_report_){
+						if      (next_report_ < 1000)   next_report_ += 100;
+						else if (next_report_ < 5000)   next_report_ += 500;
+						else if (next_report_ < 10000)  next_report_ += 1000;
+						else if (next_report_ < 50000)  next_report_ += 5000;
+						else if (next_report_ < 100000) next_report_ += 10000;
+						else if (next_report_ < 500000) next_report_ += 50000;
+						else                            next_report_ += 100000;
+						fprintf(stderr, "... finished %d ops%30s\r", done_, "");
+						fflush(stderr);
+					}
+				}
+				void AddBytes(int64_t n)
+				{
+					bytes_ += n;
+				}
+
+				void Report(const Slice& name)
+				{
+					// Pretend at least one op was done in case we are running a benchmark
+					// that does not call FinishedSingleOp().
+					if (done_ < 1) done_ = 1;
+					std::string extra;
+					if (bytes_ > 0) {
+						// Rate is computed on actual elapsed time, not the sum of per-thread
+						// elapsed times.
+						double elapsed = (finish_ - start_) * 1e-6;
+						char rate[100];
+						snprintf(rate, sizeof(rate), "%6.1f MB/s",
+							   (bytes_ / 1048576.0) / elapsed);
+						extra = rate;
+					}
+					AppendWithSpace(&extra, message_);
+
+					fprintf(stdout, "%-12s : %11.3f micros/op;%s%s\n",
+							name.ToString().c_str(),
+							seconds_ * 1e6 / done_,
+							(extra.empty() ? "" : " "),
+							extra.c_str());
+					if (histograming_) {
+						fprintf(stdout, "Microseconds per op:\n%s\n", hist_.ToString().c_str());
+					}
+					fflush(stdout);
+				}
+		};//class Stats
+
+		// State shared by all concurrent executions of the same benchmark.
+		struct SharedState {
+			port::Mutex mu;
+			port::CondVar cv;
+			int total;
+
+			  // Each thread goes through the following states:
+			  //    (1) initializing
+			  //    (2) waiting for others to be initialized
+			  //    (3) running
+			  //    (4) done
+
+			int num_initialized;
+			int num_done;
+			bool start;
+			SharedState() : cv(&mu) { }
+		};
+		class SimpleRandom{
+			public:
+				SimpleRandom(int sd) : data_(""), pos_(0){
+				  int mask = 2147483647;
+				  char buf[64];
+				  while(data_.size() < 10000000){//approximately 9 Megabytes
+					  mask = (mask + sd) << sd;
+					  sd += sd << 5;
+					  sd += 0xabcd;
+					  memset(buf, 0, sizeof(buf));
+					  int v = mask >> 8;
+					  mask |= v;
+					  mask |= v << 8;
+					  mask |= v << 16;
+					  mask |= v << 24;
+					  snprintf(buf, sizeof(buf), "%x", mask);
+					  data_.append(buf);
+				  }
+				}
+				const char* Next(int len){
+					if(pos_ > data_.size() - len){
+						pos_ = 0;
+					}
+					const char* ret = data_.substr(pos_, len).c_str();
+					pos_ += len;
+					last_len_ = len;
+					return ret;
+				}
+				const char* Prev(){
+					return data_.substr(pos_ - last_len_, last_len_).c_str();
+				}
+			private:
+				std::string data_;
+				int last_len_;
+				int pos_;
+		};//class SimpleRandom
+		
+		// Per-thread state for concurrent executions of the same benchmark.
+		struct ThreadState {
+		  int tid;             // 0..n-1 when running in n threads
+		  SimpleRandom sr;	   // use a simple random generator
+		  vector<const char *> *prestore;  //key array prestore for read test
+		  
+		  Stats stats;
+		  SharedState* shared;
+
+		  ThreadState(int index, bool hist)
+			  : tid(index),
+				sr(index + 0x1234),
+				stats(hist) {
+		  }
+		};
 	}  // namespace
 	
 	
@@ -496,43 +495,7 @@ namespace general_db_bench {
 			  ~Benchmark() { 
 				Release_prestore_keylist();
 			  }
-			  enum BenchType{
-				ReadRandomBench,
-				ReadSeqBench,
-				ReadBench,
-				WriteBench,
-				ErrorBench
-			  };
-			  int Add_bench(const char* name, int len, int &count, void (Benchmark::*&method)(ThreadState*))
-			  {
-				Slice benchname(name, len);
-				BenchType ret = WriteBench;
-				
-				if(benchname == Slice("fillseq")){
-					printf("[DBG] fillseq selected!\n");
-					method = &Benchmark::WriteSeq;
-				}else if(benchname == Slice("fillrandom")){
-					printf("[DBG] fillrandom selected!\n");
-					method = &Benchmark::WriteRandom; 
-				}else if(benchname == Slice("readseq")){
-					printf("[DBG] readseq selected!\n");
-					method = &Benchmark::ReadSeq;
-					ret = ReadSeqBench;
-				}else if(benchname == Slice("readrandom")){
-					printf("[DBG] readrandom selected!\n");
-					method = &Benchmark::ReadRandom;
-					ret = ReadRandomBench;
-				}else{
-					method = NULL;
-					fprintf(stderr, "unknown benchmark '%s'\n", name.ToString().c_str());
-					ret = ErrorBench;
-				}
-				if(ErrorBench != ret && isfirst){
-					count++;
-				}
-				return ret;
-			  }//
-			  
+	  
 			  void Run(){
 				  PrintHeader();
 				  
@@ -574,7 +537,7 @@ namespace general_db_bench {
 				  }//while(1) 
 			  }//Run()
 		private:
-
+			
 			struct ThreadArg {
 				Benchmark* bm;
 				SharedState* shared;
@@ -651,8 +614,42 @@ namespace general_db_bench {
 				}
 				delete[] arg;
 			}//RunBenchmark (int n, Slice name, void (Benchmark::*method)(ThreadState*))
-			
-			
+			enum BenchType{
+				ReadRandomBench,
+				ReadSeqBench,
+				ReadBench,
+				WriteBench,
+				ErrorBench
+			};
+			int Add_bench(const char* name, int len, int &count, void (Benchmark::*&method)(ThreadState*))
+			{
+				Slice benchname(name, len);
+				BenchType ret = WriteBench;
+				
+				if(benchname == Slice("fillseq")){
+					printf("[DBG] fillseq selected!\n");
+					method = &Benchmark::WriteSeq;
+				}else if(benchname == Slice("fillrandom")){
+					printf("[DBG] fillrandom selected!\n");
+					method = &Benchmark::WriteRandom; 
+				}else if(benchname == Slice("readseq")){
+					printf("[DBG] readseq selected!\n");
+					method = &Benchmark::ReadSeq;
+					ret = ReadSeqBench;
+				}else if(benchname == Slice("readrandom")){
+					printf("[DBG] readrandom selected!\n");
+					method = &Benchmark::ReadRandom;
+					ret = ReadRandomBench;
+				}else{
+					method = NULL;
+					fprintf(stderr, "unknown benchmark '%s'\n", name.ToString().c_str());
+					ret = ErrorBench;
+				}
+				if(ErrorBench != ret && isfirst){
+					count++;
+				}
+				return ret;
+			}//int Add_bench(const char* name, int len, int &count, void (Benchmark::*&method)(ThreadState*))
 			
 			void WriteSeq(ThreadState* thread) {
 				DoWrite(thread, true);
