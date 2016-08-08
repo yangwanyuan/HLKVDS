@@ -4,6 +4,8 @@
 #include <unistd.h>                                                                
 #include <getopt.h>                                                                
 #include <stdlib.h>
+#include <vector>
+#include <string>
 
 #include "slice.h"
 #include "mutexlock.h"
@@ -80,7 +82,7 @@ namespace general_db_bench {
 	// Use the db with the following name.
 	static const char* FLAGS_db = "/tmp/dbbench";
 	
-/* Not support:
+// Not support:
  	// Ratio of read operation
 	static float FLAGS_readratio = 0;
 	
@@ -102,51 +104,51 @@ namespace general_db_bench {
 	// Bloom filter bits per key.
 	// Negative means use default settings.
 	static int FLAGS_bloom_bits = -1;
- */	
 ///////////////////////////
-	struct benchoptions{                                                               
-		const char* benchmark;  
-		const char* db_name;	
-		int num;                                                                       
-		float read_ratio;                                                               
-		int threads_num;
-		bool histograming;		
-		bool use_exsisting;
-		int value_size;
-		int key_size;
-		benchoptions() 
-		: benchmark(FLAGS_benchmarks),
-		db_name(FLAGS_db),
-		num(FLAGS_num), 
-		read_ratio(FLAGS_readratio), 
-		histograming(FLAGS_histogram),
-		threads_num(FLAGS_threads), 
-		use_exsisting(FLAGS_use_existing_db), 
-		value_size(FLAGS_value_size),
-		key_size(FLAGS_key_size){ }
+
+    struct benchoptions{
+        const char* benchmark;
+        const char* db_name;
+        int num;
+        float read_ratio;
+        int threads_num;
+        bool histograming;
+        bool use_exsisting;
+        int value_size;
+        int key_size;
+        benchoptions()
+            : benchmark(FLAGS_benchmarks),
+            db_name(FLAGS_db),
+            num(FLAGS_num),
+            read_ratio(FLAGS_readratio),
+            histograming(FLAGS_histogram),
+            threads_num(FLAGS_threads),
+            use_exsisting(FLAGS_use_existing_db),
+            value_size(FLAGS_value_size),
+            key_size(FLAGS_key_size){ }
 	};
-	void help(const char* biname)                                                      
-	{                                                                                  
-		printf("Usage: %s [options]\n"                                                 
-			"Options:\n"                                                                       
-			" -b, --benchmark=[fillseq|fillrandom|readseq|readrandom] ...\n"                                      
-			" -d, --db_name=<name>                 name of the database.\n"
-			" --histogram,                         use histogram to record statstics.\n"
-			" -n, --num=<number_of_ops>            operation number.\n"                         
-			" -r, --read_ratio=<read_ratio>        n/a. read ratio of operations.\n"                
-			" -t, --threads_num=<thread_num>       thread to run.\n"                    
-			" -u, --use_exsisting                  n/a.\n"
-			" -v, --value_size=<size>              value size in bytes.\n"
-			" -k, --key_size=<size>                key size in bytes.\n"
-			" -h, --help                           show this message.\n" , biname);                           
-		exit(-1);                                                                          
-	}
-	void parse_args(int argc, char*argv[], struct benchoptions *ret)                
-	{
-		struct option long_options[] = {
-			{"benchmark", optional_argument, NULL, 'b'}, 
-			{"db_name", required_argument, NULL, 'd'},
-			{"histogram", no_argument, NULL, 'z' + 1},//only long format supported
+    void help(const char* biname)
+    {
+        printf("Usage: %s [options]\n"
+            "Options:\n"
+            " -b, --benchmark=[fillseq|fillrandom|readseq|readrandom] ...\n"
+            " -d, --db_name=<name>                 name of the database.\n"
+            " --histogram,                         use histogram to record statstics.\n"
+            " -n, --num=<number_of_ops>            operation number.\n"
+            " -r, --read_ratio=<read_ratio>        n/a. read ratio of operations.\n"
+            " -t, --threads_num=<thread_num>       thread to run.\n"
+            " -u, --use_exsisting                  n/a.\n"
+            " -v, --value_size=<size>              value size in bytes.\n"
+            " -k, --key_size=<size>                key size in bytes.\n"
+            " -h, --help                           show this message.\n" , biname);
+        exit(-1);
+    }
+    void parse_args(int argc, char*argv[], struct benchoptions *ret)
+    {
+        struct option long_options[] = {
+            {"benchmark", optional_argument, NULL, 'b'},
+            {"db_name", required_argument, NULL, 'd'},
+            {"histogram", no_argument, NULL, 'z' + 1},//only long format supported
 			{"help", no_argument, NULL, 'h'}, 
 			{"num", required_argument, NULL, 'n'},
 			{"read_ratio", required_argument, NULL, 'r'},
@@ -412,8 +414,6 @@ namespace general_db_bench {
 		struct ThreadState {
 		  int tid;             // 0..n-1 when running in n threads
 		  SimpleRandom sr;	   // use a simple random generator
-		  vector<const char *> *prestore;  //key array prestore for read test
-		  
 		  Stats stats;
 		  SharedState* shared;
 
@@ -430,7 +430,7 @@ namespace general_db_bench {
 		private:
 			struct benchoptions opts_; 
 			my_kv_interface *kv_itf_;
-			vector<const char*> random_keylist_;
+            std::vector<const char*> random_keylist_;
 			void PrintWarnings() {
 #if defined(__GNUC__) && !defined(__OPTIMIZE__)
 				fprintf(stdout,
@@ -506,38 +506,28 @@ namespace general_db_bench {
 				  int count = 0;
 				  
 				  while(1){
-					switch(ptr){
-						case '|':
-						case ',':
-						case '\0':
-							BenchType bt = Add_bench(name, ptr - name, count, method);
-							
-							if(!opts_.use_exsisting){
-								kv_itf_->destroy(opts_.db_name);	
-							}
-							kv_itf_->open(opts_.db_name);
-							
-							if(bt < ReadBench && !opts_.use_exsisting){
-								Initialize_db_for_read(bt == ReadSeqBench);
-							}
-							//run
-							if (method != NULL) {
-								RunBenchmark(opts_.threads_num, Slice(name, ptr - name), method);//start multi-threads test
-							}	
-							kv_itf_->close();
-							name = ptr + 1;
-							break;
-						default:
-							break;
-					}//switch(ptr)
-					if('\0' == *ptr){
-						break;
-					}
-					ptr++;
-				  }//while(1) 
-			  }//Run()
+                      if('|' == *ptr || ',' == *ptr || '\0' == *ptr){
+                          BenchType bt = Add_bench(name, ptr - name, count, method);
+                          if (method != NULL) {
+                              if(!opts_.use_exsisting){
+							    kv_itf_->destroy(opts_.db_name);
+                              }
+                              kv_itf_->open(opts_.db_name);
+                              if(bt < ReadBench && !opts_.use_exsisting){
+                                  Initialize_db_for_read(bt == ReadSeqBench);
+                              }
+                              //run
+                              RunBenchmark(opts_.threads_num, Slice(name, ptr - name), method);//start multi-threads test
+                              kv_itf_->close();
+                          }
+                          if('\0' == *ptr)
+                              break;
+                          name = ptr + 1;
+                      }
+                      ptr++;
+                  }//while(1)
+              }//Run()
 		private:
-			
 			struct ThreadArg {
 				Benchmark* bm;
 				SharedState* shared;
@@ -621,7 +611,7 @@ namespace general_db_bench {
 				WriteBench,
 				ErrorBench
 			};
-			int Add_bench(const char* name, int len, int &count, void (Benchmark::*&method)(ThreadState*))
+			BenchType Add_bench(const char* name, int len, int &count, void (Benchmark::*(&method))(ThreadState*))
 			{
 				Slice benchname(name, len);
 				BenchType ret = WriteBench;
@@ -642,10 +632,12 @@ namespace general_db_bench {
 					ret = ReadRandomBench;
 				}else{
 					method = NULL;
-					fprintf(stderr, "unknown benchmark '%s'\n", name.ToString().c_str());
-					ret = ErrorBench;
+                    if(benchname != Slice("")){
+					    fprintf(stderr, "unknown benchmark '%s'\n", benchname.ToString().c_str());
+					    ret = ErrorBench;
+                    }
 				}
-				if(ErrorBench != ret && isfirst){
+				if(ErrorBench != ret){
 					count++;
 				}
 				return ret;
@@ -677,11 +669,11 @@ namespace general_db_bench {
 						const char* rkey = thread->sr.Next(kKeySize);
                         key.replace(0, strlen(rkey), rkey);
 					}
-					bytes +=vs + key.size();
-					ret = kv_itf_->put(key.c_str(), thread->sr.Next(vs));//write something into db.
+					ret = kv_itf_->put(key.c_str(), thread->sr.Next(kValueSize));//write something into db.
+					bytes +=kValueSize + key.size();
 					if (0 != ret) { //TODO - err_sys such as DB_FULL
 						fprintf(stderr, "Insert error - K:%s, V:%s\n", key.c_str(), thread->sr.Prev());
-						exit(1); //continue here ?
+						//exit(1); //continue here ?
 					}
 					thread->stats.FinishedSingleOp();//record some statstics for a single operation.
 				}
@@ -739,12 +731,13 @@ namespace general_db_bench {
 			
 			void Initialize_db_for_read(bool seq)
 			{
+                printf("[DBG] Initialize_db_for_read...\n");
 				const int num = opts_.num;
 				const int kKeySize = opts_.key_size;
 				const int kValueSize = opts_.value_size;
-				
+				SimpleRandom sr(0);//seed = 0
+
 				if(!seq && random_keylist_.size() == 0){//generate random keys. *is not thread safe*
-					SimpleRandom sr(0);//seed = 0
 					for(int i = 0; i < num; i++){
 						const int k = i;
 						char *key = new char[kKeySize + 1];                                            
@@ -772,19 +765,19 @@ namespace general_db_bench {
 					}
 				}
 				delete [] buf;
+                printf("[DBG] Initialize_db_for_read Done.\n");
 			}//void Initialize_db_for_read(bool seq)
 			
 			void Release_prestore_keylist()
 			{
-				for(vector<const char*>::iterator itr = random_keylist_.begin();                     
-					itr != random_keylist_.end();                                                
-					itr++){                                                             
-					delete *itr;                                                            
-				}
-			}//void Release_prestore_keylist()
-			
+                for(std::vector<const char*>::iterator itr = random_keylist_.begin();
+                    itr != random_keylist_.end();
+                    itr++){
+                    delete *itr;
+                }
+            }//void Release_prestore_keylist()
+
 			//TODO - other test_cases add here
-			
 	};//class Benchmark
 }//namespace general_db_bench
 

@@ -20,8 +20,8 @@ class kv_db_interface : public my_kv_interface{
 		virtual int destroy(const char* db_name);
 		virtual int put(const char* key, const char* val);
 		virtual const char* get(const char* key);
-		
-	private:
+	    virtual int close();
+    private:
 		KvdbDS *db;
 		int db_size;
 		int Create_DB(string filename, int db_size);
@@ -112,6 +112,15 @@ const char* kv_db_interface::get(const char* key)
 		return NULL;
 	}
 	return temp.c_str();
+}
+
+int kv_db_interface::close()
+{
+	if(db){
+		delete db;
+		db = NULL;
+	}
+	return 0;
 }
 
 
