@@ -40,15 +40,15 @@ namespace general_db_bench {
 	static const char* FLAGS_benchmarks =
 		"fillseq,"		
 		"fillrandom,"
+		"readrandom,"
+		"readseq,"
 /*		"fillsync,"
 		"overwrite,"
-		"readrandom,"
 		"readrandom,"  // Extra run to allow previous compactions to quiesce
 		"readseq,"
 		"readreverse,"
 		"compact,"
 		"readrandom,"
-		"readseq,"
 		"readreverse,"
 		"fill100K,"
 		"crc32c,"
@@ -60,26 +60,38 @@ namespace general_db_bench {
 	// Number of key/values to place in database
 	static int FLAGS_num = 1000000;
 
-	// Ratio of read operation
-	static float FLAGS_readratio = 0;
-
 	// Number of concurrent threads to run.
 	static int FLAGS_threads = 1;
-
+	
 	// Size of each value
 	static int FLAGS_value_size = 100;
-
+	
+	// Size of each key
+	static int FLAGS_key_size = 16;
+	
+	// Print histogram of operation timings
+	static bool FLAGS_histogram = false;
+	
+	// If true, do not destroy the existing database.  If you set this
+	// flag and also specify a benchmark that wants a fresh database, that
+	// benchmark will fail.
+	static bool FLAGS_use_existing_db = false;
+	
+	// Use the db with the following name.
+	static const char* FLAGS_db = "/tmp/dbbench";
+	
+/* Not support:
+ 	// Ratio of read operation
+	static float FLAGS_readratio = 0;
+	
 	// Arrange to generate values that shrink to this fraction of
 	// their original size after compression
 	static double FLAGS_compression_ratio = 0.5;
-
-	// Print histogram of operation timings
-	static bool FLAGS_histogram = false;
-
+	
 	// Number of bytes to buffer in memtable before compacting
 	// (initialized to default value by "main")
 	static int FLAGS_write_buffer_size = 0;
-
+	
 	// Number of bytes to use as a cache of uncompressed data.
 	// Negative means use default settings.
 	static int FLAGS_cache_size = -1;
@@ -90,14 +102,7 @@ namespace general_db_bench {
 	// Bloom filter bits per key.
 	// Negative means use default settings.
 	static int FLAGS_bloom_bits = -1;
-
-	// If true, do not destroy the existing database.  If you set this
-	// flag and also specify a benchmark that wants a fresh database, that
-	// benchmark will fail.
-	static bool FLAGS_use_existing_db = false;
-
-	// Use the db with the following name.
-	static const char* FLAGS_db = "/tmp/dbbench";
+ */	
 ///////////////////////////
 	struct benchoptions{                                                               
 		const char* benchmark;  
@@ -108,6 +113,7 @@ namespace general_db_bench {
 		bool histograming;		
 		bool use_exsisting;
 		int value_size;
+		int key_size;
 		benchoptions() 
 		: benchmark(FLAGS_benchmarks),
 		db_name(FLAGS_db),
@@ -116,13 +122,14 @@ namespace general_db_bench {
 		histograming(FLAGS_histogram),
 		threads_num(FLAGS_threads), 
 		use_exsisting(FLAGS_use_existing_db), 
-		value_size(FLAGS_value_size) { }
+		value_size(FLAGS_value_size),
+		key_size(FLAGS_key_size){ }
 	};
 	void help(const char* biname)                                                      
 	{                                                                                  
 		printf("Usage: %s [options]\n"                                                 
 			"Options:\n"                                                                       
-			" -b, --benchmark=[fillseq|fillrandom|open] ...\n"                                      
+			" -b, --benchmark=[fillseq|fillrandom|readseq|readrandom] ...\n"                                      
 			" -d, --db_name=<name>                 name of the database.\n"
 			" --histogram,                         use histogram to record statstics.\n"
 			" -n, --num=<number_of_ops>            operation number.\n"                         
@@ -130,6 +137,7 @@ namespace general_db_bench {
 			" -t, --threads_num=<thread_num>       thread to run.\n"                    
 			" -u, --use_exsisting                  n/a.\n"
 			" -v, --value_size=<size>              value size in bytes.\n"
+			" -k, --key_size=<size>                key size in bytes.\n"
 			" -h, --help                           show this message.\n" , biname);                           
 		exit(-1);                                                                          
 	}
@@ -145,6 +153,7 @@ namespace general_db_bench {
 			{"threads_num", required_argument, NULL, 't'},                            
 			{"use_exsisting", no_argument, NULL, 'u'},
 			{"value_size", required_argument, NULL, 'v'},
+			{"key_size", required_argument, NULL, 'k'}
 			{0,0,0,0}                                                               
 		};                                                                          
 		int opt_index, c;                                                           
@@ -200,6 +209,12 @@ namespace general_db_bench {
 						ret->value_size = atoi(optarg);
 					else
 						FLAGS_value_size = atoi(optarg);
+					break;
+				case 'k':
+					if(ret)
+						ret->key_size = atoi(optarg);
+					else
+						FLAGS_key_size = atoi(optarg);
 					break;
 				case 'h':
 				case '?':
@@ -355,42 +370,49 @@ namespace general_db_bench {
 
 	  SharedState() : cv(&mu) { }
 	};
-    class SimpleRandom{                                                                                                                                                                                                                                                       
-        public:                                                                 
-            SimpleRandom(int sd) : data_(""), pos_(0){                          
-              int mask = 2147483647;                                                      
-              char buf[64];                                                               
-              while(data_.size() < 10000000){                                               
-                  mask = (mask + sd) << sd;                                         
-                  sd += sd << 5;                                                
-                  sd += 0xabcd;                                                 
-                  memset(buf, 0, sizeof(buf));                                  
-                  int v = mask >> 8;                                            
-                  mask |= v;                                                    
-                  mask |= v << 8;                                               
-                  mask |= v << 16;                                              
-                  mask |= v << 24;                                              
+    class SimpleRandom{
+		public:
+            SimpleRandom(int sd) : data_(""), pos_(0){
+              int mask = 2147483647;
+              char buf[64];
+              while(data_.size() < 10000000){//approximately 9 Megabytes
+                  mask = (mask + sd) << sd;
+                  sd += sd << 5;
+                  sd += 0xabcd;
+                  memset(buf, 0, sizeof(buf));
+                  int v = mask >> 8;
+                  mask |= v;
+                  mask |= v << 8;
+                  mask |= v << 16;
+                  mask |= v << 24;
                   snprintf(buf, sizeof(buf), "%x", mask);
-                  data_.append(buf);                                                         
-              }                                                                 
-            }                                                                   
-            const char* Next(int len){                                          
-                if(pos_ > data_.size() - len){                                  
-                    pos_ = 0;                                                   
-                }                                                               
-                const char* ret = data_.substr(pos_, len).c_str();		
-                pos_ += len;                                                    
-                return ret;                                                     
-            }                                                                   
-        private:                                                                
-            std::string data_;                                                  
-            int pos_;                                                           
+                  data_.append(buf);
+              }
+            }
+            const char* Next(int len){
+                if(pos_ > data_.size() - len){
+                    pos_ = 0;
+                }
+                const char* ret = data_.substr(pos_, len).c_str();
+                pos_ += len;
+				last_len_ = len;
+                return ret;
+            }
+			const char* Prev(){
+				return data_.substr(pos_ - last_len_, last_len_).c_str();
+			}
+        private:
+            std::string data_;
+			int last_len_;
+            int pos_;
     };
 	
 	// Per-thread state for concurrent executions of the same benchmark.
 	struct ThreadState {
 	  int tid;             // 0..n-1 when running in n threads
 	  SimpleRandom sr;	   // use a simple random generator
+	  vector<const char *> *prestore;  //key array prestore for read test
+	  
 	  Stats stats;
 	  SharedState* shared;
 
@@ -407,8 +429,9 @@ namespace general_db_bench {
 	
 	class Benchmark{
 		private:
-			struct benchoptions opts; 
+			struct benchoptions opts_; 
 			my_kv_interface *kv_itf_;
+			vector<const char*> random_keylist_;
 			void PrintWarnings() {
 #if defined(__GNUC__) && !defined(__OPTIMIZE__)
 				fprintf(stdout,
@@ -454,12 +477,11 @@ namespace general_db_bench {
 			}//void PrintEnvironment()
 			
 			void PrintHeader() {
-			const int kKeySize = 16;
 				PrintEnvironment();
-				fprintf(stdout, "Keys:       %d bytes each\n", kKeySize );
-				fprintf(stdout, "Values:     %d bytes each\n", opts.value_size);
-				fprintf(stdout, "Entries:    %d\n", opts.num);
-				fprintf(stdout, "FileSize:   %.1f MB (estimated)\n", (kKeySize + opts.value_size) * opts.num / 1048576.0);
+				fprintf(stdout, "Keys:       %d bytes each\n", opts_.key_size);
+				fprintf(stdout, "Values:     %d bytes each\n", opts_.value_size);
+				fprintf(stdout, "Entries:    %d\n", opts_.num);
+				fprintf(stdout, "FileSize:   %.1f MB (estimated)\n", (opts_.key_size + opts_.value_size) * opts_.num / 1048576.0);
 				PrintWarnings();
 				fprintf(stdout, "------------------------------------------------\n");
 			}
@@ -469,73 +491,87 @@ namespace general_db_bench {
 		public:
 			Benchmark(int argc, char*argv[], my_kv_interface* kv_itf)
 			  : kv_itf_(kv_itf){
-				parse_args(argc, argv, &opts);
-				if (!opts.use_exsisting) {
-				  kv_itf_->destroy(opts.db_name);
-				}
+				parse_args(argc, argv, &opts_);
 			  }
-			  ~Benchmark() { }
+			  ~Benchmark() { 
+				Release_prestore_keylist();
+			  }
+			  enum BenchType{
+				ReadRandomBench,
+				ReadSeqBench,
+				ReadBench,
+				WriteBench,
+				ErrorBench
+			  };
+			  int Add_bench(const char* name, int len, int &count, void (Benchmark::*&method)(ThreadState*))
+			  {
+				Slice benchname(name, len);
+				BenchType ret = WriteBench;
+				
+				if(benchname == Slice("fillseq")){
+					printf("[DBG] fillseq selected!\n");
+					method = &Benchmark::WriteSeq;
+				}else if(benchname == Slice("fillrandom")){
+					printf("[DBG] fillrandom selected!\n");
+					method = &Benchmark::WriteRandom; 
+				}else if(benchname == Slice("readseq")){
+					printf("[DBG] readseq selected!\n");
+					method = &Benchmark::ReadSeq;
+					ret = ReadSeqBench;
+				}else if(benchname == Slice("readrandom")){
+					printf("[DBG] readrandom selected!\n");
+					method = &Benchmark::ReadRandom;
+					ret = ReadRandomBench;
+				}else{
+					method = NULL;
+					fprintf(stderr, "unknown benchmark '%s'\n", name.ToString().c_str());
+					ret = ErrorBench;
+				}
+				if(ErrorBench != ret && isfirst){
+					count++;
+				}
+				return ret;
+			  }//
+			  
 			  void Run(){
 				  PrintHeader();
 				  
                   //parse benchmark_tags
-				  const char* bk_tags = opts.benchmark;
+				  const char* ptr = opts_.benchmark;
+				  const char* name = ptr;
+				  void (Benchmark::*method)(ThreadState*) = NULL;
+				  int count = 0;
 				  
-				  //parameters that may be overridden below
-				  
-				  
-				  while(bk_tags != NULL){
-					const char* step = strchr(bk_tags, ',');
-					Slice name;
-					if(step == NULL){
-						name = bk_tags;
-						bk_tags = NULL;
-					}else{
-						name = Slice(bk_tags, step - bk_tags);
-						bk_tags = step + 1;
+				  while(1){
+					switch(ptr){
+						case '|':
+						case ',':
+						case '\0':
+							BenchType bt = Add_bench(name, ptr - name, count, method);
+							
+							if(!opts_.use_exsisting){
+								kv_itf_->destroy(opts_.db_name);	
+							}
+							kv_itf_->open(opts_.db_name);
+							
+							if(bt < ReadBench && !opts_.use_exsisting){
+								Initialize_db_for_read(bt == ReadSeqBench);
+							}
+							//run
+							if (method != NULL) {
+								RunBenchmark(opts_.threads_num, Slice(name, ptr - name), method);//start multi-threads test
+							}	
+							kv_itf_->close();
+							name = ptr + 1;
+							break;
+						default:
+							break;
+					}//switch(ptr)
+					if('\0' == *ptr){
+						break;
 					}
-					// Reset parameters that may be overridden below
-					
-					
-					void (Benchmark::*method)(ThreadState*) = NULL;
-					bool fresh_db = false;//for multiple testcases
-					if (name == Slice("open")){
-					
-					} else if (name == Slice("fillseq")){
-						printf("[DBG] fillseq selected!\n");
-                        fresh_db = true;
-						method = &Benchmark::WriteSeq;
-					} else if (name == Slice("fillrandom")){
-						printf("[DBG] fillrandom selected!\n");
-						fresh_db = true;
-						method = &Benchmark::WriteRandom;
-					} else if (name == Slice("fillsync")) {
-					
-					} else if (name == Slice("readseq")) {
-					
-					} else if (name == Slice("readrandom")) {
-					
-					} else {
-						if(name != Slice()) {
-							 fprintf(stderr, "unknown benchmark '%s'\n", name.ToString().c_str());
-						}
-					}
-					if(fresh_db){
-						if (opts.use_exsisting) {
-							fprintf(stdout, "%-12s : skipped (--use_existing is true)\n", name.ToString().c_str());
-							method = NULL;
-						} else {
-							kv_itf_->destroy(opts.db_name);
-							kv_itf_->open(opts.db_name);
-						}
-					}
-					
-					if (method != NULL) {
-						RunBenchmark(opts.threads_num, name, method);//start multi-threads test
-					}
-					
-				  }//while (bk_tags != NULL)
-				  
+					ptr++;
+				  }//while(1) 
 			  }//Run()
 		private:
 
@@ -588,7 +624,7 @@ namespace general_db_bench {
 					arg[i].bm = this;
 					arg[i].method = method;
 					arg[i].shared = &shared;
-					arg[i].thread = new ThreadState(i, opts.histograming);//generate_random_here
+					arg[i].thread = new ThreadState(i, opts_.histograming);//generate_random_here
 					arg[i].thread->shared = &shared;
 					Env::Default()->StartThread(ThreadBody, &arg[i]);
 				}
@@ -627,32 +663,128 @@ namespace general_db_bench {
 			}
 
 			void DoWrite(ThreadState* thread, bool seq) {
-				//TODO - opts.num could be changed before. (test_case:open not added)
 				int ret; 
 				int64_t bytes = 0;
-				const int kKeySize = 16;
-				const int num = opts.num;
-				const int vs = opts.value_size;
-				char key[100];
-				
+				const int kKeySize = opts_.key_size;
+				const int num = opts_.num;
+				const int kValueSize = opts_.value_size;
+				char* buf = new char [kKeySize + 1];
+				std::string key(kKeySize, '0');
 				
 				for (int i = 0; i < num; i++) {
 					if(seq){
 						const int k = i;
-						snprintf(key, sizeof(key), "%016d", k);
+						snprintf(buf, kKeySize + 1, "%-d", k);
+						key.replace(0, strlen(buf), buf);
 					}else{
-                        memset(key, 0, sizeof(key));
-						strncpy(key, thread->sr.Next(kKeySize), kKeySize);
+						const char* rkey = thread->sr.Next(kKeySize);
+                        key.replace(0, strlen(rkey), rkey);
 					}
-					bytes +=vs + strlen(key);
-					ret = kv_itf_->put(key, thread->sr.Next(vs));//write something into db.
-					if (0 != ret) { //TODO - err_sys
-						exit(1);
+					bytes +=vs + key.size();
+					ret = kv_itf_->put(key.c_str(), thread->sr.Next(vs));//write something into db.
+					if (0 != ret) { //TODO - err_sys such as DB_FULL
+						fprintf(stderr, "Insert error - K:%s, V:%s\n", key.c_str(), thread->sr.Prev());
+						exit(1); //continue here ?
 					}
 					thread->stats.FinishedSingleOp();//record some statstics for a single operation.
 				}
-				thread->stats.AddBytes(bytes);		
+				thread->stats.AddBytes(bytes);	
+				delete [] buf;
 			}//DoWrite(ThreadState* thread, bool seq)
+			
+			void ReadRandom(ThreadState* thread)
+			{
+				DoRead(thread, false);
+			}//ReadRandom(ThreadState* thread)
+			
+			void ReadSeq(ThreadState* thread)
+			{
+				DoRead(thread, true);
+			}//ReadSeq(ThreadState* thread)
+			
+			void DoRead(ThreadState* thread, bool seq)
+			{
+				const int num = opts_.num;
+				const int kKeySize = opts_.key_size;
+				const int kValueSize = opts_.value_size;
+				const char* key = NULL;
+				char* buf = new char [kKeySize + 1];
+				
+				int found = 0;
+				int64_t bytes = 0;
+				
+				for(int i = 0; i < num; i++){
+					std::string tmp(kKeySize, '0');
+					if(seq){
+						snprintf(buf, kKeySize + 1, "%-d", i);
+						tmp.replace(0, strlen(buf), buf);
+						key = tmp.c_str();
+					}else{
+						key = random_keylist_[i];//operator[]?
+					}
+					const char* ret = kv_itf_->get(key);
+					if(ret){
+						found++;
+						bytes += kKeySize + kValueSize;
+					}
+				//	if(NULL == ret){
+				//		fprintf(stderr, "Not found - K:%s\n", key);
+				//	}
+					thread->stats.FinishedSingleOp();	
+				}
+				delete [] buf;
+				char msg[100];
+				snprintf(msg, sizeof(msg), "(%d of %d found)", found, num);
+				thread->stats.AddMessage(msg);
+				thread->stats.AddBytes(bytes);
+				
+			}//DoRead(ThreadState* thread, bool seq)
+			
+			void Initialize_db_for_read(bool seq)
+			{
+				const int num = opts_.num;
+				const int kKeySize = opts_.key_size;
+				const int kValueSize = opts_.value_size;
+				
+				if(!seq && random_keylist_.size() == 0){//generate random keys. *is not thread safe*
+					SimpleRandom sr(0);//seed = 0
+					for(int i = 0; i < num; i++){
+						const int k = i;
+						char *key = new char[kKeySize + 1];                                            
+						strncpy(key, sr.Next(kKeySize), kKeySize + 1);
+						random_keylist_.push_back(key);
+					}
+				}
+				
+				//insert into db
+				const char* key = NULL;
+				char* buf = new char [kKeySize + 1];
+				for(int i = 0; i < num; i++){
+					std::string tmp(kKeySize, '0');
+					if(seq){
+						snprintf(buf, kKeySize + 1, "%-d", i);
+						tmp.replace(0, strlen(buf), buf);
+						key = tmp.c_str();
+					}else{
+						key = random_keylist_[i];
+					}
+					int ret = kv_itf_->put(key, sr.Next(kValueSize));
+					if (0 != ret) { //TODO - err_sys such as DB_FULL
+						fprintf(stderr, "Insert error - K:%s, V:%s\n", key, sr.Prev());
+						exit(1); //continue here ?
+					}
+				}
+				delete [] buf;
+			}//void Initialize_db_for_read(bool seq)
+			
+			void Release_prestore_keylist()
+			{
+				for(vector<const char*>::iterator itr = random_keylist_.begin();                     
+					itr != random_keylist_.end();                                                
+					itr++){                                                             
+					delete *itr;                                                            
+				}
+			}//void Release_prestore_keylist()
 			
 			//TODO - other test_cases add here
 			

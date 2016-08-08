@@ -15,6 +15,7 @@ class leveldb_interface : public my_kv_interface{
 		virtual int destroy(const char* db_name);
 		virtual int put(const char* key, const char* val);
 		virtual const char* get(const char* key);
+		virtual int close();
 	private:
 		leveldb::DB* db;
 		std::string temp;
@@ -69,6 +70,15 @@ const char* leveldb_interface::get(const char* key)
 	assert(db != NULL);
 	leveldb::Status status = db->Get(leveldb::ReadOptions (), key, &temp);
 	return status.ok() ? temp.c_str() : NULL;
+}
+
+int leveldb_interface::close()
+{
+	if(db){
+		delete db;//release the filelock
+		db = NULL;
+	}
+	return 0;
 }
 
 

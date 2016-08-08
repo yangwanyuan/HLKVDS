@@ -114,6 +114,15 @@ const char* kv_db_interface::get(const char* key)
 	return temp.c_str();
 }
 
+int kv_db_interface::close()
+{
+	if(db){
+		delete db;
+		db = NULL;
+	}
+	return 0;
+}
+
 
 kv_db_interface my_kv_db;
 int main(int argc, char* argv[])
