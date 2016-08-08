@@ -59,7 +59,7 @@ int leveldb_interface::destroy(const char* db_name)
 int leveldb_interface::put(const char* key, const char* val)
 {
 //	assert(db != NULL);
-	printf("[DBG] %s, %s\n", key, val);
+//	printf("[DBG] %s, %s\n", key, val);
 	leveldb::Status status = db->Put(w_ops, key, val);
 	return status.ok() ? 0 : -1;
 }

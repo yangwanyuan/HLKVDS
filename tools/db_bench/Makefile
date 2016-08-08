@@ -23,5 +23,5 @@ kv_db_test:
 	cp $(benchmark_dir)/$(bin) ./db_bench_kvdb
 
 clean:
-	$(MAKE) -C src/benchmark clean
-	rm -f $(bin)
+	$(MAKE) -C $(benchmark_dir) clean 
+	rm -f ./db_bench_kvdb ./db_bench_leveldb

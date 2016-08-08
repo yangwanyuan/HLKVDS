@@ -6,7 +6,7 @@
 #include "my_kv.h"
 #include "Kvdb_Impl.h"
 
-const int DB_SIZE = 1000000;
+const int DB_SIZE = 2000;
 using namespace kvdb;
 
 
