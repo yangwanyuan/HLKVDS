@@ -81,12 +81,14 @@ namespace kvdb{
     {
         uint32_t data_len = data_header->data_size;
         uint32_t data_offset = data_header->data_offset;
-        if(data_len == 0){ 
+        if (data_len == 0)
+        { 
             return true;
         }
     
         char *mdata = new char[data_len];
-        if((uint64_t)m_bdev->pRead(mdata, data_len, data_offset) != data_len){
+        if ((uint64_t)m_bdev->pRead(mdata, data_len, data_offset) != data_len)
+        {
             perror("Could not read data at position");
             delete[] mdata;
             return false; 
@@ -141,7 +143,8 @@ namespace kvdb{
         unsigned char* data_all = new unsigned char[data_all_len];
         memcpy(data_all, (char *)&data_header, dataheader_len);
         memcpy(data_all + dataheader_len, data, length);
-        if(m_bdev->pWrite(data_all, data_all_len, offset) != data_all_len){
+        if (m_bdev->pWrite(data_all, data_all_len, offset) != data_all_len)
+        {
             fprintf(stderr, "Could not write data: %s\n", strerror(errno));
             //free(data_all);
             delete[] data_all;

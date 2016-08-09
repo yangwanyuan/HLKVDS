@@ -44,33 +44,45 @@ void Open_DB_Test(string filename)
     string test_value = "test-value";
     int test_value_size = 10;
 
-    if (!db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size)){
+    if (!db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size))
+    {
         std::cout << "Insert Failed" << std::endl; 
-    }else{
+    }
+    else
+    {
         std::cout << "Insert Success" << std::endl;
     }
     
     test_value = "test-value-new";
     test_value_size = 14;
-    if (!db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size)){
+    if (!db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size))
+    {
         std::cout << "Insert Failed" << std::endl;
-    }else{
+    }
+    else
+    {
         std::cout << "Insert Success" << std::endl;
     }
 
     //DB Get
     string get_data;
-    if (!db->Get(test_key.c_str(), test_key_size, get_data)){
+    if (!db->Get(test_key.c_str(), test_key_size, get_data))
+    {
         std::cout << "Get Failed" << std::endl;
-    }else{
+    }
+    else
+    {
         std::cout << "Get Success: data is " << get_data << std::endl; 
     }
 
 
     //DB Delete
-    if (!db->Delete(test_key.c_str(), test_key_size)){
+    if (!db->Delete(test_key.c_str(), test_key_size))
+    {
       std::cout << "Delete Failed" << std::endl;
-    }else{
+    }
+    else
+    {
       std::cout << "Delete Success!" << std::endl;
     }
 

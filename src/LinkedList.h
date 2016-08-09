@@ -74,7 +74,7 @@ namespace kvdb{
     LinkedList<T> &LinkedList<T>::operator= (const LinkedList<T> &toBeCopied)
     {
         // Only do if the parameter is not the calling object 
-        if(this != &toBeCopied)
+        if (this != &toBeCopied)
         {
             removeAll();
             copyHelper(toBeCopied);
@@ -86,7 +86,7 @@ namespace kvdb{
     void LinkedList<T>::copyHelper(const LinkedList<T> &toBeCopied)
     {   
         // If the parameter list is empty
-        if(toBeCopied.m_head == NULL)
+        if (toBeCopied.m_head == NULL)
         {
             // Create an empty list
             m_head = NULL;
@@ -103,7 +103,7 @@ namespace kvdb{
             Node<T>* ptr = toBeCopied.m_head;
             ptr = ptr->next;
             // Copy the rest of the list until the tail
-            while(ptr != NULL)
+            while (ptr != NULL)
             {
                 copyNode->next = new Node<T>(ptr->data, NULL);
                 copyNode = copyNode->next;
@@ -118,7 +118,7 @@ namespace kvdb{
     {
         Node<T>* tempNode = m_head;
         // De-allocate all the memory associated with the calling list from the head to tail
-        while(tempNode != NULL)
+        while (tempNode != NULL)
         {
             tempNode = m_head->next;
             delete m_head;
@@ -133,7 +133,7 @@ namespace kvdb{
     bool LinkedList<T>::insert(T toBeInserted)
     {
         // If the string is already in the list
-        if(search(toBeInserted))
+        if (search(toBeInserted))
         {
             return false;
         }
@@ -143,7 +143,7 @@ namespace kvdb{
             Node<T>* newNode = new Node<T>(toBeInserted, NULL);
     
             //If the list is empty
-            if(m_head == NULL)
+            if (m_head == NULL)
             {
                 m_head = newNode;
             }
@@ -152,7 +152,7 @@ namespace kvdb{
                 //newNode->next = m_head;
                 //m_head = newNode;
                 Node<T>* tempNode = m_head;
-                while(tempNode->next != NULL)
+                while (tempNode->next != NULL)
                     tempNode = tempNode->next;
                 tempNode->next = newNode;
             }
@@ -165,7 +165,7 @@ namespace kvdb{
     bool LinkedList<T>::remove(T toBeRemoved)
     {   
         // If string does not exist in the list
-        if(!search(toBeRemoved))
+        if (!search(toBeRemoved))
         {
             return false;
         }
@@ -176,7 +176,7 @@ namespace kvdb{
             Node<T>* tempNode = nodePtr->next;
     
             //If the head is the node we want to remove
-            if(m_head->data == toBeRemoved)
+            if (m_head->data == toBeRemoved)
             {
                 m_head = tempNode;
                 delete nodePtr;
@@ -186,10 +186,10 @@ namespace kvdb{
             else
             {
                 // Find the one user want to remove till the tail
-                while(tempNode != NULL)
+                while (tempNode != NULL)
                 {
                     //If we found the node
-                    if(tempNode->data == toBeRemoved)
+                    if (tempNode->data == toBeRemoved)
                     {
                         // Point the node before the current to the node after the current
                         nodePtr->next = tempNode->next;
@@ -214,10 +214,10 @@ namespace kvdb{
         Node<T>* tempNode = m_head;
         
         //Check until the last node in list
-        while(tempNode != NULL)
+        while (tempNode != NULL)
         {
             // If the current node contain the data that user wanted to check
-            if(tempNode->data == toBeSearched)
+            if (tempNode->data == toBeSearched)
             {
                 return true;
             }
@@ -233,11 +233,11 @@ namespace kvdb{
     vector<T> LinkedList<T>::get() 
     {
         vector<T> tempVector;
-        if(m_head != NULL)
+        if (m_head != NULL)
         {
             Node<T>* tempNode = m_head;
             // Till the last node
-            while(tempNode != NULL)
+            while (tempNode != NULL)
             {
                 // Push back the contents in the vector
                 tempVector.push_back(tempNode->data);

@@ -13,7 +13,8 @@
 void Get(kvdb::DB *db)
 {
     int key_len;
-    for (int index=0; index <TEST_RECORD_NUM; index++){
+    for (int index = 0; index < TEST_RECORD_NUM; index++)
+    {
         stringstream key_ss;
         key_ss << index;
         std::string key(key_ss.str());
@@ -28,7 +29,8 @@ void Insert(kvdb::DB *db)
 {
     int key_len;
     int value_len;
-    for (int index=0; index<TEST_RECORD_NUM; index++){
+    for (int index = 0; index < TEST_RECORD_NUM; index++)
+    {
         stringstream key_ss;
         key_ss << index;
         std::string key(key_ss.str());
@@ -45,7 +47,8 @@ void Insert(kvdb::DB *db)
 void Delete(kvdb::DB *db)
 {
     int key_len;
-    for (int index=0; index <TEST_RECORD_NUM; index++){
+    for (int index = 0; index < TEST_RECORD_NUM; index++)
+    {
         stringstream key_ss;
         key_ss << index;
         std::string key(key_ss.str());
@@ -61,7 +64,9 @@ void OpenExample()
     kvdb::DB *db;
 
     if (!kvdb::DB::OpenDB(TEST_DB_FILENAME, &db))
+    {
         return;
+    }
 
     //int key_len;
     //int value_len;

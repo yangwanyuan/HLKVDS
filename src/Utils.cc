@@ -40,8 +40,10 @@ namespace kvdb{
     
     bool Timing::IsLate(Timing &time_now)
     {
-        if(time_now.m_time_stamp > m_time_stamp)
+        if (time_now.m_time_stamp > m_time_stamp)
+        {
             return true;
+        }
         return false;
     }
     

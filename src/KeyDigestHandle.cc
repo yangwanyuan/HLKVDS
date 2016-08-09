@@ -8,7 +8,9 @@ namespace kvdb{
     Kvdb_Key::~Kvdb_Key()
     {
         if (value)
+        {
             delete[] value;
+        }
         len = 0;
     }
 
@@ -50,7 +52,9 @@ namespace kvdb{
     bool Kvdb_Digest::operator==(const Kvdb_Digest& toBeCompare)
     {
         if (!memcmp(value, toBeCompare.value, sizeof(Kvdb_Digest)))
+        {
             return true;
+        }
         return false;
     }
 
@@ -77,8 +81,10 @@ namespace kvdb{
         char* value = key->GetValue();
 
         /* process message in 16-word chunks */
-        for (nbytes=length; nbytes > 63; nbytes-=64) {
-            for (i=0; i<16; i++) {
+        for (nbytes = length; nbytes > 63; nbytes -= 64) 
+        {
+            for (i = 0; i < 16; i++)
+            {
                 //X[i] = BYTES_TO_DWORD(key->value);
                 X[i] = BYTES_TO_DWORD(value);
                 //key->value += 4;
@@ -91,7 +97,8 @@ namespace kvdb{
         //MDfinish(MDbuf, (byte *)key->value, length, 0);
         MDfinish(MDbuf, (byte *)value, length, 0);
      
-        for (i=0; i<RMDsize/8; i+=4) {
+        for (i = 0; i < RMDsize / 8; i += 4)
+        {
             hashcode[i]   =  MDbuf[i>>2];         /* implicit cast to byte  */
             hashcode[i+1] = (MDbuf[i>>2] >>  8);  /*  extracts the 8 least  */
             hashcode[i+2] = (MDbuf[i>>2] >> 16);  /*  significant bits.     */

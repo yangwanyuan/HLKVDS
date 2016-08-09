@@ -27,9 +27,13 @@ double timeval_diff(const struct timeval * const start, const struct timeval * c
 
     /* Calculate the microsecond difference */
     if (end->tv_usec > start->tv_usec)
+    {
         r += (end->tv_usec - start->tv_usec)/1000000.0;
+    }
     else if (end->tv_usec < start->tv_usec)
+    {
         r -= (start->tv_usec - end->tv_usec)/1000000.0;
+    }
 
     return r;
 }
@@ -53,7 +57,8 @@ int Create_DB(string filename, int db_size)
     //KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, delete_ratio, load_ratio, segment_size);
     KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, segment_size);
 
-    if (db->WriteMetaDataToDevice() < 0){
+    if (db->WriteMetaDataToDevice() < 0)
+    {
         cout << "Create DB failed !" << endl;
         return -1;
     }
@@ -67,7 +72,7 @@ int Create_DB(string filename, int db_size)
 
 void Create_Keys(int record_num, vector<string> &key_list)
 {
-    for(int index = 0; index < record_num; index++)
+    for (int index = 0; index < record_num; index++)
     {
         char c_key[KEY_LEN+1] = "kkkkkkkkkk";
         //string key_last = string('k', 10);
@@ -94,11 +99,13 @@ void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
     struct timeval tv_start, tv_end;
     gettimeofday(&tv_start, NULL);
 
-    for(vector<string>::iterator iter = key_list.begin(); iter != key_list.end(); iter++)
+    for (vector<string>::iterator iter = key_list.begin(); iter != key_list.end(); iter++)
     {
         string key = *iter;
         if (!db->Insert(key.c_str(), key_len, value.c_str(), value_size))
+        {
             cout << "Insert key=" << key << "to DB failed!" << endl;
+        }
     }
 
     gettimeofday(&tv_end, NULL);
@@ -123,8 +130,10 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
     {
         string key = *iter;
         string get_data;
-        if(!db->Get(key.c_str(), key_len, get_data))
+        if (!db->Get(key.c_str(), key_len, get_data))
+        {
             cout << "Get key=" << key << " from DB failed" << endl;
+        }
         if (strcmp(get_data.c_str(), value.c_str()) != 0)
         {
             cout << "Get key=" << key <<"Inconsistent! "<< endl;
@@ -157,13 +166,17 @@ int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &reco
 
     //if (argc != 7 || strcmp(argv[1],'-f') == 0 || strcmp(argv[3],'-s') == 0 || strcmp(argv[5],'-n') == 0)  
     if (argc != 7)  
+    {
         return -1;
+    }
 
     string str_f = "-f";
     string str_s = "-s";
     string str_n = "-n";
     if (strcmp(argv[1], str_f.c_str()) !=0 || strcmp(argv[3], str_s.c_str()) != 0 || strcmp(argv[5], str_n.c_str()) != 0)
+    {
         return -1;
+    }
 
     filename = argv[2];
     db_size = atoi(argv[4]);
@@ -171,7 +184,10 @@ int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &reco
     //std::cout << "filename: " << filename << " db_size: " << db_size << " record_num: " << record_num <<std::endl;
     
     if (db_size < 0 ||  record_num < 0 )
+    {
         return -1;
+    }
+
     return 0;
 }
 
@@ -182,7 +198,9 @@ void Bench(string file_path, int db_size, int record_num)
     vector<string> key_list;
     Create_Keys(record_num, key_list);
     if (Create_DB(file_path, db_size) < 0)
+    {
         return;
+    }
 
     KvdbDS *db = KvdbDS::Open_KvdbDS(file_path.c_str());
 
@@ -197,7 +215,8 @@ int main(int argc, char** argv){
     int db_size; 
     int record_num;
 
-    if(Parse_Option(argc, argv, file_path, db_size, record_num) < 0){
+    if(Parse_Option(argc, argv, file_path, db_size, record_num) < 0)
+    {
         usage();
         return -1;
     }

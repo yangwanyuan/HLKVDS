@@ -7,8 +7,6 @@ DB *DB::m_db = NULL;
 
 bool DB::CreateDB(string filename, 
                 uint64_t hash_table_size,
-                //double max_deleted_ratio, 
-                //double max_load_factor,
                 uint64_t segment_size){
         
     KvdbDS* kvdb_db;
@@ -17,11 +15,13 @@ bool DB::CreateDB(string filename,
                                                 //max_deleted_ratio, 
                                                 //max_load_factor,
                                                 segment_size);
-    if (!kvdb_db){
+    if (!kvdb_db)
+    {
         std::cout << "CreateDB failed" << std::endl;
         return false;
     }
-    if (!kvdb_db->WriteMetaDataToDevice()){
+    if (!kvdb_db->WriteMetaDataToDevice())
+    {
         std::cout << "CreateDB write metadata to file Failed!" << std::endl;
         return false;
     }    
@@ -34,11 +34,14 @@ bool DB::OpenDB(string filename, DB** db){
     //      std::cout << "DB is exist, Please call GetDB" << std::endl;
     //      return false;
     //}
-    if (m_db ==NULL) 
+    if (m_db == NULL) 
+    {
         m_db = new DB();
+    }
 
     m_db->m_kvdb_db = KvdbDS::Open_KvdbDS(filename.c_str());
-    if (!m_db->m_kvdb_db){
+    if (!m_db->m_kvdb_db)
+    {
         std::cout << "OpenDB failed" <<std::endl;
         return false;
     }
@@ -59,7 +62,8 @@ bool DB::OpenDB(string filename, DB** db){
 //}
 
 bool DB::WriteIndexToFile(){
-    if(!m_kvdb_db->WriteMetaDataToDevice()){
+    if (!m_kvdb_db->WriteMetaDataToDevice())
+    {
         std::cout << "WriteIndexToFile failed" << std::endl;
         return false;
     }
@@ -78,7 +82,8 @@ DB::~DB(){
 }
 
 bool DB::Insert(const char* key, uint32_t key_len,const char* data, uint32_t length){
-    if(!m_kvdb_db->Insert(key, key_len, data, length)){
+    if (!m_kvdb_db->Insert(key, key_len, data, length))
+    {
         std::cout << "DB Insert failed" <<std::endl;
         return false;
     }
@@ -87,7 +92,8 @@ bool DB::Insert(const char* key, uint32_t key_len,const char* data, uint32_t len
 }
 
 bool DB::Delete(const char* key, uint32_t key_len){
-    if(!m_kvdb_db->Delete(key, key_len)){
+    if (!m_kvdb_db->Delete(key, key_len))
+    {
         std::cout << "DB Delete failed" <<std::endl;  
         return false;
     }
@@ -96,7 +102,8 @@ bool DB::Delete(const char* key, uint32_t key_len){
 }
 
 bool DB::Get(const char* key, uint32_t key_len, string &data){
-    if(!m_kvdb_db->Get(key, key_len, data)){
+    if (!m_kvdb_db->Get(key, key_len, data))
+    {
         std::cout << "DB Get failed" <<std::endl; 
         return false;
     }

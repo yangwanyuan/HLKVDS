@@ -23,7 +23,9 @@ namespace kvdb{
     KernelDevice::~KernelDevice()
     {
         if (m_direct_fd != -1 || m_buffer_fd != -1)
+        {
             Close();
+        }
     }
 
     int KernelDevice::CreateNewDB(string path, off_t size)
@@ -53,7 +55,8 @@ namespace kvdb{
         //
 
         r = open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
-        if (r < 0){
+        if (r < 0)
+        {
             fprintf(stderr, "Could not create file: %s\n", strerror(errno));
             goto create_fail;
         }
@@ -62,7 +65,8 @@ namespace kvdb{
         //r = open(m_path.c_str(), O_RDWR, 0666);
         //r = open(m_path.c_str(), O_RDWR | O_SYNC, 0666);
         r = open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
-        if (r < 0){
+        if (r < 0)
+        {
             fprintf(stderr, "Could not create file: %s\n", strerror(errno));
             goto create_fail;
         }
@@ -71,35 +75,41 @@ namespace kvdb{
         //}
         struct stat statbuf;
         r = fstat(m_direct_fd, &statbuf);
-        if (r < 0){
+        if (r < 0)
+        {
             fprintf(stderr, "Could not stat file: %s\n", strerror(errno));
             goto create_fail;
         }
         
-        if (S_ISBLK(statbuf.st_mode)){
+        if (S_ISBLK(statbuf.st_mode))
+        {
             m_dtype = BLOCK_FILE;
             m_capacity = get_block_device_capacity();
             m_blocksize = statbuf.st_blksize;
         }
-        else{
+        else
+        {
             m_dtype = REG_FILE;
             m_capacity = size;
         }
 
         r = posix_fadvise(m_buffer_fd, 0, 0, POSIX_FADV_RANDOM);
-        if (r < 0){
+        if (r < 0)
+        {
             perror("couldn't posix_fadvise random");
             goto create_fail;
         }
 
         r = set_metazone_zero(size);
-        if (r<0){
+        if (r<0)
+        {
             perror("couldn't set metazone zero");
             goto create_fail;
         }
 
         r = set_device_zero();
-        if (r < 0){
+        if (r < 0)
+        {
             perror("couldn't set device zero");
             goto create_fail;
         }
@@ -117,16 +127,19 @@ create_fail:
     int KernelDevice::set_device_zero()
     {
         int r = 0;
-        if (m_dtype == REG_FILE){
+        if (m_dtype == REG_FILE)
+        {
             r = ftruncate(m_buffer_fd, (off_t)m_capacity);
-            if (r < 0){
+            if (r < 0)
+            {
                 return ERR;
             }
         }
 
         lseek(m_buffer_fd, 0, SEEK_SET);
         //r = fill_file_with_zeros();
-        if (r < 0) {
+        if (r < 0)
+        {
             perror("Could not zero out DB file.\n");
             return ERR;
         }    
@@ -141,10 +154,12 @@ create_fail:
         static const size_t BLOCKSIZE = 8192;
         char zeros[BLOCKSIZE];
         memset(zeros, 0, BLOCKSIZE);
-        while (nbytes > 0) {
+        while (nbytes > 0)
+        {
             size_t bytes_to_write = min(nbytes, BLOCKSIZE);
             ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 fprintf(stderr, "error in fill_file_with_zeros write: %s\n", strerror(errno));
                 return ERR;
             }
@@ -160,10 +175,12 @@ create_fail:
         static const size_t BLOCKSIZE = 8192;
         char zeros[BLOCKSIZE];
         memset(zeros, 0, BLOCKSIZE);
-        while (nbytes > 0) {
+        while (nbytes > 0)
+        {
             size_t bytes_to_write = min(nbytes, BLOCKSIZE);
             ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
-            if (ret < 0) {
+            if (ret < 0)
+            {
                 fprintf(stderr, "error in fill_file_with_zeros write: %s\n", strerror(errno));
                 return ERR;
             }
@@ -175,7 +192,8 @@ create_fail:
     uint64_t KernelDevice::get_block_device_capacity()
     {   
         uint64_t blocksize ;
-        if (ioctl(m_buffer_fd, BLKGETSIZE64, &blocksize) < 0){
+        if (ioctl(m_buffer_fd, BLKGETSIZE64, &blocksize) < 0)
+        {
             fprintf(stderr, "Could not get block size: %s\n", strerror(errno));
             return ERR;
         }
@@ -190,37 +208,43 @@ create_fail:
         int r = 0;
 
         m_direct_fd =  open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
-        if (m_direct_fd < 0){
+        if (m_direct_fd < 0)
+        {
             fprintf(stderr, "Could not open file: %s\n", strerror(errno));
             goto open_fail;
         }
         //m_buffer_fd =  open(m_path.c_str(), O_RDWR, 0666);
         //m_buffer_fd =  open(m_path.c_str(), O_RDWR | O_SYNC, 0666);
         m_buffer_fd =  open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
-        if (m_buffer_fd < 0){
+        if (m_buffer_fd < 0)
+        {
             fprintf(stderr, "Could not open file: %s\n", strerror(errno));
             goto open_fail;
         }
 
         r = posix_fadvise(m_buffer_fd, 0, 0, POSIX_FADV_RANDOM);
-        if (r < 0){
+        if (r < 0)
+        {
             fprintf(stderr, "Couldn't posix_fadvise random: %s\n", strerror(errno));
             goto open_fail;
         }
 
         struct stat statbuf;
         r = fstat(m_direct_fd, &statbuf);
-        if (r < 0){
+        if (r < 0)
+        {
             fprintf(stderr, "Couldn't read fstat: %s\n", strerror(errno));
             goto open_fail;
         }
 
-        if(S_ISBLK(statbuf.st_mode)){
+        if (S_ISBLK(statbuf.st_mode))
+        {
             m_dtype = BLOCK_FILE;
             m_capacity = get_block_device_capacity();
             m_blocksize = statbuf.st_blksize;
         }
-        else{
+        else
+        {
             m_dtype = REG_FILE;
             m_capacity = statbuf.st_size; 
         }
@@ -237,15 +261,20 @@ open_fail:
     void KernelDevice::Close()
     {
         if (m_direct_fd != -1)
+        {
             close(m_direct_fd);
+        }
         if (m_buffer_fd != -1)
+        {
             close(m_buffer_fd);
+        }
     }
 
 
     off_t KernelDevice::LowerAligned(off_t offset, int pagesize)
     {
-        if(offset % pagesize == 0){
+        if (offset % pagesize == 0)
+        {
             return offset;
         }
         return offset - (offset % pagesize);
@@ -253,7 +282,8 @@ open_fail:
 
     off_t KernelDevice::UpperAligned(off_t offset, int pagesize)
     {
-        if(offset % pagesize == 0){
+        if (offset % pagesize == 0)
+        {
             return offset;
         }
         return offset + (pagesize - offset % pagesize);
@@ -272,11 +302,11 @@ open_fail:
 
         //alloc buf_list
         std::vector<unsigned char*> buf_list;
-        for(int index = 0; index < total_pages_count; index++)
+        for (int index = 0; index < total_pages_count; index++)
         {
             unsigned char *page_buf;
             ret = posix_memalign((void **)&page_buf, blocksize, pagesize);
-            if(ret)
+            if (ret)
             {
                 fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
                 return ERR; 
@@ -289,7 +319,7 @@ open_fail:
         char* pre_data = (char*)malloc(pre_data_length);        
         char* pre_data_temp;
         ret = posix_memalign((void **)&pre_data_temp, blocksize, pagesize);
-        if(ret)
+        if (ret)
         {
             fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
             return ERR; 
@@ -308,13 +338,13 @@ open_fail:
         char* suf_data = (char*)malloc(suf_data_length);
         char* suf_data_temp;
         ret = posix_memalign((void **)&suf_data_temp, blocksize, pagesize);
-        if(ret)
+        if (ret)
         {
             fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
             return ERR; 
         }
         //if(DirectReadUnaligned(suf_data, suf_data_length, offset + count) != suf_data_length)
-        if(DirectReadAligned(suf_data_temp, pagesize, LowerAligned(offset + count, pagesize)) != pagesize)
+        if (DirectReadAligned(suf_data_temp, pagesize, LowerAligned(offset + count, pagesize)) != pagesize)
         {
             fprintf(stderr, "pread64 failed: %s\n", strerror(errno));
             return ERR; 
@@ -327,7 +357,7 @@ open_fail:
         std::vector<unsigned char*>::iterator iter;
         unsigned char* buf_item;
 
-        if(total_pages_count == 1)
+        if (total_pages_count == 1)
         {
             unsigned char* buf_item = *buf_list.begin();
             memcpy(buf_item, pre_data, pre_data_length);
@@ -337,17 +367,17 @@ open_fail:
         else
         {
             int index = 0;
-            for(iter = buf_list.begin(); iter != buf_list.end(); iter++)
+            for (iter = buf_list.begin(); iter != buf_list.end(); iter++)
             {
                 buf_item = *iter;
-                if(index == 0)
+                if (index == 0)
                 {
                     int copy_readbytes_infirstpage = pagesize - pre_data_length;
                     memcpy(buf_item, pre_data, pre_data_length); 
                     memcpy(buf_item + pre_data_length, buf_ptr, copy_readbytes_infirstpage);
                     buf_ptr += copy_readbytes_infirstpage;
                 }
-                else if(index == total_pages_count - 1)
+                else if (index == total_pages_count - 1)
                 {
                     int copy_offset_inlastpage = pagesize - suf_data_length;
                     memcpy(buf_item, buf_ptr, copy_offset_inlastpage);
@@ -367,10 +397,10 @@ open_fail:
         free(suf_data);
 
         //write buf_list to device
-        for(iter = buf_list.begin(); iter != buf_list.end();) 
+        for (iter = buf_list.begin(); iter != buf_list.end();) 
         {
             buf_item = *iter;
-            if(DirectWriteAligned(buf_item, pagesize, offset_lower) != pagesize)
+            if (DirectWriteAligned(buf_item, pagesize, offset_lower) != pagesize)
             {
                 fprintf(stderr, "pwrite64 failed: %s\n", strerror(errno));
                 return ERR; 
@@ -402,12 +432,12 @@ open_fail:
         {   
             unsigned char *page_buf;
             ret = posix_memalign((void **)&page_buf, blocksize, pagesize);
-            if(ret)
+            if (ret)
             {
                 fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
                 return ERR; 
             }
-            if(DirectReadAligned(page_buf, pagesize, offset_lower + index * pagesize ) != pagesize)
+            if (DirectReadAligned(page_buf, pagesize, offset_lower + index * pagesize ) != pagesize)
             {
                 fprintf(stderr, "pread64 failed: %s\n", strerror(errno));
                 return ERR; 
@@ -477,14 +507,18 @@ open_fail:
     ssize_t KernelDevice::DirectWrite(const void* buf, size_t count, off_t offset)
     {
         if (IsPageAligned(buf) && IsSectorAligned(count) && IsSectorAligned(offset))
+        {
             return DirectWriteAligned(buf, count, offset);
+        }
         return DirectWriteUnaligned(buf, count, offset);
     }
 
     ssize_t KernelDevice::DirectRead(void* buf, size_t count, off_t offset)
     {
         if (IsPageAligned(buf) && IsSectorAligned(count) && IsSectorAligned(offset))
+        {
             return DirectReadAligned(buf, count, offset);
+        }
         return DirectReadUnaligned(buf, count, offset);
     }
     
@@ -502,7 +536,9 @@ open_fail:
     ssize_t KernelDevice::pWrite(const void* buf, size_t count, off_t offset, bool writebuf)
     {
         if(writebuf)
+        {
             return BufferWrite(buf, count, offset);
+        }
         
         return DirectWrite(buf, count, offset);
     }
@@ -510,7 +546,9 @@ open_fail:
     ssize_t KernelDevice::pRead(void* buf, size_t count, off_t offset, bool readbuf)
     {
         if(readbuf)
+        {
             return BufferRead(buf, count, offset);
+        }
 
         return DirectRead(buf, count, offset);
     }

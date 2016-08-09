@@ -19,7 +19,8 @@ namespace kvdb{
         m_superblock = new DBSuperBlock;
         
         uint64_t length = sizeof(DBSuperBlock);
-        if((uint64_t)m_bdev->pRead(m_superblock, length, offset) != length){
+        if ((uint64_t)m_bdev->pRead(m_superblock, length, offset) != length)
+        {
             perror("Could not read superblock from device\n"); 
             return false;
         }
@@ -29,14 +30,15 @@ namespace kvdb{
     bool SuperBlockManager::WriteSuperBlockToDevice(uint64_t offset)
     {
         uint64_t length = sizeof(DBSuperBlock);
-        if((uint64_t)m_bdev->pWrite(m_superblock, length, offset) != length){
+        if ((uint64_t)m_bdev->pWrite(m_superblock, length, offset) != length)
+        {
             perror("Could not write superblock at position 0\n");
             return false;
         }
         return true;
     }
     
-    void SuperBlockManager::SetSuperBlock(DBSuperBlock sb)
+    void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb)
     {
         m_superblock->hashtable_size        = sb.hashtable_size;
         m_superblock->number_elements       = sb.number_elements;
@@ -46,9 +48,13 @@ namespace kvdb{
         m_superblock->segment_size          = sb.segment_size;
         m_superblock->number_segments       = sb.number_segments;
         m_superblock->current_segment       = sb.current_segment;
+        m_superblock->db_sb_size            = sb.db_sb_size;
+        m_superblock->db_index_size         = sb.db_index_size;
+        m_superblock->db_data_size          = sb.db_data_size;
+        m_superblock->device_size           = sb.device_size;
     }
 
-    DBSuperBlock SuperBlockManager::GetSuperBlock()
+    DBSuperBlock& SuperBlockManager::GetSuperBlock()
     {
         return *m_superblock;
     }
@@ -68,7 +74,9 @@ namespace kvdb{
     SuperBlockManager::~SuperBlockManager()
     {
         if (m_superblock)
+        {
             delete m_superblock;
+        }
     }
 
 } // namespace kvdb
