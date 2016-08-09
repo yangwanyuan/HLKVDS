@@ -7,13 +7,13 @@ UTIL_SRC=env.cc \
 	testutil.cc
 UTIL_OBJ=$(patsubst %.cc, %.o, $(UTIL_SRC))
 BENCH_SRC=db_bench.hpp
+BENCH_LIBS=-lpthread
 
+KV_COMMON_INC=-I../db
 
-KV_PATH=../db
-KV_SRC=$(wildcard $(KV_PATH)/*.cc)
-KV_DB_LIB_PATH=-L$(KV_PATH)/lib
-KV_DB_LIB=-lleveldb -lpthread -lsnappy
-KV_DB_INC=-I$(KV_PATH)/include
+ifdef KV_PATH
+	include $(KV_PATH)/Makefile
+endif
 
 CXXFLAGS=-O2 -DNDEBUG
 CXX=g++
@@ -29,7 +29,7 @@ $(UTIL_OBJ):%.o:%.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 db_bench:$(UTIL_OBJ) kv_example $(BENCH_SRC)
-	$(CXX) $(CXXFLAGS) -o $@ $(UTIL_OBJ) $(notdir $(KV_SRC)) $(BENCH_SRC) $(KV_DB_INC) $(KV_DB_LIB_PATH) $(KV_DB_LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $(UTIL_OBJ) $(KV_OBJS) $(notdir $(KV_SRC)) $(BENCH_SRC) $(KV_DB_INC) $(KV_DB_LIB_PATH) $(KV_DB_LIB) $(BENCH_LIBS) $(KV_COMMON_INC)
 	
 	 
 

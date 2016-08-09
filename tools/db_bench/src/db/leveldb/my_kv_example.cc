@@ -15,6 +15,7 @@ class leveldb_interface : public my_kv_interface{
 		virtual int destroy(const char* db_name);
 		virtual int put(const char* key, const char* val);
 		virtual const char* get(const char* key);
+		virtual int close();
 	private:
 		leveldb::DB* db;
 		std::string temp;
@@ -29,7 +30,7 @@ int leveldb_interface::open(const char* db_name)
     printf("[DBG] open db: %s\n", db_name);
     leveldb::Options settings;
 
-    settings.create_if_missing = true;//TODO - this should communicate with user
+    settings.create_if_missing = true;//TODO - 
 /*  
     settings.block_cache = cache_;
     settings.write_buffer_size = FLAGS_write_buffer_size;
@@ -55,6 +56,7 @@ int leveldb_interface::destroy(const char* db_name)
 	return status.ok() ? 0 : -1;
 }
 
+//@key and @value end with '\0'
 int leveldb_interface::put(const char* key, const char* val)
 {
 //	assert(db != NULL);
@@ -68,6 +70,15 @@ const char* leveldb_interface::get(const char* key)
 	assert(db != NULL);
 	leveldb::Status status = db->Get(leveldb::ReadOptions (), key, &temp);
 	return status.ok() ? temp.c_str() : NULL;
+}
+
+int leveldb_interface::close()
+{
+	if(db){
+		delete db;//release the filelock
+		db = NULL;
+	}
+	return 0;
 }
 
 
