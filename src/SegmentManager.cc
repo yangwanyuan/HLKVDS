@@ -8,9 +8,20 @@ namespace kvdb{
         time_stamp = Timing::GetNow();
     }
 
+    SegmentOnDisk::SegmentOnDisk(uint32_t num):
+        checksum(0), number_keys(num)
+    {
+        time_stamp = Timing::GetNow();
+    }
+
     SegmentOnDisk::~SegmentOnDisk()
     {
         return;
+    }
+    
+    void SegmentOnDisk::Update()
+    {
+        time_stamp = Timing::GetNow();
     }
 
     SegmentStat::~SegmentStat()
@@ -89,8 +100,22 @@ namespace kvdb{
         return true;
     }
 
-    bool SegmentManager::GetNextInsertSegId(uint64_t& seg_id)
+    bool SegmentManager::GetEmptySegId(uint64_t& seg_id)
     {
+        //if (m_is_full)
+        //{
+        //    return false;
+        //}
+
+        //seg_id = m_current_seg; 
+
+        //for first use !!
+        if (m_seg_table[m_current_seg].state == un_use)
+        {
+            seg_id = m_current_seg;
+            return true;
+        }
+
         uint64_t seg_index = m_current_seg + 1; 
         
         while(seg_index != m_current_seg)
@@ -115,7 +140,7 @@ namespace kvdb{
         {
             return false;
         }
-        offset = m_begin_offset + (seg_id - 1) * m_seg_size;   
+        offset = m_begin_offset + seg_id * m_seg_size;   
         return true;
     }
 
@@ -130,13 +155,35 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentManager::SetCurrentId(uint64_t seg_id)
+    void SegmentManager::Update(uint64_t seg_id)
     {
         m_current_seg = seg_id;
+        m_seg_table[m_current_seg].state = in_use;
+
+        //m_seg_table[seg_id].state = in_use;
+
+        //uint64_t seg_index = seg_id + 1; 
+        //
+        //while(seg_index != seg_id)
+        //{
+        //    if (m_seg_table[seg_index].state == un_use)
+        //    {
+        //        m_current_seg = seg_index;
+        //        return;
+        //    }
+        //    seg_index++;
+        //    if ( seg_index == m_num_seg)
+        //    {
+        //        seg_index = 0;
+        //    }
+        //}
+        //
+        //m_is_full = true;
+        return;
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        m_begin_offset(0), m_seg_size(0), m_num_seg(0), m_current_seg(0), m_bdev(bdev)
+        m_begin_offset(0), m_seg_size(0), m_num_seg(0), m_current_seg(0), m_is_full(false), m_bdev(bdev)
     {
         return;
     }

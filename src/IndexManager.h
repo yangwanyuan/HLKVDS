@@ -6,7 +6,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-#include "DataHandle.h"
+//#include "DataHandle.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
@@ -15,25 +15,40 @@ using namespace std;
 
 namespace kvdb{
 
-    //struct DataHeader {
-    //    uint32_t key[KEYDIGEST_SIZE];
-    //    uint16_t data_size;
-    //    uint32_t data_offset;
-    //    uint32_t next_header_offset;
-    //} __attribute__((__packed__));
+    class DataHeader {
+    public:
+        //uint32_t key_digest[KEYDIGEST_SIZE];
+        Kvdb_Digest key_digest;
+        uint16_t data_size;
+        uint32_t data_offset;
+        uint32_t next_header_offset;
 
-    ////struct DataHeaderOffset{
-    ////    uint32_t segment_id;
-    ////    uint32_t header_offset;
-    ////}__attribute__((__packed__));
+    public:
+        DataHeader();
+        DataHeader(Kvdb_Digest &digest, uint16_t data_size, uint32_t data_offset, uint32_t next_header_offset);
+        DataHeader(const DataHeader& toBeCopied);
+        ~DataHeader();
+        DataHeader& operator=(const DataHeader& toBeCopied);
+
+    } __attribute__((__packed__));
+
     //struct DataHeaderOffset{
-    //    uint32_t physical_offset;
+    //    uint32_t segment_id;
+    //    uint32_t header_offset;
     //}__attribute__((__packed__));
+    class DataHeaderOffset{
+    public:
+        uint32_t physical_offset;
 
-    //struct HashEntryOnDisk {
-    //    DataHeader header;
-    //    DataHeaderOffset header_offset;
-    //} __attribute__((__packed__));
+    public:
+        DataHeaderOffset(): physical_offset(0){}
+        DataHeaderOffset(uint32_t offset);
+        DataHeaderOffset(const DataHeaderOffset& toBeCopied);
+        ~DataHeaderOffset();
+        DataHeaderOffset& operator=(const DataHeaderOffset& toBeCopied);
+
+    }__attribute__((__packed__));
+
     class HashEntryOnDisk {
     public:
         DataHeader header;
@@ -81,7 +96,7 @@ namespace kvdb{
         
         int GetHashTableSize(){return m_size;}
 
-        IndexManager(DataHandle* data_handle, BlockDevice* bdev);
+        IndexManager(BlockDevice* bdev);
         ~IndexManager();
 
     private:
@@ -101,7 +116,6 @@ namespace kvdb{
         bool _WriteDataToDevice(void* data, uint64_t length, uint64_t offset);
 
 
-        DataHandle* m_data_handle;
         LinkedList<HashEntry>** m_hashtable;  
         int m_size;
         BlockDevice* m_bdev;

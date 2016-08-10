@@ -6,59 +6,47 @@
 #include "Db_Structure.h"
 #include "BlockDevice.h"
 #include "KeyDigestHandle.h"
+#include "IndexManager.h"
+#include "SuperBlockManager.h"
+#include "SegmentManager.h"
 
 using namespace std;
 
 namespace kvdb{
 
-    class DataHeader {
-    public:
-        //uint32_t key_digest[KEYDIGEST_SIZE];
-        Kvdb_Digest key_digest;
-        uint16_t data_size;
-        uint32_t data_offset;
-        uint32_t next_header_offset;
-
-    public:
-        DataHeader();
-        DataHeader(Kvdb_Digest &digest, uint16_t data_size, uint32_t data_offset, uint32_t next_header_offset);
-        DataHeader(const DataHeader& toBeCopied);
-        ~DataHeader();
-        DataHeader& operator=(const DataHeader& toBeCopied);
-
-    } __attribute__((__packed__));
-
-    //struct DataHeaderOffset{
-    //    uint32_t segment_id;
-    //    uint32_t header_offset;
-    //}__attribute__((__packed__));
-    class DataHeaderOffset{
-    public:
-        uint32_t physical_offset;
-
-    public:
-        DataHeaderOffset(): physical_offset(0){}
-        DataHeaderOffset(uint32_t offset);
-        DataHeaderOffset(const DataHeaderOffset& toBeCopied);
-        ~DataHeaderOffset();
-        DataHeaderOffset& operator=(const DataHeaderOffset& toBeCopied);
-
-    }__attribute__((__packed__));
-
     class DataHandle{
     public:
         bool ReadDataHeader(off_t offset, DataHeader &data_header, string &key);
-        bool WriteDataHeader();
         bool ReadData(DataHeader* data_header, string &data);
-        bool WriteData(DataHeader* data_header, const char* data, uint32_t length, off_t offset);
+        bool WriteData(Kvdb_Digest digest, const char* data, uint32_t length);
         bool DeleteData(const char* key, uint32_t key_len, off_t offset); 
 
-        DataHandle(BlockDevice* bdev);
+        DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm);
         ~DataHandle();
     private:
         BlockDevice* m_bdev;
+        SuperBlockManager* m_sbm;
+        IndexManager* m_im;
+        SegmentManager* m_sm;
     };
-}
+
+    class SegmentSlice{
+    public:
+        SegmentSlice(uint64_t seg_id, SegmentManager* sm) :  
+            m_id(seg_id), m_sm(sm), m_data(NULL), m_len(0){}
+        ~SegmentSlice();
+
+        bool Put(DataHeader& header, const char* data, uint32_t length);
+        void GetData(char* ptr, uint32_t len);
+    private:
+        uint64_t m_id;
+        SegmentManager* m_sm;
+        char* m_data;
+        uint32_t m_len;
+            
+    };
+
+} //end namespace kvdb
 
 
 #endif //#ifndef _KV_DB_DATAHANDLE_H_

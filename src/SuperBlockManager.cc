@@ -43,8 +43,6 @@ namespace kvdb{
         m_superblock->hashtable_size        = sb.hashtable_size;
         m_superblock->number_elements       = sb.number_elements;
         m_superblock->deleted_elements      = sb.deleted_elements;
-        m_superblock->data_insertion_point  = sb.data_insertion_point;
-        m_superblock->data_start_point      = sb.data_start_point;
         m_superblock->segment_size          = sb.segment_size;
         m_superblock->number_segments       = sb.number_segments;
         m_superblock->current_segment       = sb.current_segment;

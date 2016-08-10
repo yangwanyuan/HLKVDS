@@ -9,74 +9,11 @@
 
 namespace kvdb{
 
-    DataHeader::DataHeader() : data_size(0), data_offset(0), next_header_offset(0)
-    {
-        //memset(&key_digest, 0, sizeof(Kvdb_Digest));
-        ;
-    }
-
-    DataHeader::DataHeader(Kvdb_Digest &digest, uint16_t size, uint32_t offset, uint32_t next_offset)
-    {
-        key_digest = digest;
-        data_size = size;
-        data_offset = offset;
-        next_header_offset = next_offset;
-    }
-
-    DataHeader::DataHeader(const DataHeader& toBeCopied)
-    {
-        key_digest = toBeCopied.key_digest;
-        data_size = toBeCopied.data_size;
-        data_offset = toBeCopied.data_offset;
-        next_header_offset = toBeCopied.next_header_offset;
-    }
-
-    DataHeader::~DataHeader()
-    {
-        return;
-    }
-
-    DataHeader& DataHeader::operator=(const DataHeader& toBeCopied)
-    {
-        key_digest = toBeCopied.key_digest;
-        data_size = toBeCopied.data_size;
-        data_offset = toBeCopied.data_offset;
-        next_header_offset = toBeCopied.next_header_offset;
-        return *this;
-    }
-
-
-    DataHeaderOffset::DataHeaderOffset(uint32_t offset)
-    {
-        physical_offset = offset;
-    }
-
-    DataHeaderOffset::DataHeaderOffset(const DataHeaderOffset& toBeCopied)
-    {
-        physical_offset = toBeCopied.physical_offset;
-    }
-
-    DataHeaderOffset::~DataHeaderOffset()
-    {
-        return;
-    }
-
-    DataHeaderOffset& DataHeaderOffset::operator=(const DataHeaderOffset& toBeCopied)
-    {
-        physical_offset = toBeCopied.physical_offset;
-        return *this;
-    }
-
     bool DataHandle::ReadDataHeader(off_t offset, DataHeader &data_header, string &key)
     {
         return true;
     }
 
-    bool DataHandle::WriteDataHeader()
-    {
-        return true;
-    }
-    
     bool DataHandle::ReadData(DataHeader* data_header, string &data)
     {
         uint32_t data_len = data_header->data_size;
@@ -98,7 +35,7 @@ namespace kvdb{
         return true;
     }
     
-    bool DataHandle::WriteData(DataHeader* data_header, const char* data, uint32_t length, off_t offset)
+    bool DataHandle::WriteData(Kvdb_Digest digest, const char* data, uint32_t length)
     {
         /**************************************************************************************
         //Struct DataHeader *data_header = new DataHeader;
@@ -123,39 +60,61 @@ namespace kvdb{
         //delete data_header;
         ************************************************************************************/
 
-
-        //ssize_t dataheader_len = sizeof(DataHeader);
-        //if(m_bdev->pWrite(&data_header, dataheader_len, offset) != dataheader_len){
-        //    fprintf(stderr, "Could not write dataheader: %s\n", strerror(errno));
-        //    return false;
-        //}
-        //offset += dataheader_len;
-
-        //if(m_bdev->pWrite(data, length, offset) != length){
-        //    fprintf(stderr, "Could not write data: %s\n", strerror(errno));
-        //    return false;
-        //}
-
-        ssize_t dataheader_len = sizeof(DataHeader);
-        ssize_t data_all_len = dataheader_len + length;
-
-        //unsigned char* data_all = (unsigned char*)malloc(data_all_len);
-        unsigned char* data_all = new unsigned char[data_all_len];
-        memcpy(data_all, (char *)&data_header, dataheader_len);
-        memcpy(data_all + dataheader_len, data, length);
-        if (m_bdev->pWrite(data_all, data_all_len, offset) != data_all_len)
+        uint64_t seg_id ;
+        if (!m_sm->GetEmptySegId(seg_id))
         {
-            fprintf(stderr, "Could not write data: %s\n", strerror(errno));
-            //free(data_all);
-            delete[] data_all;
             return false;
         }
-        //free(data_all);
-        delete[] data_all;
-        __DEBUG("offset: %ld, data_len:%ld, header_len:%ld", offset, (ssize_t)length, dataheader_len );
-        
+
+        uint64_t seg_offset; 
+        m_sm->ComputeSegOffsetFromId(seg_id, seg_offset);
+
+        uint64_t head_offset = seg_offset + sizeof(SegmentOnDisk);
+        uint64_t data_offset = head_offset + sizeof(DataHeader);
+        uint64_t next_offset = data_offset + length;
+
+        SegmentOnDisk seg_ondisk(1);
+        DataHeader data_header(digest, length, data_offset, next_offset);
+        //m_bdev->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), seg_offset);
+        //m_bdev->pWrite(&data_header, sizeof(DataHeader), head_offset);
+        //m_bdev->pWrite(data, length, data_offset);
+        struct iovec iov[3];
+        iov[0].iov_base = &seg_ondisk;
+        iov[0].iov_len = sizeof(SegmentOnDisk);
+        iov[1].iov_base = &data_header;
+        iov[1].iov_len = sizeof(DataHeader);
+        iov[2].iov_base = const_cast<char *>(data);
+        iov[2].iov_len = length;
+
+        if (m_bdev->pWritev(iov, 3, seg_offset) != (ssize_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
+            fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
+            return false;
+        }
+
+        //SegmentSlice *slice = new SegmentSlice(seg_id, m_sm);
+        //slice->Put(data_header, data, length);
+        //char* wptr;
+        //wptr = NULL;
+        //uint32_t w_len = 0;
+        //slice->GetData(wptr, w_len);
+
+        //m_bdev->pWrite(wptr, w_len, seg_offset);
+
+        m_sm->Update(seg_id);
+
+        m_im->UpdateIndexFromInsert(&data_header, &digest, head_offset);
+
+        DBSuperBlock sb = m_sbm->GetSuperBlock();
+        sb.current_segment = seg_id;
+        m_sbm->SetSuperBlock(sb);
+
+        //delete slice;
+
+        __DEBUG("write seg_id:%ld, seg_offset: %ld, head_offset: %ld, data_offset:%ld, header_len:%ld, data_len:%ld", 
+                seg_id, seg_offset, head_offset, data_offset, (ssize_t)sizeof(DataHeader), (ssize_t)length );
 
         return true;
+
     }
     
     bool DataHandle::DeleteData(const char* key, uint32_t key_len, off_t offset) 
@@ -164,8 +123,8 @@ namespace kvdb{
         return true;
     }
 
-    DataHandle::DataHandle(BlockDevice* bdev):
-        m_bdev(bdev)
+    DataHandle::DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm):
+        m_bdev(bdev), m_sbm(sbm), m_im(im), m_sm(sm)
     {
         ;
     }
@@ -174,6 +133,34 @@ namespace kvdb{
     {
         ;
     }
+
+    SegmentSlice::~SegmentSlice()
+    {
+        if(m_data)
+        {
+            delete[] m_data;
+        }
+    }
+
+    bool SegmentSlice::Put(DataHeader& header, const char* data, uint32_t length)
+    {
+        SegmentOnDisk seg_ondisk;
+        m_len = sizeof(SegmentOnDisk) + sizeof(DataHeader) + length;
+        m_data = new char[m_len];
+        memcpy(m_data, &seg_ondisk, sizeof(SegmentOnDisk));
+        memcpy(&m_data[sizeof(SegmentOnDisk)], &header, sizeof(DataHeader));
+        memcpy(&m_data[sizeof(SegmentOnDisk) + sizeof(DataHeader)], &data, length);
+
+        return true;
+    }
+    
+    void SegmentSlice::GetData(char* ptr, uint32_t len)
+    {
+        ptr = m_data;
+        len = m_len;
+    }
+
+
 }
 
 

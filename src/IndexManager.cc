@@ -11,6 +11,64 @@
 
 namespace kvdb{
 
+    DataHeader::DataHeader() : data_size(0), data_offset(0), next_header_offset(0)
+    {
+        //memset(&key_digest, 0, sizeof(Kvdb_Digest));
+        ;
+    }
+
+    DataHeader::DataHeader(Kvdb_Digest &digest, uint16_t size, uint32_t offset, uint32_t next_offset)
+    {
+        key_digest = digest;
+        data_size = size;
+        data_offset = offset;
+        next_header_offset = next_offset;
+    }
+
+    DataHeader::DataHeader(const DataHeader& toBeCopied)
+    {
+        key_digest = toBeCopied.key_digest;
+        data_size = toBeCopied.data_size;
+        data_offset = toBeCopied.data_offset;
+        next_header_offset = toBeCopied.next_header_offset;
+    }
+
+    DataHeader::~DataHeader()
+    {
+        return;
+    }
+
+    DataHeader& DataHeader::operator=(const DataHeader& toBeCopied)
+    {
+        key_digest = toBeCopied.key_digest;
+        data_size = toBeCopied.data_size;
+        data_offset = toBeCopied.data_offset;
+        next_header_offset = toBeCopied.next_header_offset;
+        return *this;
+    }
+
+
+    DataHeaderOffset::DataHeaderOffset(uint32_t offset)
+    {
+        physical_offset = offset;
+    }
+
+    DataHeaderOffset::DataHeaderOffset(const DataHeaderOffset& toBeCopied)
+    {
+        physical_offset = toBeCopied.physical_offset;
+    }
+
+    DataHeaderOffset::~DataHeaderOffset()
+    {
+        return;
+    }
+
+    DataHeaderOffset& DataHeaderOffset::operator=(const DataHeaderOffset& toBeCopied)
+    {
+        physical_offset = toBeCopied.physical_offset;
+        return *this;
+    }
+
     HashEntryOnDisk::HashEntryOnDisk()
     {
         ;
@@ -226,8 +284,8 @@ namespace kvdb{
     }
 
 
-    IndexManager::IndexManager(DataHandle* data_handle, BlockDevice* bdev):
-        m_data_handle(data_handle), m_hashtable(NULL), m_size(0), m_bdev(bdev)
+    IndexManager::IndexManager(BlockDevice* bdev):
+        m_hashtable(NULL), m_size(0), m_bdev(bdev)
     {
         m_last_timestamp = new Timing();
         return ;

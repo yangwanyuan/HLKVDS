@@ -68,6 +68,7 @@ namespace kvdb {
             return NULL;
         }
 
+
         hash_table_size = ds->m_index_manager->GetHashTableSize();
         number_segments = ds->m_segment_manager->GetNumberOfSeg();
         db_data_size = ds->m_segment_manager->GetDataRegionSize();
@@ -76,8 +77,7 @@ namespace kvdb {
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, 
                         deleted_entries, segment_size, number_segments, 
                         0, (off_t)db_sb_size, (off_t)db_index_size,
-                        (off_t)db_data_size, (off_t)device_size,
-                        (off_t)db_meta_size, (off_t)db_meta_size);
+                        (off_t)db_data_size, (off_t)device_size);
 
         ds->m_sb_manager->SetSuperBlock(sb);
 
@@ -134,7 +134,7 @@ namespace kvdb {
 
 
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
-        m_index_manager = new IndexManager(m_data_handle, m_bdev);
+        m_index_manager = new IndexManager(m_bdev);
 
         offset += SuperBlockManager::GetSuperBlockSizeOnDevice();
 
@@ -149,6 +149,8 @@ namespace kvdb {
         {
             return false;
         }
+
+
 
         return true;
     }
@@ -187,11 +189,25 @@ namespace kvdb {
             m_index_manager = NULL;
         }
 
+        if (m_segment_manager)
+        {
+            delete m_segment_manager;
+            m_segment_manager = NULL;
+        }
+
+        if (m_data_handle)
+        {
+            delete m_data_handle;
+            m_data_handle = NULL;
+        }
+
         if (!this->ReadMetaDataFromDevice())
         {
             perror("could not read  hash table file\n");
             return false;
         }
+
+        m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
         return true;
     }
 
@@ -204,19 +220,19 @@ namespace kvdb {
         }
         delete m_index_manager;
         delete m_sb_manager;
-        delete m_bdev;
         delete m_data_handle;
         delete m_segment_manager;
+        delete m_bdev;
     }
 
     KvdbDS::KvdbDS(const string& filename) :
         m_filename(filename)
     {
         m_bdev = BlockDevice::CreateDevice();
-        m_data_handle = new DataHandle(m_bdev);
-        m_sb_manager = new SuperBlockManager(m_bdev);
-        m_index_manager = new IndexManager(m_data_handle, m_bdev);
         m_segment_manager = new SegmentManager(m_bdev);
+        m_sb_manager = new SuperBlockManager(m_bdev);
+        m_index_manager = new IndexManager(m_bdev);
+        m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
     }
 
 
@@ -227,7 +243,6 @@ namespace kvdb {
             return false;
         }
 
-        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
         if (m_sb_manager->IsElementFull())
         {
             fprintf(stderr, "Error: hash table full!\n");
@@ -238,21 +253,14 @@ namespace kvdb {
         Kvdb_Digest digest;
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        uint64_t offset = sb.data_insertion_point + sizeof(DataHeader);
-        uint64_t next_offset = sb.data_insertion_point + sizeof(DataHeader) + length;
-        DataHeader data_header(digest, length, offset, next_offset);
-
-        if (!m_data_handle->WriteData(&data_header, data, length, sb.data_insertion_point))
+        if (!m_data_handle->WriteData(digest, data, length))
         {
             fprintf(stderr, "Can't write to underlying datastore\n");
             return false;
         }
 
-        // update the hashtable (since the data was successfully written).
-        m_index_manager->UpdateIndexFromInsert(&data_header, &digest, sb.data_insertion_point);
 
-
-        sb.data_insertion_point += sizeof(DataHeader) + length;
+        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
         if (data!= NULL)
         {
             sb.number_elements++;

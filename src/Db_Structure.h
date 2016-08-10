@@ -28,45 +28,6 @@
 #define ERR (-1)
 
 namespace kvdb {
-    //struct DBSuperBlock {
-    //    uint64_t magic_number;
-    //    uint64_t hashtable_size;
-    //    uint64_t number_elements;
-    //    uint64_t deleted_elements;
-    //    double max_deleted_ratio;
-    //    double max_load_factor;
-    //    off_t data_insertion_point;  // offset to where the next record should go
-    //    off_t data_start_point;  // offset showing where first record is
-    //    uint64_t segment_size;
-    //    uint64_t number_segments;
-    //} __attribute__((__packed__));
-
-
-    //struct DataHeader {
-    //    uint32_t key_digest[KEYDIGEST_SIZE];
-    //    uint16_t data_size;
-    //    uint32_t data_offset;
-    //    uint32_t next_header_offset;
-    //} __attribute__((__packed__));
-
-    ////struct DataHeaderOffset{
-    ////    uint32_t segment_id;
-    ////    uint32_t header_offset;
-    ////}__attribute__((__packed__));
-    //struct DataHeaderOffset{
-    //    uint32_t physical_offset;
-    //}__attribute__((__packed__));
-
-    //struct HashEntryOnDisk {
-    //    DataHeader header;
-    //    DataHeaderOffset header_offset;
-    //} __attribute__((__packed__));
-
-    //struct HashEntry {
-    //    HashEntryOnDisk hash_entry;
-    //    uint32_t pointer;
-    //} __attribute__((__packed__));
-
 
 }  // namespace kvdb
 
