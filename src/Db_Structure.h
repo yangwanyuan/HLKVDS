@@ -30,6 +30,9 @@
 typedef uint16_t U16;
 typedef uint32_t U32;
 typedef uint64_t U64;
+typedef int16_t S16;
+typedef int32_t S32;
+typedef int64_t S64;
 
 namespace kvdb {
 

@@ -144,7 +144,7 @@ namespace kvdb{
         return *this;
     }
 
-    bool IndexManager::InitIndexForCreateDB(uint64_t numObjects)
+    bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
     {
         m_size = ComputeHashSizeForCreateDB(numObjects);
         
@@ -156,12 +156,13 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint64_t ht_size)
+    bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint32_t ht_size)
     {
         m_size = ht_size;
 
         //Read timestamp from device
-        ssize_t timeLength = Timing::GetTimeSizeOf();
+        //ssize_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = Timing::GetTimeSizeOf();
         if (!_RebuildTime(offset))
         {
             return false;
@@ -180,7 +181,8 @@ namespace kvdb{
 
     bool IndexManager::_RebuildTime(uint64_t offset)
     {
-        ssize_t timeLength = Timing::GetTimeSizeOf();
+        //ssize_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = Timing::GetTimeSizeOf();
         time_t _time;
         if (m_bdev->pRead(&_time, timeLength, offset) != timeLength)
         {
@@ -194,7 +196,8 @@ namespace kvdb{
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
         //Write timestamp to device
-        ssize_t timeLength = Timing::GetTimeSizeOf();
+        //ssize_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = Timing::GetTimeSizeOf();
         if (!_PersistTime(offset))
         {
             return false;
@@ -214,7 +217,8 @@ namespace kvdb{
 
     bool IndexManager::_PersistTime(uint64_t offset)
     {
-        ssize_t timeLength = Timing::GetTimeSizeOf();
+        //ssize_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = Timing::GetTimeSizeOf();
         m_last_timestamp->Update();
         time_t _time =m_last_timestamp->GetTime();
 
@@ -276,7 +280,7 @@ namespace kvdb{
         return false;
     }
 
-    uint64_t IndexManager::GetIndexSizeOnDevice(uint64_t ht_size)
+    uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
     {
         uint64_t index_size = sizeof(time_t) + sizeof(HashEntryOnDisk) * ht_size;
         uint64_t index_size_pages = index_size / getpagesize();
@@ -316,7 +320,7 @@ namespace kvdb{
         return number;
     }
 
-    void IndexManager::CreateListIfNotExist(int index)
+    void IndexManager::CreateListIfNotExist(uint32_t index)
     {
         if (!m_hashtable[index])
         {
@@ -326,11 +330,11 @@ namespace kvdb{
         return;
     }
 
-    bool IndexManager::InitHashTable(int size)
+    bool IndexManager::InitHashTable(uint32_t size)
     {
         m_hashtable =  new LinkedList<HashEntry>*[m_size];
 
-        for (int i = 0; i < size; i++)
+        for (uint32_t i = 0; i < size; i++)
         {
             m_hashtable[i]=NULL;
         }
@@ -339,7 +343,7 @@ namespace kvdb{
 
     void IndexManager::DestroyHashTable()
     {
-        for (int i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < m_size; i++)
         {
             if (m_hashtable[i])
             {
@@ -397,7 +401,8 @@ namespace kvdb{
 
     bool IndexManager::_LoadDataFromDevice(void* data, uint64_t length, uint64_t offset)
     {
-        ssize_t nread;
+        //ssize_t nread;
+        int64_t nread;
         uint64_t h_offset = 0;
         while ((nread = m_bdev->pRead((uint64_t *)data + h_offset, length, offset)) > 0){
             length -= nread;
@@ -414,7 +419,8 @@ namespace kvdb{
 
     bool IndexManager::_WriteDataToDevice(void* data, uint64_t length, uint64_t offset)
     {
-        ssize_t nwrite;
+        //ssize_t nwrite;
+        int64_t nwrite;
         uint64_t h_offset = 0;
         while ((nwrite = m_bdev->pWrite((uint64_t *)data + h_offset, length, offset)) > 0){
             length -= nwrite;
@@ -433,7 +439,7 @@ namespace kvdb{
     {
         //Convert hashtable from device to memory
         int entry_index = 0;
-        for (int i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < m_size; i++)
         {
             
             int entry_num = counter[i];
@@ -460,7 +466,7 @@ namespace kvdb{
         //write hashtable to device
         uint64_t table_length = sizeof(int) * m_size;
         int* counter = new int[m_size];
-        for (int i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < m_size; i++)
         {
             counter[i] = (m_hashtable[i]? m_hashtable[i]->get_size(): 0);
             entry_total += counter[i];
@@ -478,7 +484,7 @@ namespace kvdb{
         uint64_t length = sizeof(HashEntryOnDisk) * entry_total;
         HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
         int entry_index = 0;
-        for (int i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < m_size; i++)
         {
             if (!m_hashtable[i])
             {

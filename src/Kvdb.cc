@@ -6,8 +6,8 @@ namespace kvdb{
 DB *DB::m_db = NULL;
 
 bool DB::CreateDB(string filename, 
-                uint64_t hash_table_size,
-                uint64_t segment_size){
+                uint32_t hash_table_size,
+                uint32_t segment_size){
         
     KvdbDS* kvdb_db;
     kvdb_db = KvdbDS::Create_KvdbDS(filename.c_str(), 
@@ -81,7 +81,7 @@ DB::~DB(){
     //std::cout << "DB destory success" <<std::endl;
 }
 
-bool DB::Insert(const char* key, uint32_t key_len,const char* data, uint32_t length){
+bool DB::Insert(const char* key, uint32_t key_len,const char* data, uint16_t length){
     if (!m_kvdb_db->Insert(key, key_len, data, length))
     {
         std::cout << "DB Insert failed" <<std::endl;

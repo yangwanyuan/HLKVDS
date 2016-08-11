@@ -9,11 +9,6 @@
 
 namespace kvdb{
 
-    bool DataHandle::ReadDataHeader(off_t offset, DataHeader &data_header, string &key)
-    {
-        return true;
-    }
-
     bool DataHandle::ReadData(HashEntry* entry, string &data)
     {
         uint16_t data_len = entry->entryOndisk.header.data_size;
@@ -41,7 +36,7 @@ namespace kvdb{
         return true;
     }
     
-    bool DataHandle::WriteData(Kvdb_Digest digest, const char* data, uint32_t length)
+    bool DataHandle::WriteData(Kvdb_Digest digest, const char* data, uint16_t length)
     {
         /**************************************************************************************
         //Struct DataHeader *data_header = new DataHeader;
@@ -92,7 +87,8 @@ namespace kvdb{
         iov[2].iov_base = const_cast<char *>(data);
         iov[2].iov_len = length;
 
-        if (m_bdev->pWritev(iov, 3, seg_offset) != (ssize_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
+        //if (m_bdev->pWritev(iov, 3, seg_offset) != (ssize_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
+        if (m_bdev->pWritev(iov, 3, seg_offset) != (int64_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
             fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
             return false;
         }
@@ -123,11 +119,6 @@ namespace kvdb{
 
     }
     
-    bool DataHandle::DeleteData(const char* key, uint32_t key_len, off_t offset) 
-    {
-
-        return true;
-    }
 
     DataHandle::DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm):
         m_bdev(bdev), m_sbm(sbm), m_im(im), m_sm(sm)
@@ -148,7 +139,7 @@ namespace kvdb{
         }
     }
 
-    bool SegmentSlice::Put(DataHeader& header, const char* data, uint32_t length)
+    bool SegmentSlice::Put(DataHeader& header, const char* data, uint16_t length)
     {
         SegmentOnDisk seg_ondisk;
         m_len = sizeof(SegmentOnDisk) + sizeof(DataHeader) + length;

@@ -16,7 +16,6 @@ namespace kvdb{
 
     class DataHeader {
     public:
-        //uint32_t key_digest[KEYDIGEST_SIZE];
         Kvdb_Digest key_digest;
         uint16_t data_size;
         uint32_t data_offset;
@@ -83,26 +82,26 @@ namespace kvdb{
 
     class IndexManager{
     public:
-        static uint64_t GetIndexSizeOnDevice(uint64_t ht_size);
-        bool InitIndexForCreateDB(uint64_t ht_size);
+        static uint64_t GetIndexSizeOnDevice(uint32_t ht_size);
+        bool InitIndexForCreateDB(uint32_t numObjects);
 
-        bool LoadIndexFromDevice(uint64_t offset, uint64_t ht_size);
+        bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
         bool UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset);
         bool GetHashEntry(Kvdb_Digest *digest, HashEntry &hash_entry);
 
         
-        int GetHashTableSize(){return m_size;}
+        uint32_t GetHashTableSize(){return m_size;}
 
         IndexManager(BlockDevice* bdev);
         ~IndexManager();
 
     private:
         uint32_t ComputeHashSizeForCreateDB(uint32_t number);
-        void CreateListIfNotExist(int index);
+        void CreateListIfNotExist(uint32_t index);
 
-        bool InitHashTable(int size);
+        bool InitHashTable(uint32_t size);
         void DestroyHashTable();
 
         bool _RebuildHashTable(uint64_t offset);
@@ -116,7 +115,7 @@ namespace kvdb{
 
 
         LinkedList<HashEntry>** m_hashtable;  
-        int m_size;
+        uint32_t m_size;
         BlockDevice* m_bdev;
 
         Timing* m_last_timestamp;

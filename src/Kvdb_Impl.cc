@@ -14,17 +14,17 @@
 namespace kvdb {
 
     KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
-                                    uint64_t hash_table_size,
-                                    uint64_t segment_size)
+                                    uint32_t hash_table_size,
+                                    uint32_t segment_size)
     {
         if (filename == NULL)
         {
             return NULL;
         }
 
-        uint64_t num_entries = 0;
-        uint64_t deleted_entries = 0;
-        uint64_t number_segments = 0;
+        uint32_t num_entries = 0;
+        uint32_t deleted_entries = 0;
+        uint32_t number_segments = 0;
         uint64_t db_sb_size = 0;
         uint64_t db_index_size = 0;
         uint64_t db_meta_size = 0;
@@ -76,17 +76,17 @@ namespace kvdb {
 
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, 
                         deleted_entries, segment_size, number_segments, 
-                        0, (off_t)db_sb_size, (off_t)db_index_size,
-                        (off_t)db_data_size, (off_t)device_size);
+                        0, db_sb_size, db_index_size, db_data_size, 
+                        device_size);
 
         ds->m_sb_manager->SetSuperBlock(sb);
 
         printf("CreateKvdbDS table information:\n"
-               "\t hashtable_size            : %"PRIu64"\n"
-               "\t num_entries               : %"PRIu64"\n"
-               "\t deleted_entries           : %"PRIu64"\n"
-               "\t segment_size              : %"PRIu64" Bytes\n"
-               "\t number_segments           : %"PRIu64"\n"
+               "\t hashtable_size            : %d\n"
+               "\t num_entries               : %d\n"
+               "\t deleted_entries           : %d\n"
+               "\t segment_size              : %d Bytes\n"
+               "\t number_segments           : %d\n"
                "\t Database Superblock Size  : %"PRIu64" Bytes\n"
                "\t Database Index Size       : %"PRIu64" Bytes\n"
                "\t Total DB Meta Region Size : %"PRIu64" Bytes\n"
@@ -236,7 +236,7 @@ namespace kvdb {
     }
 
 
-    bool KvdbDS::Insert(const char* key, uint32_t key_len, const char* data, uint32_t length)
+    bool KvdbDS::Insert(const char* key, uint32_t key_len, const char* data, uint16_t length)
     {
         if (key == NULL)
         {

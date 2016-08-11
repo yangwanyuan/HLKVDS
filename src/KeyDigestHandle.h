@@ -17,10 +17,10 @@ namespace kvdb{
     class Kvdb_Key{
     private:
         char* value;
-        size_t len;
+        uint32_t len;
 
     public:
-        size_t GetLen(){return len;}
+        uint32_t GetLen(){return len;}
         char* GetValue(){return value;}
         Kvdb_Key(): value(NULL), len(0){}
         Kvdb_Key(const char* key, uint32_t key_len);

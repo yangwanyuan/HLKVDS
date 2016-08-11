@@ -16,13 +16,13 @@ namespace kvdb {
 
     class KvdbDS {
     public:
-        static KvdbDS* Create_KvdbDS(const char* filename, uint64_t hash_table_size,
-                                        uint64_t segment_size)
+        static KvdbDS* Create_KvdbDS(const char* filename, uint32_t hash_table_size,
+                                        uint32_t segment_size)
             __attribute__ ((warn_unused_result));
 
         static KvdbDS* Open_KvdbDS(const char* filename);
 
-        bool Insert(const char* key, uint32_t key_len, const char* data, uint32_t length)
+        bool Insert(const char* key, uint32_t key_len, const char* data, uint16_t length)
             __attribute__ ((warn_unused_result));
         bool Delete(const char* key, uint32_t key_len) __attribute__ ((warn_unused_result));
         bool Get(const char* key, uint32_t key_len, string &data) const
@@ -44,8 +44,6 @@ namespace kvdb {
         BlockDevice* m_bdev;
         SegmentManager* m_segment_manager;
         string m_filename;
-
-        static const double EXCESS_BUCKET_FACTOR = 1.1;
     };
 
 }  // namespace kvdb

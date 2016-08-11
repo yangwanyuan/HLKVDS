@@ -10,32 +10,21 @@ namespace kvdb{
 
     class DBSuperBlock {
     public:
-        uint64_t magic_number;
-        uint64_t hashtable_size;
-        uint64_t number_elements;
-        uint64_t deleted_elements;
-        //uint64_t segment_size;
-        //uint64_t number_segments;
-        //uint64_t current_segment;
+        uint32_t magic_number;
+        uint32_t hashtable_size;
+        uint32_t number_elements;
+        uint32_t deleted_elements;
         uint32_t segment_size;
         uint32_t number_segments;
         uint32_t current_segment;
-        //ssize_t db_sb_size;
-        //ssize_t db_index_size;
-        //ssize_t db_data_size;
-        //ssize_t device_size;
         uint64_t db_sb_size;
         uint64_t db_index_size;
         uint64_t db_data_size;
         uint64_t device_size;
         
     public:
-        //DBSuperBlock(uint64_t magic, uint64_t ht_size, uint64_t num_eles, 
-        //        uint64_t num_del, uint64_t seg_size, uint64_t num_seg, 
-        //        uint64_t cur_seg, ssize_t sb_size, ssize_t index_size, 
-        //        ssize_t data_size, ssize_t dev_size) :
-        DBSuperBlock(uint64_t magic, uint64_t ht_size, uint64_t num_eles, 
-                uint64_t num_del, uint32_t seg_size, uint32_t num_seg, 
+        DBSuperBlock(uint32_t magic, uint32_t ht_size, uint32_t num_eles, 
+                uint32_t num_del, uint32_t seg_size, uint32_t num_seg, 
                 uint32_t cur_seg, uint64_t sb_size, uint64_t index_size, 
                 uint64_t data_size, uint64_t dev_size) :
             magic_number(magic), hashtable_size(ht_size), 

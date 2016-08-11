@@ -38,13 +38,13 @@ namespace kvdb{
 
     class SegmentManager{
     public:
-        bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint64_t segment_size);
-        bool LoadSegmentTableFromDevice(uint64_t meta_size, uint64_t segment_size, uint64_t num_seg, uint64_t current_seg);
+        bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size);
+        bool LoadSegmentTableFromDevice(uint64_t meta_size, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
 
-        uint64_t GetNowSegId(){return m_current_seg;}
-        uint64_t GetNumberOfSeg(){return m_num_seg;}
+        uint32_t GetNowSegId(){return m_current_seg;}
+        uint32_t GetNumberOfSeg(){return m_num_seg;}
         uint64_t GetDataRegionSize(){return m_seg_size * m_num_seg;}
-        uint64_t GetSegmentSize(){return m_seg_size;}
+        uint32_t GetSegmentSize(){return m_seg_size;}
         
 
         bool GetEmptySegId(uint32_t& seg_id);
@@ -52,7 +52,7 @@ namespace kvdb{
         bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id);
         bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
 
-        void Update(uint64_t seg_id);
+        void Update(uint32_t seg_id);
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
@@ -60,9 +60,9 @@ namespace kvdb{
     private:
         vector<SegmentStat> m_seg_table;
         uint64_t m_begin_offset;
-        uint64_t m_seg_size;
-        uint64_t m_num_seg;
-        uint64_t m_current_seg;
+        uint32_t m_seg_size;
+        uint32_t m_num_seg;
+        uint32_t m_current_seg;
         bool m_is_full;
         
 
@@ -70,21 +70,6 @@ namespace kvdb{
 
 
     };
-
-    //class SegmentSlice{
-    //public:
-    //    SegmentSlice(uint64_t seg_id, SegmentManager* sm) :  
-    //        m_id(seg_id), m_sm(sm), m_data(NULL), m_len(0){}
-    //    ~SegmentSlice();
-
-    //    bool Put(DataHeader& header, char* data, uint32_t length);
-    //private:
-    //    uint64_t m_id;
-    //    SegmentManager* m_sm;
-    //    char* m_data;
-    //    uint32_t m_len;
-    //        
-    //};
 
 } //end namespace kvdb
 #endif // #ifndef _KV_DB_SEGMENT_MANAGER_H_
