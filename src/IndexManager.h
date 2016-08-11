@@ -27,13 +27,12 @@ namespace kvdb{
         DataHeader(const DataHeader& toBeCopied);
         ~DataHeader();
         DataHeader& operator=(const DataHeader& toBeCopied);
+        uint16_t GetDataSize(){return data_size;}
+        uint32_t GetDataOffset(){return data_offset;}
+        uint32_t GetNextHeadOffset(){return next_header_offset;}
 
     } __attribute__((__packed__));
 
-    //struct DataHeaderOffset{
-    //    uint32_t segment_id;
-    //    uint32_t header_offset;
-    //}__attribute__((__packed__));
     class DataHeaderOffset{
     public:
         uint64_t physical_offset;
@@ -44,6 +43,7 @@ namespace kvdb{
         DataHeaderOffset(const DataHeaderOffset& toBeCopied);
         ~DataHeaderOffset();
         DataHeaderOffset& operator=(const DataHeaderOffset& toBeCopied);
+        uint64_t GetHeaderOffset(){return physical_offset;}
 
     }__attribute__((__packed__));
 
@@ -60,6 +60,12 @@ namespace kvdb{
 
         bool operator== (const HashEntryOnDisk& toBeCompare);
         HashEntryOnDisk& operator= (const HashEntryOnDisk& toBeCopied);
+
+        uint64_t GetHeaderOffsetPhy(){return header_offset.GetHeaderOffset();}
+        uint16_t GetDataSize(){return header.GetDataSize();}
+        uint32_t GetDataOffsetInSeg(){return header.GetDataOffset();}
+        uint32_t GetNextHeadOffsetInSeg(){return header.GetNextHeadOffset();}
+
     } __attribute__((__packed__));
 
 
@@ -76,6 +82,13 @@ namespace kvdb{
         ~HashEntry();
         bool operator== (const HashEntry& toBeCompare);
         HashEntry& operator= (const HashEntry& toBeCopied);
+
+        uint64_t GetHeaderOffsetPhy(){return entryOndisk.GetHeaderOffsetPhy();}
+        uint16_t GetDataSize(){return entryOndisk.GetDataSize();}
+        uint32_t GetDataOffsetInSeg(){return entryOndisk.GetDataOffsetInSeg();}
+        uint32_t GetNextHeadOffsetInSeg(){return entryOndisk.GetNextHeadOffsetInSeg();}
+        void* GetReadCachePtr(){return pointer;}
+
     } __attribute__((__packed__));
 
     

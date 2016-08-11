@@ -11,18 +11,21 @@ namespace kvdb{
 
     bool DataHandle::ReadData(HashEntry* entry, string &data)
     {
-        uint16_t data_len = entry->entryOndisk.header.data_size;
-        uint64_t seg_offset;
-        uint64_t header_offset = entry->entryOndisk.header_offset.physical_offset;
-        m_sm->ComputeSegOffsetFromOffset(header_offset, seg_offset);
-        uint64_t data_offset = seg_offset + entry->entryOndisk.header.data_offset;
+        //uint16_t data_len = entry->entryOndisk.header.data_size;
+        uint16_t data_len = entry->GetDataSize();
         if (data_len == 0)
         { 
             return true;
         }
-    
+
+        uint64_t data_offset = 0;
+        if (!m_sm->ComputeDataOffsetPhyFromEntry(entry, data_offset))
+        {
+            return false;
+        }
+
         char *mdata = new char[data_len];
-        if ((uint64_t)m_bdev->pRead(mdata, data_len, data_offset) != data_len)
+        if (m_bdev->pRead(mdata, data_len, data_offset) != (ssize_t)data_len)
         {
             perror("Could not read data at position");
             delete[] mdata;

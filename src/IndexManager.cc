@@ -13,7 +13,6 @@ namespace kvdb{
 
     DataHeader::DataHeader() : data_size(0), data_offset(0), next_header_offset(0)
     {
-        //memset(&key_digest, 0, sizeof(Kvdb_Digest));
         ;
     }
 

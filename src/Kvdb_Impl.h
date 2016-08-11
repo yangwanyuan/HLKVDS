@@ -2,7 +2,6 @@
 #ifndef _KV_DB_KVDB_IMPL_H_
 #define _KV_DB_KVDB_IMPL_H_
 
-#include "HashFun.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"

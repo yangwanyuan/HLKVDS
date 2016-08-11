@@ -169,6 +169,18 @@ namespace kvdb{
         return true;
     }
 
+    bool SegmentManager::ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset)
+    {
+        uint64_t seg_offset = 0;
+        uint64_t header_offset = entry->GetHeaderOffsetPhy();
+        if (!ComputeSegOffsetFromOffset(header_offset, seg_offset))
+        {
+            return false;
+        }
+        data_offset = seg_offset + entry->GetDataOffsetInSeg();
+        return true;
+    }
+
     void SegmentManager::Update(uint32_t seg_id)
     {
         m_current_seg = seg_id;

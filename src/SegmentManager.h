@@ -6,6 +6,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "IndexManager.h"
 #include "Utils.h"
 
 using namespace std;
@@ -51,6 +52,8 @@ namespace kvdb{
         bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
         bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id);
         bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
+
+        bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
         void Update(uint32_t seg_id);
 
