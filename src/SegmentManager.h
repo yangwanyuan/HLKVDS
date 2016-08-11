@@ -47,9 +47,10 @@ namespace kvdb{
         uint64_t GetSegmentSize(){return m_seg_size;}
         
 
-        bool GetEmptySegId(uint64_t& seg_id);
-        bool ComputeSegOffsetFromId(uint64_t seg_id, uint64_t& offset);
-        bool ComputeSegIdFromOffset(uint64_t offset, uint64_t& seg_id);
+        bool GetEmptySegId(uint32_t& seg_id);
+        bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
+        bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id);
+        bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
 
         void Update(uint64_t seg_id);
 

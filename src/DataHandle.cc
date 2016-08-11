@@ -14,10 +14,13 @@ namespace kvdb{
         return true;
     }
 
-    bool DataHandle::ReadData(DataHeader* data_header, string &data)
+    bool DataHandle::ReadData(HashEntry* entry, string &data)
     {
-        uint32_t data_len = data_header->data_size;
-        uint32_t data_offset = data_header->data_offset;
+        uint16_t data_len = entry->entryOndisk.header.data_size;
+        uint64_t seg_offset;
+        uint64_t header_offset = entry->entryOndisk.header_offset.physical_offset;
+        m_sm->ComputeSegOffsetFromOffset(header_offset, seg_offset);
+        uint64_t data_offset = seg_offset + entry->entryOndisk.header.data_offset;
         if (data_len == 0)
         { 
             return true;
@@ -32,6 +35,9 @@ namespace kvdb{
         }
         data.assign(mdata, data_len);
         delete[] mdata;
+
+        __DEBUG("get data offset %ld", data_offset);
+
         return true;
     }
     
@@ -60,7 +66,7 @@ namespace kvdb{
         //delete data_header;
         ************************************************************************************/
 
-        uint64_t seg_id ;
+        uint32_t seg_id ;
         if (!m_sm->GetEmptySegId(seg_id))
         {
             return false;
@@ -69,9 +75,9 @@ namespace kvdb{
         uint64_t seg_offset; 
         m_sm->ComputeSegOffsetFromId(seg_id, seg_offset);
 
-        uint64_t head_offset = seg_offset + sizeof(SegmentOnDisk);
-        uint64_t data_offset = head_offset + sizeof(DataHeader);
-        uint64_t next_offset = data_offset + length;
+        uint32_t head_offset = sizeof(SegmentOnDisk);
+        uint32_t data_offset = head_offset + sizeof(DataHeader);
+        uint32_t next_offset = data_offset + length;
 
         SegmentOnDisk seg_ondisk(1);
         DataHeader data_header(digest, length, data_offset, next_offset);
@@ -102,7 +108,7 @@ namespace kvdb{
 
         m_sm->Update(seg_id);
 
-        m_im->UpdateIndexFromInsert(&data_header, &digest, head_offset);
+        m_im->UpdateIndexFromInsert(&data_header, &digest, head_offset, seg_offset);
 
         DBSuperBlock sb = m_sbm->GetSuperBlock();
         sb.current_segment = seg_id;
@@ -110,8 +116,8 @@ namespace kvdb{
 
         //delete slice;
 
-        __DEBUG("write seg_id:%ld, seg_offset: %ld, head_offset: %ld, data_offset:%ld, header_len:%ld, data_len:%ld", 
-                seg_id, seg_offset, head_offset, data_offset, (ssize_t)sizeof(DataHeader), (ssize_t)length );
+        __DEBUG("write seg_id:%d, seg_offset: %ld, head_offset: %d, data_offset:%d, header_len:%d, data_len:%d", 
+                seg_id, seg_offset, head_offset, data_offset, (uint32_t)sizeof(DataHeader), (uint32_t)length );
 
         return true;
 

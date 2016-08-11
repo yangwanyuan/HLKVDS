@@ -100,7 +100,7 @@ namespace kvdb{
         return true;
     }
 
-    bool SegmentManager::GetEmptySegId(uint64_t& seg_id)
+    bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
     {
         //if (m_is_full)
         //{
@@ -134,7 +134,7 @@ namespace kvdb{
         return false;
     }
 
-    bool SegmentManager::ComputeSegOffsetFromId(uint64_t seg_id, uint64_t& offset)
+    bool SegmentManager::ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
     {
         if(seg_id >= m_num_seg)
         {
@@ -144,7 +144,7 @@ namespace kvdb{
         return true;
     }
 
-    bool SegmentManager::ComputeSegIdFromOffset(uint64_t offset, uint64_t& seg_id)
+    bool SegmentManager::ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id)
     {
         if(offset < m_begin_offset || 
            offset > m_begin_offset + m_seg_size * (m_num_seg - 1))
@@ -152,6 +152,20 @@ namespace kvdb{
             return false;
         }
         seg_id = (offset - m_begin_offset )/ m_seg_size;
+        return true;
+    }
+
+    bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset)
+    {
+        uint32_t seg_id;
+        if (!ComputeSegIdFromOffset(offset, seg_id))
+        {
+            return false;
+        }
+        if (!ComputeSegOffsetFromId(seg_id, seg_offset))
+        {
+            return false;
+        }
         return true;
     }
 

@@ -10,7 +10,7 @@
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #include <unistd.h>
@@ -26,6 +26,10 @@
 
 #define OK 0
 #define ERR (-1)
+
+typedef uint16_t U16;
+typedef uint32_t U32;
+typedef uint64_t U64;
 
 namespace kvdb {
 

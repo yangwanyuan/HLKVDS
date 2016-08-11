@@ -6,7 +6,6 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-//#include "DataHandle.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
@@ -38,11 +37,11 @@ namespace kvdb{
     //}__attribute__((__packed__));
     class DataHeaderOffset{
     public:
-        uint32_t physical_offset;
+        uint64_t physical_offset;
 
     public:
         DataHeaderOffset(): physical_offset(0){}
-        DataHeaderOffset(uint32_t offset);
+        DataHeaderOffset(uint64_t offset);
         DataHeaderOffset(const DataHeaderOffset& toBeCopied);
         ~DataHeaderOffset();
         DataHeaderOffset& operator=(const DataHeaderOffset& toBeCopied);
@@ -90,7 +89,7 @@ namespace kvdb{
         bool LoadIndexFromDevice(uint64_t offset, uint64_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
-        bool UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset);
+        bool UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset);
         bool GetHashEntry(Kvdb_Digest *digest, HashEntry &hash_entry);
 
         

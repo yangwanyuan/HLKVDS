@@ -310,11 +310,10 @@ namespace kvdb {
             return false;
         }
 
-        if (!m_data_handle->ReadData(&(entry.entryOndisk.header), data))
+        if (!m_data_handle->ReadData(&entry, data))
         {
             return false;
         }
-        __DEBUG("get data offset %d", entry.entryOndisk.header.data_offset);
 
         return true;
     }

@@ -48,7 +48,7 @@ namespace kvdb{
     }
 
 
-    DataHeaderOffset::DataHeaderOffset(uint32_t offset)
+    DataHeaderOffset::DataHeaderOffset(uint64_t offset)
     {
         physical_offset = offset;
     }
@@ -226,11 +226,11 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset)
+    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset)
     {
         HashEntryOnDisk entry_ondisk;
         entry_ondisk.header = *data_header;
-        entry_ondisk.header_offset.physical_offset = header_offset;
+        entry_ondisk.header_offset.physical_offset = header_offset + seg_offset;
 
         HashEntry entry(entry_ondisk, NULL);
 

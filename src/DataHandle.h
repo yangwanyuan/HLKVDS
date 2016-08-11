@@ -17,7 +17,7 @@ namespace kvdb{
     class DataHandle{
     public:
         bool ReadDataHeader(off_t offset, DataHeader &data_header, string &key);
-        bool ReadData(DataHeader* data_header, string &data);
+        bool ReadData(HashEntry* entry, string &data);
         bool WriteData(Kvdb_Digest digest, const char* data, uint32_t length);
         bool DeleteData(const char* key, uint32_t key_len, off_t offset); 
 
@@ -32,7 +32,7 @@ namespace kvdb{
 
     class SegmentSlice{
     public:
-        SegmentSlice(uint64_t seg_id, SegmentManager* sm) :  
+        SegmentSlice(uint32_t seg_id, SegmentManager* sm) :  
             m_id(seg_id), m_sm(sm), m_data(NULL), m_len(0){}
         ~SegmentSlice();
 
