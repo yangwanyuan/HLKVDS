@@ -20,11 +20,8 @@ bool DB::CreateDB(string filename,
         std::cout << "CreateDB failed" << std::endl;
         return false;
     }
-    if (!kvdb_db->WriteMetaDataToDevice())
-    {
-        std::cout << "CreateDB write metadata to file Failed!" << std::endl;
-        return false;
-    }    
+
+    delete kvdb_db;
    
     return true;
 }
@@ -61,13 +58,11 @@ bool DB::OpenDB(string filename, DB** db){
 //      return m_db;
 //}
 
-bool DB::WriteIndexToFile(){
-    if (!m_kvdb_db->WriteMetaDataToDevice())
-    {
+bool DB::writeMeta(){
+    if(!m_kvdb_db->WriteMetaDataToDevice()){
         std::cout << "WriteIndexToFile failed" << std::endl;
         return false;
     }
-    //std::cout << "WriteIndexToFile success" <<std::endl;
     return true;
 }
 
@@ -77,7 +72,7 @@ DB::DB(){
 }
 
 DB::~DB(){
-    WriteIndexToFile();
+    writeMeta();
     //std::cout << "DB destory success" <<std::endl;
 }
 

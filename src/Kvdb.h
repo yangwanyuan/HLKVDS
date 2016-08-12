@@ -28,11 +28,12 @@ class DB{
         DB();
         DB(const DB &);
         DB& operator = (const DB &);
-        bool WriteIndexToFile();
+        bool writeMeta();
 
         string m_filename;
         KvdbDS *m_kvdb_db;
         static DB *m_db;
+
 };
 
 } // namespace kvdb

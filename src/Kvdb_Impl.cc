@@ -159,7 +159,7 @@ namespace kvdb {
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
         KvdbDS* ds = new KvdbDS(filename);
-        if (!ds->ReopenKvdbDS())
+        if (!ds->reopen())
         {
             delete ds;
             return NULL;
@@ -167,7 +167,7 @@ namespace kvdb {
         return ds;
     }
 
-    bool KvdbDS::ReopenKvdbDS()
+    bool KvdbDS::reopen()
     {
         int r = 0;
         r = m_bdev->Open(m_filename);
@@ -243,41 +243,48 @@ namespace kvdb {
             return false;
         }
 
-        if (m_sb_manager->IsElementFull())
-        {
-            fprintf(stderr, "Error: hash table full!\n");
-            return false;
-        }
-        
         Kvdb_Key vkey(key, key_len);
         Kvdb_Digest digest;
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        if (!m_data_handle->WriteData(digest, data, length))
+        if (!m_index_manager->IsKeyExist(&digest))
         {
-            fprintf(stderr, "Can't write to underlying datastore\n");
-            return false;
+            if (!insertNewKey(&digest, data, length))
+            {
+                return false;
+            }
         }
-
-
-        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
-        if (data!= NULL)
+        else
         {
-            sb.number_elements++;
+            if (!updateExistKey(&digest, data, length))
+            {
+                return false;
+            }
         }
-
-        m_sb_manager->SetSuperBlock(sb);
-
         return true;
     }
 
-    // External deletes always write a writeLog
     bool KvdbDS::Delete(const char* key, uint32_t key_len)
     {
-        if (!Insert(key, key_len, NULL, 0))
+        if (key == NULL)
+        {
+            return true;
+        }
+
+        Kvdb_Key vkey(key, key_len);
+        Kvdb_Digest digest;
+        KeyDigestHandle::ComputeDigest(&vkey, digest);
+
+        if (!m_index_manager->IsKeyExist(&digest))
+        {
+            return true;
+        }
+
+        if (!updateExistKey(&digest, NULL, 0))
         {
             return false;
         }
+
         
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
         sb.deleted_elements++;
@@ -299,13 +306,15 @@ namespace kvdb {
         Kvdb_Digest digest;
         KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        HashEntry entry;
-        if (!m_index_manager->GetHashEntry(&digest, entry))
+        if (!m_index_manager->IsKeyExist(&digest))
         {
             return false;
         }
 
-        if (entry.entryOndisk.header.data_size == 0 )
+        HashEntry entry;
+        m_index_manager->GetHashEntry(&digest, entry);
+
+        if (entry.GetDataSize() == 0 )
         {
             return false;
         }
@@ -314,6 +323,46 @@ namespace kvdb {
         {
             return false;
         }
+
+        return true;
+    }
+
+    bool KvdbDS::insertNewKey(Kvdb_Digest* digest, const char* data, uint16_t length)
+    {
+        if (m_sb_manager->IsElementFull())
+        {
+            fprintf(stderr, "Error: hash table full!\n");
+            return false;
+        }
+
+        if (!m_data_handle->WriteData(*digest, data, length))
+        {
+            fprintf(stderr, "Can't write to underlying datastore\n");
+            return false;
+        }
+
+        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
+        sb.number_elements++;
+        m_sb_manager->SetSuperBlock(sb);
+
+        return true;
+    }
+
+    bool KvdbDS::updateExistKey(Kvdb_Digest* digest, const char* data, uint16_t length)
+    {
+        if (m_sb_manager->IsElementFull())
+        {
+            fprintf(stderr, "Error: hash table full!\n");
+            return false;
+        }
+
+        if (!m_data_handle->WriteData(*digest, data, length))
+        {
+            fprintf(stderr, "Can't write to underlying datastore\n");
+            return false;
+        }
+
+        //TODO: do something for gc
 
         return true;
     }

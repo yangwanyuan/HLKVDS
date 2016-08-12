@@ -11,7 +11,6 @@ namespace kvdb{
 
     bool DataHandle::ReadData(HashEntry* entry, string &data)
     {
-        //uint16_t data_len = entry->entryOndisk.header.data_size;
         uint16_t data_len = entry->GetDataSize();
         if (data_len == 0)
         { 
@@ -64,7 +63,7 @@ namespace kvdb{
         //delete data_header;
         ************************************************************************************/
 
-        uint32_t seg_id ;
+        uint32_t seg_id = 0;
         if (!m_sm->GetEmptySegId(seg_id))
         {
             return false;

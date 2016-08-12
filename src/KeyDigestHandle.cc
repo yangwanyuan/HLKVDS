@@ -33,7 +33,7 @@ namespace kvdb{
         memset(value, 0, sizeof(Kvdb_Digest));
     }
 
-    Kvdb_Digest::Kvdb_Digest(Kvdb_Digest& toBeCopied)
+    Kvdb_Digest::Kvdb_Digest(const Kvdb_Digest& toBeCopied)
     {
         memcpy(value, toBeCopied.value, sizeof(Kvdb_Digest));
     }

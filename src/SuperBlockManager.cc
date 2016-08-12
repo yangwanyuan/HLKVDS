@@ -52,10 +52,6 @@ namespace kvdb{
         m_superblock->device_size           = sb.device_size;
     }
 
-    DBSuperBlock& SuperBlockManager::GetSuperBlock()
-    {
-        return *m_superblock;
-    }
 
     uint64_t SuperBlockManager::GetSuperBlockSizeOnDevice()
     {

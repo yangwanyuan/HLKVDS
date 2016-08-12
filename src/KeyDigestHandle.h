@@ -34,7 +34,7 @@ namespace kvdb{
 
     public:
         Kvdb_Digest();
-        Kvdb_Digest(Kvdb_Digest &toBeCopied);
+        Kvdb_Digest(const Kvdb_Digest &toBeCopied);
         ~Kvdb_Digest();
         Kvdb_Digest& operator=(const Kvdb_Digest& toBeCopied);
         bool operator==(const Kvdb_Digest& toBeCompare);
