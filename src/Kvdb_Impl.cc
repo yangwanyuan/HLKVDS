@@ -32,7 +32,6 @@ namespace kvdb {
         uint64_t db_size = 0;
         uint64_t device_size = 0;
         
-
         KvdbDS* ds = new KvdbDS(filename);
 
         db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
@@ -87,12 +86,12 @@ namespace kvdb {
                "\t deleted_entries           : %d\n"
                "\t segment_size              : %d Bytes\n"
                "\t number_segments           : %d\n"
-               "\t Database Superblock Size  : %"PRIu64" Bytes\n"
-               "\t Database Index Size       : %"PRIu64" Bytes\n"
-               "\t Total DB Meta Region Size : %"PRIu64" Bytes\n"
-               "\t Total DB Data Region Size : %"PRIu64" Bytes\n"
-               "\t Total DB Total Size       : %"PRIu64" Bytes\n"
-               "\t Total Device Size         : %"PRIu64" Bytes\n",
+               "\t Database Superblock Size  : %ld Bytes\n"
+               "\t Database Index Size       : %ld Bytes\n"
+               "\t Total DB Meta Region Size : %ld Bytes\n"
+               "\t Total DB Data Region Size : %ld Bytes\n"
+               "\t Total DB Total Size       : %ld Bytes\n"
+               "\t Total Device Size         : %ld Bytes\n",
                hash_table_size, num_entries, deleted_entries,
                segment_size, number_segments, db_sb_size, 
                db_index_size, db_meta_size, db_data_size, 

@@ -34,7 +34,7 @@ namespace kvdb{
         ~SegmentSlice();
 
         bool Put(DataHeader& header, const char* data, uint16_t length);
-        const void* GetData() const {return m_data;}
+        const void* GetSlice() const {return m_data;}
         uint32_t GetLength() const {return m_len;}
     private:
         uint32_t m_id;
@@ -42,7 +42,6 @@ namespace kvdb{
         uint32_t m_seg_size;
         char* m_data;
         uint32_t m_len;
-            
     };
 
 } //end namespace kvdb

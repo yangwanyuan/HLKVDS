@@ -4,6 +4,7 @@
 #include <time.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#include <pthread.h>
 
 namespace kvdb{
     class Timing{
@@ -24,6 +25,43 @@ namespace kvdb{
         ~Timing();
     private:
         time_t m_time_stamp;
+    };
+
+    class Thread
+    {
+    public:
+        Thread();
+        virtual ~Thread();
+
+        int Start();
+        int Join();
+        int Detach();
+        pthread_t Self();
+
+        virtual void* Entry() = 0;
+
+
+    private:
+        pthread_t m_tid;
+        int m_running;
+        int m_detached;
+
+        void* entry_wrapper();
+        static void* runThread(void* arg);
+    };
+
+    class Mutex
+    {
+    public:
+        Mutex() {pthread_mutex_init(&m_mutex, NULL);}
+        virtual ~Mutex() {pthread_mutex_destroy(&m_mutex);}
+
+        int Lock() { return pthread_mutex_lock(&m_mutex);}
+        int Trylock() { return pthread_mutex_trylock(&m_mutex);}
+        int Unlock() { return pthread_mutex_unlock(&m_mutex);}
+
+    private:
+        pthread_mutex_t m_mutex;
     };
 
 }

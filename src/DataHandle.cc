@@ -86,7 +86,7 @@ namespace kvdb{
         SegmentSlice slice(seg_id, m_sm);
         slice.Put(data_header, data, length);
 
-        if (m_bdev->pWrite(slice.GetData(), slice.GetLength(), seg_offset) != slice.GetLength()) {
+        if (m_bdev->pWrite(slice.GetSlice(), slice.GetLength(), seg_offset) != slice.GetLength()) {
             fprintf(stderr, "Could  write data to device: %s\n", strerror(errno));
             return false;
         }
