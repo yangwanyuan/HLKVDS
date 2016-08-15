@@ -38,30 +38,8 @@ namespace kvdb{
         return true;
     }
     
-    bool DataHandle::WriteData(Kvdb_Digest digest, const char* data, uint16_t length)
+    bool DataHandle::WriteData(Kvdb_Digest& digest, const char* data, uint16_t length)
     {
-        /**************************************************************************************
-        //Struct DataHeader *data_header = new DataHeader;
-        ////data_header.key = digest->value;
-        //memcpy(data_header->key, (digest->value), sizeof(Kvdb_Digest));
-        //Data_header->data_size = length;
-        //Data_header->data_offset = offset + sizeof(DataHeader);
-        //Data_header->next_header_offset = offset + sizeof(DataHeader) + length;
-
-        //struct iovec iov[3];
-        //iov[0].iov_base = &data_header;
-        //iov[0].iov_len = sizeof(DataHeader);
-        //iov[1].iov_base = const_cast<char *>(key);
-        //iov[1].iov_len = key_len;
-        //iov[2].iov_base = const_cast<char *>(data);
-        //iov[2].iov_len = length;
-
-        //if (m_bdev->pWritev(iov, 3, offset) != (ssize_t) (sizeof(DataHeader) + key_len + length)) {
-        //    fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
-        //    return false;
-        //}
-        //delete data_header;
-        ************************************************************************************/
 
         uint32_t seg_id = 0;
         if (!m_sm->GetEmptySegId(seg_id))
@@ -78,41 +56,49 @@ namespace kvdb{
 
         SegmentOnDisk seg_ondisk(1);
         DataHeader data_header(digest, length, data_offset, next_offset);
-        //m_bdev->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), seg_offset);
-        //m_bdev->pWrite(&data_header, sizeof(DataHeader), head_offset);
-        //m_bdev->pWrite(data, length, data_offset);
-        struct iovec iov[3];
-        iov[0].iov_base = &seg_ondisk;
-        iov[0].iov_len = sizeof(SegmentOnDisk);
-        iov[1].iov_base = &data_header;
-        iov[1].iov_len = sizeof(DataHeader);
-        iov[2].iov_base = const_cast<char *>(data);
-        iov[2].iov_len = length;
 
-        //if (m_bdev->pWritev(iov, 3, seg_offset) != (ssize_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
-        if (m_bdev->pWritev(iov, 3, seg_offset) != (int64_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
-            fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
+        ////---Write data to device 1:
+        //
+        //m_bdev->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), seg_offset);
+        //m_bdev->pWrite(&data_header, sizeof(DataHeader), seg_offset + head_offset);
+        //m_bdev->pWrite(data, length, seg_offset + data_offset);
+        //
+        ////---Write data to device 1 end
+
+
+        ////---Write data to device 2:
+        //struct iovec iov[3];
+        //iov[0].iov_base = &seg_ondisk;
+        //iov[0].iov_len = sizeof(SegmentOnDisk);
+        //iov[1].iov_base = &data_header;
+        //iov[1].iov_len = sizeof(DataHeader);
+        //iov[2].iov_base = const_cast<char *>(data);
+        //iov[2].iov_len = length;
+
+        //if (m_bdev->pWritev(iov, 3, seg_offset) != (int64_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
+        //    fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
+        //    return false;
+        //}
+        ////---Write data to device 2 end
+
+
+        //---Write data to device 3:
+        SegmentSlice slice(seg_id, m_sm);
+        slice.Put(data_header, data, length);
+
+        if (m_bdev->pWrite(slice.GetData(), slice.GetLength(), seg_offset) != slice.GetLength()) {
+            fprintf(stderr, "Could  write data to device: %s\n", strerror(errno));
             return false;
         }
+        //---Write data to device 3 end
 
-        //SegmentSlice *slice = new SegmentSlice(seg_id, m_sm);
-        //slice->Put(data_header, data, length);
-        //char* wptr;
-        //wptr = NULL;
-        //uint32_t w_len = 0;
-        //slice->GetData(wptr, w_len);
-
-        //m_bdev->pWrite(wptr, w_len, seg_offset);
 
         m_sm->Update(seg_id);
-
         m_im->UpdateIndexFromInsert(&data_header, &digest, head_offset, seg_offset);
-
         DBSuperBlock sb = m_sbm->GetSuperBlock();
         sb.current_segment = seg_id;
         m_sbm->SetSuperBlock(sb);
 
-        //delete slice;
 
         __DEBUG("write seg_id:%d, seg_offset: %ld, head_offset: %d, data_offset:%d, header_len:%d, data_len:%d", 
                 seg_id, seg_offset, head_offset, data_offset, (uint32_t)sizeof(DataHeader), (uint32_t)length );
@@ -141,24 +127,26 @@ namespace kvdb{
         }
     }
 
+    SegmentSlice::SegmentSlice(uint32_t seg_id, SegmentManager* sm)
+        : m_id(seg_id), m_sm(sm)
+    {
+        m_seg_size = m_sm->GetSegmentSize();
+        m_data = new char[m_seg_size];
+        //memset(m_data, 0, m_seg_size);
+        m_len = 0;
+    }
+
     bool SegmentSlice::Put(DataHeader& header, const char* data, uint16_t length)
     {
         SegmentOnDisk seg_ondisk;
         m_len = sizeof(SegmentOnDisk) + sizeof(DataHeader) + length;
-        m_data = new char[m_len];
         memcpy(m_data, &seg_ondisk, sizeof(SegmentOnDisk));
         memcpy(&m_data[sizeof(SegmentOnDisk)], &header, sizeof(DataHeader));
-        memcpy(&m_data[sizeof(SegmentOnDisk) + sizeof(DataHeader)], &data, length);
+        memcpy(&m_data[sizeof(SegmentOnDisk) + sizeof(DataHeader)], data, length);
 
         return true;
     }
     
-    void SegmentSlice::GetData(char* ptr, uint32_t len)
-    {
-        ptr = m_data;
-        len = m_len;
-    }
-
 
 }
 

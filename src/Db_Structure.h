@@ -10,7 +10,7 @@
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
 
-#define DEBUG
+//#define DEBUG
 
 #ifdef DEBUG
 #include <unistd.h>
