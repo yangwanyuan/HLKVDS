@@ -2,6 +2,8 @@
 #ifndef _KV_DB_KVDB_IMPL_H_
 #define _KV_DB_KVDB_IMPL_H_
 
+#include <list>
+
 #include "Db_Structure.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
@@ -29,19 +31,47 @@ namespace kvdb {
         bool ReadMetaDataFromDevice();
 
         virtual ~KvdbDS();
+
     private:
         KvdbDS(const string& filename);
         bool reopen();
+        void resetThreads();
 
         bool insertNewKey(Kvdb_Digest* digest, const char* data, uint16_t length);
         bool updateExistKey(Kvdb_Digest* digest, const char* data, uint16_t length);
 
+    private:
         SuperBlockManager* m_sb_manager;
         IndexManager* m_index_manager;
         DataHandle* m_data_handle;
         BlockDevice* m_bdev;
         SegmentManager* m_segment_manager;
         string m_filename;
+
+        Mutex *m_mutex;
+        Cond *m_cond;
+
+    private:
+        friend class ReqsThread;
+        class ReqsThread : public Thread
+        {
+        public:
+            ReqsThread(): m_db(NULL){}
+            ReqsThread(KvdbDS* db): m_db(db){}
+            virtual ~ReqsThread(){}
+            ReqsThread(ReqsThread& toCopied) = delete;
+            ReqsThread& operator=(ReqsThread& toCopied) = delete;
+
+            virtual void* Entry() { return m_db->ReqsThreadEntry(); }
+
+        private:
+            friend class KvdbDS;
+            KvdbDS* m_db;
+        };
+        ReqsThread m_reqs_t;
+        std::list<Request*> m_reqs;
+        void* ReqsThreadEntry();
+
     };
 
 }  // namespace kvdb

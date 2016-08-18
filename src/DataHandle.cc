@@ -8,7 +8,120 @@
 #include "DataHandle.h"
 
 namespace kvdb{
+    KVSlice::KVSlice()
+        : m_key(NULL), m_keyLen(0), m_data(NULL), m_dataLen(0), m_digest(NULL), m_Iscomputed(false) {}
 
+    KVSlice::~KVSlice()
+    {
+        if (m_key)
+        {
+            delete m_key;
+        }
+        if (m_data)
+        {
+            delete m_data;
+        }
+        if (m_digest)
+        {
+            delete m_digest;
+        }
+    }
+
+    KVSlice::KVSlice(const KVSlice& toCopied)
+        : m_key(NULL), m_keyLen(0), m_data(NULL), m_dataLen(0), m_digest(NULL), m_Iscomputed(false)
+    {
+        copy_helper(toCopied);
+    }
+
+    KVSlice& KVSlice::operator=(const KVSlice& toCopied)
+    {
+        copy_helper(toCopied);
+        return *this;
+    }
+
+    void KVSlice::copy_helper(const KVSlice& toCopied)
+    {
+        m_keyLen = toCopied.GetKeyLen();
+        m_dataLen = toCopied.GetDataLen();
+        m_key = new char[m_keyLen];
+        m_data = new char[m_dataLen];
+        memcpy(m_key, toCopied.GetKey(), m_keyLen);
+        memcpy(m_data, toCopied.GetData(), m_dataLen);
+        *m_digest = toCopied.GetDigest();
+        m_Iscomputed = toCopied.IsDigestComputed();
+    }
+
+    KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len)
+        : m_key(NULL), m_keyLen(0), m_data(NULL), m_dataLen(0), m_digest(NULL), m_Iscomputed(false)
+    {
+        SetKeyValue(key, key_len, data, data_len);
+    }
+
+    void KVSlice::SetKeyValue(const char* key, int key_len, const char* data, int data_len)
+    {
+        m_Iscomputed = false;
+        m_keyLen = key_len;
+        m_dataLen = data_len;
+        m_key = new char[m_keyLen];
+        m_data = new char[m_dataLen];
+        memcpy(m_key, key, m_keyLen);
+        memcpy(m_data, data, m_dataLen);
+    }
+
+    bool KVSlice::ComputeDigest()
+    {
+        if (!m_key)
+        {
+            return false;
+        }
+        m_digest = new Kvdb_Digest();
+        Kvdb_Key vkey(m_key, m_keyLen);
+        KeyDigestHandle::ComputeDigest(&vkey, *m_digest);
+
+        m_Iscomputed = true;
+
+        return true;
+    }
+
+    string KVSlice::GetKeyStr() const
+    {
+        char * data = new char[m_keyLen + 1];
+        memcpy(data, m_key, m_keyLen);
+        data[m_keyLen] = '\0';
+        string r(data);
+        delete[] data;
+        return r;
+    }
+
+    string KVSlice::GetDataStr() const
+    {
+        char * data = new char[m_dataLen + 1];
+        memcpy(data, m_data, m_dataLen);
+        data[m_dataLen] = '\0';
+        string r(data);
+        delete[] data;
+        return r;
+    }
+
+    Request::Request(): m_done(0), m_write_stat(false), m_slice(NULL) {}
+
+    Request::~Request() {}
+
+    Request::Request(const Request& toCopied)
+        : m_done(toCopied.m_done), m_write_stat(toCopied.m_write_stat), m_slice(toCopied.m_slice){}
+
+    Request& Request::operator=(const Request& toCopied)
+    {
+        m_done = toCopied.m_done;
+        m_write_stat = toCopied.m_write_stat;
+        m_slice = toCopied.m_slice;
+        return *this;
+    }
+
+    Request::Request(KVSlice& slice) : m_done(0), m_write_stat(false), m_slice(&slice){}
+
+
+////////////////////////////////////////////////////////////////////////////////
     bool DataHandle::ReadData(HashEntry* entry, string &data)
     {
         uint16_t data_len = entry->GetDataSize();
@@ -109,15 +222,9 @@ namespace kvdb{
     
 
     DataHandle::DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm):
-        m_bdev(bdev), m_sbm(sbm), m_im(im), m_sm(sm)
-    {
-        ;
-    }
+        m_bdev(bdev), m_sbm(sbm), m_im(im), m_sm(sm){}
 
-    DataHandle::~DataHandle()
-    {
-        ;
-    }
+    DataHandle::~DataHandle(){}
 
     SegmentSlice::~SegmentSlice()
     {
@@ -149,5 +256,4 @@ namespace kvdb{
     
 
 }
-
 

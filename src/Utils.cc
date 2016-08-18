@@ -66,26 +66,14 @@ namespace kvdb{
 
     void* Thread::runThread(void* arg)
     {
-        return ((Thread*)arg)->entry_wrapper();
+        return ((Thread*)arg)->Entry();
     }
 
     Thread::Thread() : m_tid(0), m_running(0), m_detached(0){}
 
     Thread::~Thread()
     {
-        if (m_running == 1 && m_detached == 0)
-        {
-            pthread_detach(m_tid);
-        }
-        if (m_running == 1)
-        {
-            pthread_cancel(m_tid);
-        }
-    }
-
-    void* Thread::entry_wrapper()
-    {
-        return Entry();
+        Kill();
     }
 
     int Thread::Start()
@@ -126,8 +114,37 @@ namespace kvdb{
         return result;
     }
 
+    int Thread::Kill()
+    {
+        if (m_tid == 0)
+        {
+            return 0;
+        }
+
+        int result = -1;
+        if (m_running == 1 && m_detached == 0)
+        {
+            result = pthread_detach(m_tid);
+            if (result == 0)
+            {
+                m_detached = 1;
+            }
+        }
+        if (m_running == 1)
+        {
+            result = pthread_cancel(m_tid);
+            if (result == 0)
+            {
+                m_running = 1;
+            }
+        }
+        m_tid = 0;
+        return result;
+    }
+
     pthread_t Thread::Self()
     {
         return m_tid;
     }
+
 } // namespace kvdb

@@ -3,9 +3,9 @@
 #include <string.h>
 #include <inttypes.h>
 
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS
-#endif
+//#ifndef __STDC_FORMAT_MACROS
+//#define __STDC_FORMAT_MACROS
+//#endif
 
 #include "Kvdb_Impl.h"
 #include "KeyDigestHandle.h"
@@ -97,6 +97,7 @@ namespace kvdb {
                db_index_size, db_meta_size, db_data_size, 
                db_size, device_size);
 
+        ds->resetThreads();
         return ds; 
     }
 
@@ -207,9 +208,18 @@ namespace kvdb {
         }
 
         m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
+
+        resetThreads();
         return true;
+
     }
 
+    void KvdbDS::resetThreads()
+    {
+        m_reqs_t.Kill();
+        m_reqs_t.Start();
+        m_reqs_t.Detach();
+    }
 
     KvdbDS::~KvdbDS()
     {
@@ -222,16 +232,23 @@ namespace kvdb {
         delete m_data_handle;
         delete m_segment_manager;
         delete m_bdev;
+
+        delete m_cond;
+        delete m_mutex;
+
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        m_filename(filename)
+        m_filename(filename), m_reqs_t(this)
     {
         m_bdev = BlockDevice::CreateDevice();
         m_segment_manager = new SegmentManager(m_bdev);
         m_sb_manager = new SuperBlockManager(m_bdev);
         m_index_manager = new IndexManager(m_bdev);
         m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
+
+        m_mutex = new Mutex;
+        m_cond = new Cond(*m_mutex);
     }
 
 
@@ -242,25 +259,41 @@ namespace kvdb {
             return false;
         }
 
-        Kvdb_Key vkey(key, key_len);
-        Kvdb_Digest digest;
-        KeyDigestHandle::ComputeDigest(&vkey, digest);
+        ////----------  sync write begin ----------------------/
+        //Kvdb_Key vkey(key, key_len);
+        //Kvdb_Digest digest;
+        //KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        if (!m_index_manager->IsKeyExist(&digest))
+        //if (!m_index_manager->IsKeyExist(&digest))
+        //{
+        //    if (!insertNewKey(&digest, data, length))
+        //    {
+        //        return false;
+        //    }
+        //}
+        //else
+        //{
+        //    if (!updateExistKey(&digest, data, length))
+        //    {
+        //        return false;
+        //    }
+        //}
+        //return true;
+        ////----------  sync write end   ----------------------/
+
+        //----------  async write begin ----------------------/
+        KVSlice slice(key, key_len, data, length);
+        slice.ComputeDigest();
+        Request req(slice);
+        m_mutex->Lock();
+        m_reqs.push_back(&req);
+        while (!req.IsDone())
         {
-            if (!insertNewKey(&digest, data, length))
-            {
-                return false;
-            }
+            m_cond->Wait();
         }
-        else
-        {
-            if (!updateExistKey(&digest, data, length))
-            {
-                return false;
-            }
-        }
-        return true;
+        m_mutex->Unlock();
+        return req.GetState();
+        //----------  async write end ----------------------/
     }
 
     bool KvdbDS::Delete(const char* key, uint32_t key_len)
@@ -270,28 +303,49 @@ namespace kvdb {
             return true;
         }
 
-        Kvdb_Key vkey(key, key_len);
-        Kvdb_Digest digest;
-        KeyDigestHandle::ComputeDigest(&vkey, digest);
+        ////----------  sync write begin ----------------------/
+        //Kvdb_Key vkey(key, key_len);
+        //Kvdb_Digest digest;
+        //KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        if (!m_index_manager->IsKeyExist(&digest))
+        //if (!m_index_manager->IsKeyExist(&digest))
+        //{
+        //    return true;
+        //}
+
+        //if (!updateExistKey(&digest, NULL, 0))
+        //{
+        //    return false;
+        //}
+
+        //
+        //DBSuperBlock sb = m_sb_manager->GetSuperBlock();
+        //sb.deleted_elements++;
+        //sb.number_elements--;
+        //m_sb_manager->SetSuperBlock(sb);
+        //
+        //return true;
+        ////----------  sync write end   ----------------------/
+
+        //----------  async write begin ----------------------/
+        KVSlice slice(key, key_len, NULL, 0);
+        slice.ComputeDigest();
+        Request req(slice);
+        m_mutex->Lock();
+        m_reqs.push_back(&req);
+        while (!req.IsDone())
         {
-            return true;
+            m_cond->Wait();
         }
+        m_mutex->Unlock();
 
-        if (!updateExistKey(&digest, NULL, 0))
-        {
-            return false;
-        }
-
-        
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
         sb.deleted_elements++;
         sb.number_elements--;
         m_sb_manager->SetSuperBlock(sb);
-        
-        return true;
 
+        return req.GetState();
+        //----------  async write end ----------------------/
     }
 
     bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) const
@@ -365,4 +419,37 @@ namespace kvdb {
 
         return true;
     }
-} 
+
+    void* KvdbDS::ReqsThreadEntry()
+    {
+        bool result = false;
+        while (m_reqs_t.m_running)
+        {
+            if (!m_reqs.empty())
+            {
+                m_mutex->Lock();
+                Request *req = m_reqs.front();
+
+                Kvdb_Digest *digest = (Kvdb_Digest *)&req->GetSlice().GetDigest();
+
+                if (!m_index_manager->IsKeyExist(digest))
+                {
+                    result = insertNewKey(digest, req->GetSlice().GetData(), req->GetSlice().GetDataLen()); 
+                }
+                else
+                {
+                    result = updateExistKey(digest, req->GetSlice().GetData(), req->GetSlice().GetDataLen());
+                }
+
+                req->SetState(result);
+                req->Done();
+                m_reqs.pop_front();
+                __DEBUG("ReqQueue:  The key is %s", (req->GetSlice().GetKeyStr()).c_str());
+                m_cond->Signal();
+                m_mutex->Unlock();
+            }
+        }
+        return NULL;
+    }
+
+}

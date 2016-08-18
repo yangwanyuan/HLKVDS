@@ -5,6 +5,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <signal.h>
 
 namespace kvdb{
     class Timing{
@@ -36,17 +37,17 @@ namespace kvdb{
         int Start();
         int Join();
         int Detach();
+        int Kill();
         pthread_t Self();
 
         virtual void* Entry() = 0;
 
 
-    private:
+    protected:
         pthread_t m_tid;
         int m_running;
         int m_detached;
 
-        void* entry_wrapper();
         static void* runThread(void* arg);
     };
 
@@ -61,9 +62,24 @@ namespace kvdb{
         int Unlock() { return pthread_mutex_unlock(&m_mutex);}
 
     private:
+        friend class Cond;
         pthread_mutex_t m_mutex;
     };
 
+
+    class Cond
+    {
+    public:
+        Cond(Mutex& mutex) : m_lock(mutex) { pthread_cond_init(&m_cond, NULL); }
+        virtual ~Cond() { pthread_cond_destroy(&m_cond); }
+        int Wait() { return pthread_cond_wait(&m_cond, &(m_lock.m_mutex)); }
+        int Signal() { return pthread_cond_signal(&m_cond); }
+        int Broadcast() { return pthread_cond_broadcast(&m_cond); }
+
+    private:
+        pthread_cond_t m_cond;
+        Mutex& m_lock;
+    };
 }
 
 #endif //#ifndef _KV_DB_UTILS_H_
