@@ -10,12 +10,14 @@
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
-#include <unistd.h>
+//#include <unistd.h>
+//#include <sys/types.h>
+#include <pthread.h>
 #define __DEBUG(x...) do {                                    \
-        fprintf(stderr,"[%d] %s(%d) ",(int)getgid(), __FUNCTION__,__LINE__); \
+        fprintf(stderr,"[Pid:%ld] %s (%s:%d) : ",(uint64_t)pthread_self(), __FUNCTION__, __FILE__,__LINE__); \
         fprintf(stderr,##x);             \
         fprintf(stderr,"\n");              \
 }while(0)

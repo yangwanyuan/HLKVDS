@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <thread>
 
 //#ifndef __STDC_FORMAT_MACROS
 //#define __STDC_FORMAT_MACROS
@@ -97,12 +98,13 @@ namespace kvdb {
                db_index_size, db_meta_size, db_data_size, 
                db_size, device_size);
 
-        ds->resetThreads();
+        ds->startThreads();
+
         return ds; 
+
     }
 
 
-    // Write out Malloc'd Header/Hashtable to Disk once DB values have been inserted sequentially
     bool KvdbDS::WriteMetaDataToDevice()
     {
         uint64_t offset = 0;
@@ -119,14 +121,13 @@ namespace kvdb {
         return true;
     }
 
-    // This assumes that the file was closed properly.
     bool KvdbDS::ReadMetaDataFromDevice()
     {
         printf("Reading hashtable from file...\n");
         
 
         uint64_t offset = 0;
-        m_sb_manager = new SuperBlockManager(m_bdev);
+        //m_sb_manager = new SuperBlockManager(m_bdev);
         if (!m_sb_manager->LoadSuperBlockFromDevice(offset))
         {
             return false;
@@ -134,7 +135,7 @@ namespace kvdb {
 
 
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
-        m_index_manager = new IndexManager(m_bdev);
+        //m_index_manager = new IndexManager(m_bdev);
 
         offset += SuperBlockManager::GetSuperBlockSizeOnDevice();
 
@@ -144,7 +145,7 @@ namespace kvdb {
         }
 
         offset += sb.db_index_size;
-        m_segment_manager = new SegmentManager(m_bdev);
+        //m_segment_manager = new SegmentManager(m_bdev);
         if (!m_segment_manager->LoadSegmentTableFromDevice(offset, sb.segment_size, sb.number_segments, sb.current_segment))
         {
             return false;
@@ -159,66 +160,95 @@ namespace kvdb {
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
         KvdbDS* ds = new KvdbDS(filename);
-        if (!ds->reopen())
+        //if (!ds->reopen())
+        //{
+        //    delete ds;
+        //    return NULL;
+        //}
+        if (ds->m_bdev->Open(ds->m_filename) < 0)
         {
+            perror("could not open device\n");
             delete ds;
             return NULL;
         }
+        if (!ds->ReadMetaDataFromDevice())
+        {
+            perror("could not read  hash table file\n");
+            delete ds;
+            return NULL;
+        }
+        ds->startThreads();
         return ds;
     }
 
-    bool KvdbDS::reopen()
+    //bool KvdbDS::reopen()
+    //{
+    //    int r = 0;
+    //    r = m_bdev->Open(m_filename);
+    //    if (r < 0)
+    //    {
+    //        perror("could not open device\n");
+    //        return false;
+    //    }
+
+    //    if (m_sb_manager)
+    //    {
+    //        delete m_sb_manager;
+    //        m_sb_manager = NULL;
+    //    }
+
+    //    if (m_index_manager)
+    //    {
+    //        delete m_index_manager;
+    //        m_index_manager = NULL;
+    //    }
+
+    //    if (m_segment_manager)
+    //    {
+    //        delete m_segment_manager;
+    //        m_segment_manager = NULL;
+    //    }
+
+    //    if (m_data_handle)
+    //    {
+    //        delete m_data_handle;
+    //        m_data_handle = NULL;
+    //    }
+
+    //    //if (m_reqs_t)
+    //    //{
+    //    //    delete m_reqs_t;
+    //    //    m_reqs_t = NULL;
+    //    //}
+
+    //    if (!this->ReadMetaDataFromDevice())
+    //    {
+    //        perror("could not read  hash table file\n");
+    //        return false;
+    //    }
+
+    //    m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
+
+    //    //m_reqs_t =  ReqsThread(this);
+    //    startThreads();
+    //    return true;
+
+    //}
+
+    void KvdbDS::startThreads()
     {
-        int r = 0;
-        r = m_bdev->Open(m_filename);
-        if (r < 0)
-        {
-            perror("could not open device\n");
-            return false;
-        }
-
-        if (m_sb_manager)
-        {
-            delete m_sb_manager;
-            m_sb_manager = NULL;
-        }
-
-        if (m_index_manager)
-        {
-            delete m_index_manager;
-            m_index_manager = NULL;
-        }
-
-        if (m_segment_manager)
-        {
-            delete m_segment_manager;
-            m_segment_manager = NULL;
-        }
-
-        if (m_data_handle)
-        {
-            delete m_data_handle;
-            m_data_handle = NULL;
-        }
-
-        if (!this->ReadMetaDataFromDevice())
-        {
-            perror("could not read  hash table file\n");
-            return false;
-        }
-
-        m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
-
-        resetThreads();
-        return true;
-
+        //startReqsThread();
+        //m_reqs_t.Kill();
+        m_stop_reqs_t = false;
+        m_reqs_t.Start();
+        //m_reqs_t.Detach();
+        //m_reqs_t.Join();
     }
 
-    void KvdbDS::resetThreads()
+    void KvdbDS::stopThreads()
     {
-        m_reqs_t.Kill();
-        m_reqs_t.Start();
-        m_reqs_t.Detach();
+        m_stop_reqs_t = true;
+        m_reqs_t.Join();
     }
 
     KvdbDS::~KvdbDS()
@@ -233,13 +263,15 @@ namespace kvdb {
         delete m_segment_manager;
         delete m_bdev;
 
-        delete m_cond;
-        delete m_mutex;
+        stopThreads();
+
+        delete m_reqs_mutex;
 
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        m_filename(filename), m_reqs_t(this)
+        //m_filename(filename)
+        m_filename(filename), m_reqs_t(this), m_stop_reqs_t(false)
     {
         m_bdev = BlockDevice::CreateDevice();
         m_segment_manager = new SegmentManager(m_bdev);
@@ -247,8 +279,7 @@ namespace kvdb {
         m_index_manager = new IndexManager(m_bdev);
         m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
 
-        m_mutex = new Mutex;
-        m_cond = new Cond(*m_mutex);
+        m_reqs_mutex = new Mutex;
     }
 
 
@@ -284,15 +315,15 @@ namespace kvdb {
         //----------  async write begin ----------------------/
         KVSlice slice(key, key_len, data, length);
         slice.ComputeDigest();
-        Request req(slice);
-        m_mutex->Lock();
-        m_reqs.push_back(&req);
-        while (!req.IsDone())
-        {
-            m_cond->Wait();
-        }
-        m_mutex->Unlock();
-        return req.GetState();
+        Request *req = new Request(slice);
+        m_reqs_mutex->Lock();
+        m_reqs.push_back(req);
+        m_reqs_mutex->Unlock();
+
+        req->Wait();
+        bool result = req->GetState();
+        delete req;
+        return result;
         //----------  async write end ----------------------/
     }
 
@@ -330,21 +361,21 @@ namespace kvdb {
         //----------  async write begin ----------------------/
         KVSlice slice(key, key_len, NULL, 0);
         slice.ComputeDigest();
-        Request req(slice);
-        m_mutex->Lock();
-        m_reqs.push_back(&req);
-        while (!req.IsDone())
-        {
-            m_cond->Wait();
-        }
-        m_mutex->Unlock();
+        Request *req = new Request(slice);
+        m_reqs_mutex->Lock();
+        m_reqs.push_back(req);
+        m_reqs_mutex->Unlock();
+
+        req->Wait();
 
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
         sb.deleted_elements++;
         sb.number_elements--;
         m_sb_manager->SetSuperBlock(sb);
 
-        return req.GetState();
+        bool result  = req->GetState();
+        delete req;
+        return result;
         //----------  async write end ----------------------/
     }
 
@@ -422,12 +453,14 @@ namespace kvdb {
 
     void* KvdbDS::ReqsThreadEntry()
     {
+        __DEBUG("requests thread startttttttttttttttt!!");
         bool result = false;
-        while (m_reqs_t.m_running)
+        while (!m_stop_reqs_t)
+        //while (m_reqs_t.m_running)
         {
             if (!m_reqs.empty())
             {
-                m_mutex->Lock();
+                m_reqs_mutex->Lock();
                 Request *req = m_reqs.front();
 
                 Kvdb_Digest *digest = (Kvdb_Digest *)&req->GetSlice().GetDigest();
@@ -444,11 +477,16 @@ namespace kvdb {
                 req->SetState(result);
                 req->Done();
                 m_reqs.pop_front();
-                __DEBUG("ReqQueue:  The key is %s", (req->GetSlice().GetKeyStr()).c_str());
-                m_cond->Signal();
-                m_mutex->Unlock();
+                m_reqs_mutex->Unlock();
+                __DEBUG("!!!!!!!!Requests thread get req:  The key is %s", (req->GetSlice().GetKeyStr()).c_str());
+                req->Signal();
+            }
+            else
+            {
+                std::this_thread::yield();
             }
         }
+        __DEBUG("requests thread stopppppppppppppppp!!");
         return NULL;
     }
 

@@ -37,8 +37,8 @@ void Insert(kvdb::DB *db)
         std::string value = "Begin" + key + "End";
         key_len = key.length();
         value_len = value.length();
-        std::cout << "Insert Item Success. key = " << key << " ,value = " << value << std::endl;
         db->Insert(key.c_str(), key_len, value.c_str(), value_len);
+        std::cout << "Insert Item Success. key = " << key << " ,value = " << value << std::endl;
     }
 
 

@@ -72,7 +72,8 @@ DB::DB(){
 }
 
 DB::~DB(){
-    writeMeta();
+    //writeMeta();
+    delete m_db->m_kvdb_db;
     //std::cout << "DB destory success" <<std::endl;
 }
 

@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <pthread.h>
 #include <signal.h>
+#include "Db_Structure.h"
 
 namespace kvdb{
     class Timing{
@@ -37,7 +38,8 @@ namespace kvdb{
         int Start();
         int Join();
         int Detach();
-        int Kill();
+        bool Is_started() const;
+        bool Am_self() const;
         pthread_t Self();
 
         virtual void* Entry() = 0;

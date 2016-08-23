@@ -93,15 +93,20 @@ namespace kvdb{
 
         const KVSlice& GetSlice() const { return *m_slice; }
         int IsDone() const { return m_done; }
-        void Done() { m_done = 1; }
+        void Done();
 
-        void SetState(bool state) { m_write_stat = state; }
+        void SetState(bool state);
         bool GetState() const {return m_write_stat; }
+
+        void Wait();
+        void Signal();
 
     private:
         int m_done;
         bool m_write_stat;
         KVSlice *m_slice;
+        Mutex *m_mutex;
+        Cond *m_cond;
 
     };
 

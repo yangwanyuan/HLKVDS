@@ -15,11 +15,11 @@ namespace kvdb{
     {
         if (m_key)
         {
-            delete m_key;
+            delete[] m_key;
         }
         if (m_data)
         {
-            delete m_data;
+            delete[] m_data;
         }
         if (m_digest)
         {
@@ -103,24 +103,69 @@ namespace kvdb{
         return r;
     }
 
-    Request::Request(): m_done(0), m_write_stat(false), m_slice(NULL) {}
+    Request::Request(): m_done(0), m_write_stat(false), m_slice(NULL)
+    {
+        m_mutex = new Mutex;
+        m_cond = new Cond(*m_mutex);
+    }
 
-    Request::~Request() {}
+    Request::~Request()
+    {
+        delete m_cond;
+        delete m_mutex;
+    }
 
     Request::Request(const Request& toCopied)
-        : m_done(toCopied.m_done), m_write_stat(toCopied.m_write_stat), m_slice(toCopied.m_slice){}
+        : m_done(toCopied.m_done), m_write_stat(toCopied.m_write_stat), m_slice(toCopied.m_slice)
+    {
+        m_mutex = new Mutex;
+        m_cond = new Cond(*m_mutex);
+    }
 
     Request& Request::operator=(const Request& toCopied)
     {
         m_done = toCopied.m_done;
         m_write_stat = toCopied.m_write_stat;
         m_slice = toCopied.m_slice;
+        m_mutex = new Mutex;
+        m_cond = new Cond(*m_mutex);
         return *this;
     }
 
-    Request::Request(KVSlice& slice) : m_done(0), m_write_stat(false), m_slice(&slice){}
+    Request::Request(KVSlice& slice) : m_done(0), m_write_stat(false), m_slice(&slice)
+    {
+        m_mutex = new Mutex;
+        m_cond = new Cond(*m_mutex);
+    }
 
 
+    void Request::Done()
+    {
+        m_mutex->Lock();
+        m_done = 1;
+        m_mutex->Unlock();
+    }
+
+    void Request::SetState(bool state)
+    {
+        m_mutex->Lock();
+        m_write_stat = state;
+        m_mutex->Unlock();
+    }
+
+    void Request::Wait()
+    {
+        m_mutex->Lock();
+        m_cond->Wait();
+        m_mutex->Unlock();
+    }
+
+    void Request::Signal()
+    {
+        m_mutex->Lock();
+        m_cond->Signal();
+        m_mutex->Unlock();
+    }
 ////////////////////////////////////////////////////////////////////////////////
     bool DataHandle::ReadData(HashEntry* entry, string &data)
     {

@@ -30,15 +30,18 @@ namespace kvdb {
         bool WriteMetaDataToDevice();
         bool ReadMetaDataFromDevice();
 
+
         virtual ~KvdbDS();
 
     private:
         KvdbDS(const string& filename);
-        bool reopen();
-        void resetThreads();
+        //bool reopen();
+        void startThreads();
+        void stopThreads();
 
         bool insertNewKey(Kvdb_Digest* digest, const char* data, uint16_t length);
         bool updateExistKey(Kvdb_Digest* digest, const char* data, uint16_t length);
+
 
     private:
         SuperBlockManager* m_sb_manager;
@@ -48,8 +51,7 @@ namespace kvdb {
         SegmentManager* m_segment_manager;
         string m_filename;
 
-        Mutex *m_mutex;
-        Cond *m_cond;
+        Mutex *m_reqs_mutex;
 
     private:
         friend class ReqsThread;
@@ -71,6 +73,7 @@ namespace kvdb {
         ReqsThread m_reqs_t;
         std::list<Request*> m_reqs;
         void* ReqsThreadEntry();
+        bool m_stop_reqs_t;
 
     };
 
