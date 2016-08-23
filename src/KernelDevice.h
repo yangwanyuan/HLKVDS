@@ -20,7 +20,7 @@ namespace kvdb{
         int Open(string path);
         void Close();
 
-        uint64_t GetDeviceCapacity(){return get_capacity();}
+        uint64_t GetDeviceCapacity(){ return get_capacity(); }
 
         ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf);
         ssize_t pRead(void* buf, size_t count, off_t offset, bool readbuf);
@@ -43,11 +43,11 @@ namespace kvdb{
 
 
         uint64_t get_capacity() { return m_capacity; }
-        int get_pagesize() {return getpagesize();}
-        int get_blocksize() {return m_blocksize;}
+        int get_pagesize() { return getpagesize(); }
+        int get_blocksize() { return m_blocksize; }
 
-        bool IsSectorAligned(const size_t off){return off % (get_blocksize()) == 0;}
-        bool IsPageAligned(const void* ptr){return (uint64_t)ptr % (get_pagesize()) == 0;}
+        bool IsSectorAligned(const size_t off){ return off % (get_blocksize()) == 0; }
+        bool IsPageAligned(const void* ptr){ return (uint64_t)ptr % (get_pagesize()) == 0; }
 
         ssize_t BufferRead(void* buf, size_t count, off_t offset);
         ssize_t BufferWrite(const void* buf, size_t count, off_t offset);

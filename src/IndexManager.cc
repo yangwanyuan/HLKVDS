@@ -13,7 +13,7 @@ namespace kvdb{
 
     DataHeader::DataHeader() : key_digest(Kvdb_Digest()), data_size(0), data_offset(0), next_header_offset(0){}
 
-    DataHeader::DataHeader(Kvdb_Digest &digest, uint16_t size, uint32_t offset, uint32_t next_offset) : key_digest(digest), data_size(size), data_offset(offset), next_header_offset(next_offset){}
+    DataHeader::DataHeader(const Kvdb_Digest &digest, uint16_t size, uint32_t offset, uint32_t next_offset) : key_digest(digest), data_size(size), data_offset(offset), next_header_offset(next_offset){}
 
     DataHeader::DataHeader(const DataHeader& toBeCopied)
     {
@@ -34,7 +34,7 @@ namespace kvdb{
         return *this;
     }
 
-    void DataHeader::SetDigest(Kvdb_Digest& digest)
+    void DataHeader::SetDigest(const Kvdb_Digest& digest)
     {
         key_digest = digest;
     }
@@ -45,10 +45,7 @@ namespace kvdb{
         physical_offset = toBeCopied.physical_offset;
     }
 
-    DataHeaderOffset::~DataHeaderOffset()
-    {
-        return;
-    }
+    DataHeaderOffset::~DataHeaderOffset(){}
 
     DataHeaderOffset& DataHeaderOffset::operator=(const DataHeaderOffset& toBeCopied)
     {
@@ -77,14 +74,14 @@ namespace kvdb{
     HashEntryOnDisk::~HashEntryOnDisk(){}
 
 
-    HashEntryOnDisk& HashEntryOnDisk::operator= (const HashEntryOnDisk& toBeCopied)
+    HashEntryOnDisk& HashEntryOnDisk::operator=(const HashEntryOnDisk& toBeCopied)
     {
         header = toBeCopied.header;
         header_offset = toBeCopied.header_offset;
         return *this;
     }
 
-    void HashEntryOnDisk::SetKeyDigest(Kvdb_Digest& digest)
+    void HashEntryOnDisk::SetKeyDigest(const Kvdb_Digest& digest)
     {
         header.SetDigest(digest);
     }
@@ -112,7 +109,7 @@ namespace kvdb{
         return;
     }
 
-    bool HashEntry::operator==(const HashEntry& toBeCompare)
+    bool HashEntry::operator==(const HashEntry& toBeCompare) const
     {
         if (this->GetKeyDigest() == toBeCompare.GetKeyDigest())
         {
@@ -128,7 +125,7 @@ namespace kvdb{
         return *this;
     }
 
-    void HashEntry::SetKeyDigest(Kvdb_Digest& digest)
+    void HashEntry::SetKeyDigest(const Kvdb_Digest& digest)
     {
         entryOndisk.SetKeyDigest(digest);
     }
@@ -149,8 +146,6 @@ namespace kvdb{
     {
         m_size = ht_size;
 
-        //Read timestamp from device
-        //ssize_t timeLength = Timing::GetTimeSizeOf();
         int64_t timeLength = Timing::GetTimeSizeOf();
         if (!rebuildTime(offset))
         {
@@ -170,7 +165,6 @@ namespace kvdb{
 
     bool IndexManager::rebuildTime(uint64_t offset)
     {
-        //ssize_t timeLength = Timing::GetTimeSizeOf();
         int64_t timeLength = Timing::GetTimeSizeOf();
         time_t _time;
         if (m_bdev->pRead(&_time, timeLength, offset) != timeLength)
@@ -184,8 +178,6 @@ namespace kvdb{
 
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
-        //Write timestamp to device
-        //ssize_t timeLength = Timing::GetTimeSizeOf();
         int64_t timeLength = Timing::GetTimeSizeOf();
         if (!persistTime(offset))
         {
@@ -206,7 +198,6 @@ namespace kvdb{
 
     bool IndexManager::persistTime(uint64_t offset)
     {
-        //ssize_t timeLength = Timing::GetTimeSizeOf();
         int64_t timeLength = Timing::GetTimeSizeOf();
         m_last_timestamp->Update();
         time_t _time =m_last_timestamp->GetTime();
@@ -219,7 +210,7 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset)
+    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, const Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset)
     {
         uint64_t phy_offset = header_offset + seg_offset;
         HashEntry entry(*data_header, phy_offset, NULL);
@@ -242,13 +233,13 @@ namespace kvdb{
         return true; 
     }
 
-    bool IndexManager::GetHashEntry(Kvdb_Digest *digest, HashEntry &entry)
+    bool IndexManager::GetHashEntry(const KVSlice *slice, HashEntry &entry)
     {
+        const Kvdb_Digest *digest = &slice->GetDigest();
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
         createListIfNotExist(hash_index);
         LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
 
-        //entry.entryOndisk.header.key_digest = *digest;
         entry.SetKeyDigest(*digest);
         
         if (entry_list->search(entry))
@@ -266,8 +257,9 @@ namespace kvdb{
         return false;
     }
 
-    bool IndexManager::IsKeyExist(Kvdb_Digest* digest)
+    bool IndexManager::IsKeyExist(const KVSlice* slice)
     {
+        const Kvdb_Digest* digest = &slice->GetDigest();
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
         createListIfNotExist(hash_index);
         LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];

@@ -54,11 +54,6 @@ int Create_DB(string filename, int db_size)
 
     KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, segment_size);
 
-    if (db->WriteMetaDataToDevice() < 0)
-    {
-        cout << "Create DB failed !" << endl;
-        return -1;
-    }
     gettimeofday(&tv_end, NULL);
     double diff_time = timeval_diff(&tv_start, &tv_end);
     cout << "Create DB use time: " << diff_time << "s" << endl;

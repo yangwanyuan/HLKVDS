@@ -12,6 +12,11 @@
 using namespace std;
 
 namespace kvdb{
+
+    class DataHeader;
+    class HashEntry;
+    class IndexManager;
+
     enum SegUseStat{un_use, in_use, full_use};
 
     class SegmentOnDisk{
@@ -42,10 +47,10 @@ namespace kvdb{
         bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size);
         bool LoadSegmentTableFromDevice(uint64_t meta_size, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
 
-        uint32_t GetNowSegId(){return m_current_seg;}
-        uint32_t GetNumberOfSeg(){return m_num_seg;}
-        uint64_t GetDataRegionSize(){return m_seg_size * m_num_seg;}
-        uint32_t GetSegmentSize(){return m_seg_size;}
+        uint32_t GetNowSegId(){ return m_current_seg; }
+        uint32_t GetNumberOfSeg(){ return m_num_seg; }
+        uint64_t GetDataRegionSize(){ return m_seg_size * m_num_seg; }
+        uint32_t GetSegmentSize(){ return m_seg_size; }
         
 
         bool GetEmptySegId(uint32_t& seg_id);

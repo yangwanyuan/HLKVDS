@@ -21,25 +21,16 @@ namespace kvdb{
 
     template <typename T>
     class LinkedList{
-    //public:
-        //class Node{
-        //public:
-        //    T data;
-        //    Node* next;
-
-        //    Node(T value, Node* nd): data(value), next(nd){};
-        //};
-
     public:
         LinkedList(): m_head(NULL), m_size(0){}
         LinkedList(const LinkedList<T> &);
         ~LinkedList();
-        LinkedList& operator= (const LinkedList<T> &);
+        LinkedList& operator=(const LinkedList<T> &);
         bool insert(T toBeInserted);
         bool remove(T toBeRemoved);
         bool search(T toBeSearched);
         vector<T> get();
-        int get_size() {return m_size;}
+        int get_size() { return m_size; }
 
     private:
         Node<T>* m_head;
@@ -50,13 +41,6 @@ namespace kvdb{
 
 
     };
-
-    //template <typename T>
-    //LinkedList<T>::LinkedList()
-    //{
-    //    m_head = NULL;
-    //    m_size = 0;
-    //}
 
     template <typename T>
     LinkedList<T>::LinkedList(const LinkedList<T> &toBeCopied)
@@ -71,7 +55,7 @@ namespace kvdb{
     }
 
     template <typename T>
-    LinkedList<T> &LinkedList<T>::operator= (const LinkedList<T> &toBeCopied)
+    LinkedList<T> &LinkedList<T>::operator=(const LinkedList<T> &toBeCopied)
     {
         // Only do if the parameter is not the calling object 
         if (this != &toBeCopied)

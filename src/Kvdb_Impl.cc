@@ -4,10 +4,6 @@
 #include <inttypes.h>
 #include <thread>
 
-//#ifndef __STDC_FORMAT_MACROS
-//#define __STDC_FORMAT_MACROS
-//#endif
-
 #include "Kvdb_Impl.h"
 #include "KeyDigestHandle.h"
 
@@ -105,7 +101,7 @@ namespace kvdb {
     }
 
 
-    bool KvdbDS::WriteMetaDataToDevice()
+    bool KvdbDS::writeMetaDataToDevice()
     {
         uint64_t offset = 0;
         if (!m_sb_manager->WriteSuperBlockToDevice(offset))
@@ -121,21 +117,18 @@ namespace kvdb {
         return true;
     }
 
-    bool KvdbDS::ReadMetaDataFromDevice()
+    bool KvdbDS::readMetaDataFromDevice()
     {
         printf("Reading hashtable from file...\n");
         
 
         uint64_t offset = 0;
-        //m_sb_manager = new SuperBlockManager(m_bdev);
         if (!m_sb_manager->LoadSuperBlockFromDevice(offset))
         {
             return false;
         }
 
-
         DBSuperBlock sb = m_sb_manager->GetSuperBlock();
-        //m_index_manager = new IndexManager(m_bdev);
 
         offset += SuperBlockManager::GetSuperBlockSizeOnDevice();
 
@@ -145,7 +138,6 @@ namespace kvdb {
         }
 
         offset += sb.db_index_size;
-        //m_segment_manager = new SegmentManager(m_bdev);
         if (!m_segment_manager->LoadSegmentTableFromDevice(offset, sb.segment_size, sb.number_segments, sb.current_segment))
         {
             return false;
@@ -160,89 +152,45 @@ namespace kvdb {
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
         KvdbDS* ds = new KvdbDS(filename);
-        //if (!ds->reopen())
-        //{
-        //    delete ds;
-        //    return NULL;
-        //}
-        if (ds->m_bdev->Open(ds->m_filename) < 0)
+        if (!ds->openDB())
         {
-            perror("could not open device\n");
             delete ds;
             return NULL;
         }
-        if (!ds->ReadMetaDataFromDevice())
-        {
-            perror("could not read  hash table file\n");
-            delete ds;
-            return NULL;
-        }
-        ds->startThreads();
         return ds;
     }
 
-    //bool KvdbDS::reopen()
-    //{
-    //    int r = 0;
-    //    r = m_bdev->Open(m_filename);
-    //    if (r < 0)
-    //    {
-    //        perror("could not open device\n");
-    //        return false;
-    //    }
+    bool KvdbDS::openDB()
+    {
+        if (m_bdev->Open(m_filename) < 0)
+        {
+            perror("could not open device\n");
+            return false;
+        }
+        if (!readMetaDataFromDevice())
+        {
+            perror("could not read  hash table file\n");
+            return false;
+        }
+        startThreads();
+        return true;
+    }
 
-    //    if (m_sb_manager)
-    //    {
-    //        delete m_sb_manager;
-    //        m_sb_manager = NULL;
-    //    }
-
-    //    if (m_index_manager)
-    //    {
-    //        delete m_index_manager;
-    //        m_index_manager = NULL;
-    //    }
-
-    //    if (m_segment_manager)
-    //    {
-    //        delete m_segment_manager;
-    //        m_segment_manager = NULL;
-    //    }
-
-    //    if (m_data_handle)
-    //    {
-    //        delete m_data_handle;
-    //        m_data_handle = NULL;
-    //    }
-
-    //    //if (m_reqs_t)
-    //    //{
-    //    //    delete m_reqs_t;
-    //    //    m_reqs_t = NULL;
-    //    //}
-
-    //    if (!this->ReadMetaDataFromDevice())
-    //    {
-    //        perror("could not read  hash table file\n");
-    //        return false;
-    //    }
-
-    //    m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
-
-    //    //m_reqs_t =  ReqsThread(this);
-    //    startThreads();
-    //    return true;
-
-    //}
+    bool KvdbDS::closeDB()
+    {
+        if (!writeMetaDataToDevice())
+        {
+            perror("could not to write metadata to device\n");
+            return false;
+        }
+        stopThreads();
+        return true;
+    }
 
     void KvdbDS::startThreads()
     {
-        //startReqsThread();
-        //m_reqs_t.Kill();
         m_stop_reqs_t = false;
         m_reqs_t.Start();
-        //m_reqs_t.Detach();
-        //m_reqs_t.Join();
     }
 
     void KvdbDS::stopThreads()
@@ -253,18 +201,12 @@ namespace kvdb {
 
     KvdbDS::~KvdbDS()
     {
-        if (!WriteMetaDataToDevice())
-        {
-            perror("could not to write metadata to device\n");
-        }
+        closeDB();
         delete m_index_manager;
         delete m_sb_manager;
         delete m_data_handle;
         delete m_segment_manager;
         delete m_bdev;
-
-        stopThreads();
-
         delete m_reqs_mutex;
 
     }
@@ -314,7 +256,10 @@ namespace kvdb {
 
         //----------  async write begin ----------------------/
         KVSlice slice(key, key_len, data, length);
-        slice.ComputeDigest();
+        if (!slice.ComputeDigest())
+        {
+            return false;
+        }
         Request *req = new Request(slice);
         m_reqs_mutex->Lock();
         m_reqs.push_back(req);
@@ -360,7 +305,10 @@ namespace kvdb {
 
         //----------  async write begin ----------------------/
         KVSlice slice(key, key_len, NULL, 0);
-        slice.ComputeDigest();
+        if (!slice.ComputeDigest())
+        {
+            return false;
+        }
         Request *req = new Request(slice);
         m_reqs_mutex->Lock();
         m_reqs.push_back(req);
@@ -386,17 +334,19 @@ namespace kvdb {
             return false;
         }
 
-        Kvdb_Key vkey(key, key_len);
-        Kvdb_Digest digest;
-        KeyDigestHandle::ComputeDigest(&vkey, digest);
+        KVSlice slice(key, key_len, NULL, 0);
+        if (!slice.ComputeDigest())
+        {
+            return false;
+        }
 
-        if (!m_index_manager->IsKeyExist(&digest))
+        if (!m_index_manager->IsKeyExist(&slice))
         {
             return false;
         }
 
         HashEntry entry;
-        m_index_manager->GetHashEntry(&digest, entry);
+        m_index_manager->GetHashEntry(&slice, entry);
 
         if (entry.GetDataSize() == 0 )
         {
@@ -411,8 +361,12 @@ namespace kvdb {
         return true;
     }
 
-    bool KvdbDS::insertNewKey(Kvdb_Digest* digest, const char* data, uint16_t length)
+    bool KvdbDS::insertNewKey(const KVSlice *slice)
     {
+        const Kvdb_Digest* digest = &slice->GetDigest();
+        const char* data = slice->GetData();
+        uint16_t length = slice->GetDataLen();
+
         if (m_sb_manager->IsElementFull())
         {
             fprintf(stderr, "Error: hash table full!\n");
@@ -432,8 +386,12 @@ namespace kvdb {
         return true;
     }
 
-    bool KvdbDS::updateExistKey(Kvdb_Digest* digest, const char* data, uint16_t length)
+    bool KvdbDS::updateExistKey(const KVSlice *slice)
     {
+        const Kvdb_Digest* digest = &slice->GetDigest();
+        const char* data = slice->GetData();
+        uint16_t length = slice->GetDataLen();
+
         if (m_sb_manager->IsElementFull())
         {
             fprintf(stderr, "Error: hash table full!\n");
@@ -456,22 +414,21 @@ namespace kvdb {
         __DEBUG("requests thread startttttttttttttttt!!");
         bool result = false;
         while (!m_stop_reqs_t)
-        //while (m_reqs_t.m_running)
         {
             if (!m_reqs.empty())
             {
                 m_reqs_mutex->Lock();
                 Request *req = m_reqs.front();
 
-                Kvdb_Digest *digest = (Kvdb_Digest *)&req->GetSlice().GetDigest();
+                const KVSlice *slice = &req->GetSlice();
 
-                if (!m_index_manager->IsKeyExist(digest))
+                if (!m_index_manager->IsKeyExist(slice))
                 {
-                    result = insertNewKey(digest, req->GetSlice().GetData(), req->GetSlice().GetDataLen()); 
+                    result = insertNewKey(slice);
                 }
                 else
                 {
-                    result = updateExistKey(digest, req->GetSlice().GetData(), req->GetSlice().GetDataLen());
+                    result = updateExistKey(slice);
                 }
 
                 req->SetState(result);

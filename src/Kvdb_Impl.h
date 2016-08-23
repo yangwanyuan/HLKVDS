@@ -27,20 +27,19 @@ namespace kvdb {
         bool Get(const char* key, uint32_t key_len, string &data) const;
         bool Delete(const char* key, uint32_t key_len);
 
-        bool WriteMetaDataToDevice();
-        bool ReadMetaDataFromDevice();
-
-
         virtual ~KvdbDS();
 
     private:
         KvdbDS(const string& filename);
-        //bool reopen();
+        bool openDB();
+        bool closeDB();
+        bool writeMetaDataToDevice();
+        bool readMetaDataFromDevice();
         void startThreads();
         void stopThreads();
 
-        bool insertNewKey(Kvdb_Digest* digest, const char* data, uint16_t length);
-        bool updateExistKey(Kvdb_Digest* digest, const char* data, uint16_t length);
+        bool insertNewKey(const KVSlice *slice);
+        bool updateExistKey(const KVSlice *slice);
 
 
     private:
@@ -61,8 +60,8 @@ namespace kvdb {
             ReqsThread(): m_db(NULL){}
             ReqsThread(KvdbDS* db): m_db(db){}
             virtual ~ReqsThread(){}
-            ReqsThread(ReqsThread& toCopied) = delete;
-            ReqsThread& operator=(ReqsThread& toCopied) = delete;
+            ReqsThread(ReqsThread& toBeCopied) = delete;
+            ReqsThread& operator=(ReqsThread& toBeCopied) = delete;
 
             virtual void* Entry() { return m_db->ReqsThreadEntry(); }
 
