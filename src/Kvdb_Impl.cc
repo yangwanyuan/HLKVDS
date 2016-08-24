@@ -77,7 +77,7 @@ namespace kvdb {
 
         ds->m_sb_manager->SetSuperBlock(sb);
 
-        printf("CreateKvdbDS table information:\n"
+        __INFO("\nCreateKvdbDS table information:\n"
                "\t hashtable_size            : %d\n"
                "\t num_entries               : %d\n"
                "\t deleted_entries           : %d\n"
@@ -88,7 +88,7 @@ namespace kvdb {
                "\t Total DB Meta Region Size : %ld Bytes\n"
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
-               "\t Total Device Size         : %ld Bytes\n",
+               "\t Total Device Size         : %ld Bytes",
                hash_table_size, num_entries, deleted_entries,
                segment_size, number_segments, db_sb_size, 
                db_index_size, db_meta_size, db_data_size, 
@@ -119,7 +119,7 @@ namespace kvdb {
 
     bool KvdbDS::readMetaDataFromDevice()
     {
-        printf("Reading hashtable from file...\n");
+        __INFO("\nReading hashtable from file...");
         
 
         uint64_t offset = 0;
@@ -164,12 +164,12 @@ namespace kvdb {
     {
         if (m_bdev->Open(m_filename) < 0)
         {
-            perror("could not open device\n");
+            __ERROR("Could not open device\n");
             return false;
         }
         if (!readMetaDataFromDevice())
         {
-            perror("could not read  hash table file\n");
+            __ERROR("Could not read  hash table file\n");
             return false;
         }
         startThreads();
@@ -180,7 +180,7 @@ namespace kvdb {
     {
         if (!writeMetaDataToDevice())
         {
-            perror("could not to write metadata to device\n");
+            __ERROR("Could not to write metadata to device\n");
             return false;
         }
         stopThreads();
@@ -369,13 +369,13 @@ namespace kvdb {
 
         if (m_sb_manager->IsElementFull())
         {
-            fprintf(stderr, "Error: hash table full!\n");
+            __ERROR("Error: hash table full!\n");
             return false;
         }
 
         if (!m_data_handle->WriteData(*digest, data, length))
         {
-            fprintf(stderr, "Can't write to underlying datastore\n");
+            __ERROR("Can't write to underlying datastore\n");
             return false;
         }
 
@@ -394,13 +394,13 @@ namespace kvdb {
 
         if (m_sb_manager->IsElementFull())
         {
-            fprintf(stderr, "Error: hash table full!\n");
+            __ERROR("Error: hash table full!\n");
             return false;
         }
 
         if (!m_data_handle->WriteData(*digest, data, length))
         {
-            fprintf(stderr, "Can't write to underlying datastore\n");
+            __ERROR("Can't write to underlying datastore\n");
             return false;
         }
 

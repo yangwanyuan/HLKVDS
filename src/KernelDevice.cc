@@ -39,14 +39,14 @@ namespace kvdb{
 
         //    r = open(m_path.c_str(), O_RDWR | O_CREAT | O_DIRECT, 0666);
         //    if (r < 0){
-        //        fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+        //        __ERROR("Could not create file: %s\n", strerror(errno));
         //        goto create_fail;
         //    }
         //    m_direct_fd = r;
 
         //    r = open(m_path.c_str(), O_RDWR | O_CREAT, 0666);
         //    if (r < 0){
-        //        fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+        //        __ERROR("Could not create file: %s\n", strerror(errno));
         //        goto create_fail;
         //    }
         //    m_buffer_fd = r;
@@ -57,7 +57,7 @@ namespace kvdb{
         r = open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
         if (r < 0)
         {
-            fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+            __ERROR("Could not create file: %s\n", strerror(errno));
             goto create_fail;
         }
         m_direct_fd = r;
@@ -67,7 +67,7 @@ namespace kvdb{
         r = open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
         if (r < 0)
         {
-            fprintf(stderr, "Could not create file: %s\n", strerror(errno));
+            __ERROR("Could not create file: %s\n", strerror(errno));
             goto create_fail;
         }
         m_buffer_fd = r;
@@ -77,7 +77,7 @@ namespace kvdb{
         r = fstat(m_direct_fd, &statbuf);
         if (r < 0)
         {
-            fprintf(stderr, "Could not stat file: %s\n", strerror(errno));
+            __ERROR("Could not stat file: %s\n", strerror(errno));
             goto create_fail;
         }
         
@@ -96,21 +96,21 @@ namespace kvdb{
         r = posix_fadvise(m_buffer_fd, 0, 0, POSIX_FADV_RANDOM);
         if (r < 0)
         {
-            perror("couldn't posix_fadvise random");
+            __ERROR("couldn't posix_fadvise random");
             goto create_fail;
         }
 
         r = set_metazone_zero(size);
         if (r<0)
         {
-            perror("couldn't set metazone zero");
+            __ERROR("couldn't set metazone zero");
             goto create_fail;
         }
 
         r = set_device_zero();
         if (r < 0)
         {
-            perror("couldn't set device zero");
+            __ERROR("couldn't set device zero");
             goto create_fail;
         }
 
@@ -140,7 +140,7 @@ create_fail:
         //r = fill_file_with_zeros();
         if (r < 0)
         {
-            perror("Could not zero out DB file.\n");
+            __ERROR("Could not zero out DB file.\n");
             return ERR;
         }    
 
@@ -160,7 +160,7 @@ create_fail:
             ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
             if (ret < 0)
             {
-                fprintf(stderr, "error in fill_file_with_zeros write: %s\n", strerror(errno));
+                __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
                 return ERR;
             }
             nbytes -= bytes_to_write;
@@ -181,7 +181,7 @@ create_fail:
             ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
             if (ret < 0)
             {
-                fprintf(stderr, "error in fill_file_with_zeros write: %s\n", strerror(errno));
+                __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
                 return ERR;
             }
             nbytes -= bytes_to_write; 
@@ -194,7 +194,7 @@ create_fail:
         uint64_t blocksize ;
         if (ioctl(m_buffer_fd, BLKGETSIZE64, &blocksize) < 0)
         {
-            fprintf(stderr, "Could not get block size: %s\n", strerror(errno));
+            __ERROR("Could not get block size: %s\n", strerror(errno));
             return ERR;
         }
 
@@ -210,7 +210,7 @@ create_fail:
         m_direct_fd =  open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
         if (m_direct_fd < 0)
         {
-            fprintf(stderr, "Could not open file: %s\n", strerror(errno));
+            __ERROR("Could not open file: %s\n", strerror(errno));
             goto open_fail;
         }
         //m_buffer_fd =  open(m_path.c_str(), O_RDWR, 0666);
@@ -218,14 +218,14 @@ create_fail:
         m_buffer_fd =  open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
         if (m_buffer_fd < 0)
         {
-            fprintf(stderr, "Could not open file: %s\n", strerror(errno));
+            __ERROR("Could not open file: %s\n", strerror(errno));
             goto open_fail;
         }
 
         r = posix_fadvise(m_buffer_fd, 0, 0, POSIX_FADV_RANDOM);
         if (r < 0)
         {
-            fprintf(stderr, "Couldn't posix_fadvise random: %s\n", strerror(errno));
+            __ERROR("Couldn't posix_fadvise random: %s\n", strerror(errno));
             goto open_fail;
         }
 
@@ -233,7 +233,7 @@ create_fail:
         r = fstat(m_direct_fd, &statbuf);
         if (r < 0)
         {
-            fprintf(stderr, "Couldn't read fstat: %s\n", strerror(errno));
+            __ERROR("Couldn't read fstat: %s\n", strerror(errno));
             goto open_fail;
         }
 
@@ -308,7 +308,7 @@ open_fail:
             ret = posix_memalign((void **)&page_buf, blocksize, pagesize);
             if (ret)
             {
-                fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
+                __ERROR("posix_memalign failed: %s\n", strerror(errno));
                 return ERR; 
             }
             buf_list.push_back(page_buf);
@@ -321,13 +321,13 @@ open_fail:
         ret = posix_memalign((void **)&pre_data_temp, blocksize, pagesize);
         if (ret)
         {
-            fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
+            __ERROR("posix_memalign failed: %s\n", strerror(errno));
             return ERR; 
         }
         //if(DirectReadUnaligned(pre_data, pre_data_length, offset_lower) != pre_data_length)
         if(DirectReadAligned(pre_data_temp, pagesize, offset_lower) != pagesize)
         {
-            fprintf(stderr, "pread64 failed: %s\n", strerror(errno));
+            __ERROR("pread64 failed: %s\n", strerror(errno));
             return ERR; 
         }
         memcpy(pre_data, pre_data_temp, pre_data_length);
@@ -340,13 +340,13 @@ open_fail:
         ret = posix_memalign((void **)&suf_data_temp, blocksize, pagesize);
         if (ret)
         {
-            fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
+            __ERROR("posix_memalign failed: %s\n", strerror(errno));
             return ERR; 
         }
         //if(DirectReadUnaligned(suf_data, suf_data_length, offset + count) != suf_data_length)
         if (DirectReadAligned(suf_data_temp, pagesize, LowerAligned(offset + count, pagesize)) != pagesize)
         {
-            fprintf(stderr, "pread64 failed: %s\n", strerror(errno));
+            __ERROR("pread64 failed: %s\n", strerror(errno));
             return ERR; 
         }
         memcpy(suf_data, suf_data_temp + pagesize - suf_data_length, suf_data_length);
@@ -402,7 +402,7 @@ open_fail:
             buf_item = *iter;
             if (DirectWriteAligned(buf_item, pagesize, offset_lower) != pagesize)
             {
-                fprintf(stderr, "pwrite64 failed: %s\n", strerror(errno));
+                __ERROR("pwrite64 failed: %s\n", strerror(errno));
                 return ERR; 
             }
             offset_lower += pagesize;
@@ -434,12 +434,12 @@ open_fail:
             ret = posix_memalign((void **)&page_buf, blocksize, pagesize);
             if (ret)
             {
-                fprintf(stderr, "posix_memalign failed: %s\n", strerror(errno));
+                __ERROR("posix_memalign failed: %s\n", strerror(errno));
                 return ERR; 
             }
             if (DirectReadAligned(page_buf, pagesize, offset_lower + index * pagesize ) != pagesize)
             {
-                fprintf(stderr, "pread64 failed: %s\n", strerror(errno));
+                __ERROR("pread64 failed: %s\n", strerror(errno));
                 return ERR; 
             }
             buf_list.push_back(page_buf);

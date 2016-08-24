@@ -8,6 +8,7 @@ using namespace std;
 
 namespace kvdb{
 
+
     class DBSuperBlock {
     public:
         uint32_t magic_number;

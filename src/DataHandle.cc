@@ -169,7 +169,7 @@ namespace kvdb{
         char *mdata = new char[data_len];
         if (m_bdev->pRead(mdata, data_len, data_offset) != (ssize_t)data_len)
         {
-            perror("Could not read data at position");
+            __ERROR("Could not read data at position");
             delete[] mdata;
             return false; 
         }
@@ -219,7 +219,7 @@ namespace kvdb{
         //iov[2].iov_len = length;
 
         //if (m_bdev->pWritev(iov, 3, seg_offset) != (int64_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
-        //    fprintf(stderr, "Could not write iovec structure: %s\n", strerror(errno));
+        //    __ERROR("Could not write iovec structure: %s\n", strerror(errno));
         //    return false;
         //}
         ////---Write data to device 2 end
@@ -230,7 +230,7 @@ namespace kvdb{
         slice.Put(data_header, data, length);
 
         if (m_bdev->pWrite(slice.GetSlice(), slice.GetLength(), seg_offset) != slice.GetLength()) {
-            fprintf(stderr, "Could  write data to device: %s\n", strerror(errno));
+            __ERROR("Could  write data to device: %s\n", strerror(errno));
             return false;
         }
         //---Write data to device 3 end

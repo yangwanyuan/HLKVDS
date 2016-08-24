@@ -169,7 +169,7 @@ namespace kvdb{
         time_t _time;
         if (m_bdev->pRead(&_time, timeLength, offset) != timeLength)
         {
-            perror("Error in reading timestamp from file\n");
+            __ERROR("Error in reading timestamp from file\n");
             return false;
         }
         m_last_timestamp->SetTime(_time);
@@ -204,7 +204,7 @@ namespace kvdb{
 
         if (m_bdev->pWrite((void *)&_time, timeLength, offset ) != timeLength)
         {
-            perror("Error write timestamp to file\n");
+            __ERROR("Error write timestamp to file\n");
             return false;
         }
         return true;
@@ -404,7 +404,7 @@ namespace kvdb{
             h_offset += nread;
             if (nread < 0)
             {
-                perror("Error in reading hashtable from file\n");
+                __ERROR("Error in reading hashtable from file\n");
                 return false;
             }
         }
@@ -422,7 +422,7 @@ namespace kvdb{
             h_offset += nwrite;
             if (nwrite < 0)
             {
-                perror("Error in reading hashtable from file\n");
+                __ERROR("Error in reading hashtable from file\n");
                 return false;
             }
         }

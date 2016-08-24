@@ -57,7 +57,7 @@ namespace kvdb{
             //write seg to device
             if ( m_bdev->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
             {
-                perror("can not write segment to device!");
+                __ERROR("can not write segment to device!");
                 return false;
             }
             offset += m_seg_size;
@@ -81,7 +81,7 @@ namespace kvdb{
             //write seg to device
             if ( m_bdev->pRead(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
             {
-                perror("can not write segment to device!");
+                __ERROR("can not write segment to device!");
                 return false;
             }
             offset += m_seg_size;

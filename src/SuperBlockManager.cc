@@ -21,7 +21,7 @@ namespace kvdb{
         uint64_t length = sizeof(DBSuperBlock);
         if ((uint64_t)m_bdev->pRead(m_superblock, length, offset) != length)
         {
-            perror("Could not read superblock from device\n"); 
+            __ERROR("Could not read superblock from device\n"); 
             return false;
         }
         return true;
@@ -32,7 +32,7 @@ namespace kvdb{
         uint64_t length = sizeof(DBSuperBlock);
         if ((uint64_t)m_bdev->pWrite(m_superblock, length, offset) != length)
         {
-            perror("Could not write superblock at position 0\n");
+            __ERROR("Could not write superblock at position %ld\n", offset);
             return false;
         }
         return true;
