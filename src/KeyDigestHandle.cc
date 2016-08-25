@@ -43,9 +43,9 @@ namespace kvdb{
         return false;
     }
 
-    bool Kvdb_Digest::SetDigest(unsigned char* data)
+    bool Kvdb_Digest::SetDigest(unsigned char* data, int len)
     {
-        if (sizeof(data) != sizeof(Kvdb_Digest))
+        if (len != sizeof(Kvdb_Digest))
         {
             return false;
         }
@@ -95,7 +95,7 @@ namespace kvdb{
             hashcode[i+3] = (MDbuf[i>>2] >> 24);
         }
      
-        if (!digest.SetDigest((unsigned char*)hashcode))
+        if (!digest.SetDigest((unsigned char*)hashcode, RMDsize/8))
         {
             return false;
         }

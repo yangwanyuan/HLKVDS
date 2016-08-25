@@ -18,16 +18,29 @@ namespace kvdb{
         m_len = 0;
     }
 
-    bool SegmentSlice::Put(DataHeader& header, const char* data, uint16_t length)
+    bool SegmentSlice::Put(const KVSlice *slice, DataHeader& header)
     {
+        uint64_t seg_offset;
+        m_sm->ComputeSegOffsetFromId(m_id, seg_offset);
+
+        uint32_t head_offset = sizeof(SegmentOnDisk);
+        uint32_t data_offset = head_offset + sizeof(DataHeader);
+        uint32_t next_offset = data_offset + slice->GetDataLen();
+
+        header.SetDigest(slice->GetDigest());
+        header.SetDataSize(slice->GetDataLen());
+        header.SetDataOffset(data_offset);
+        header.SetNextHeadOffset(next_offset);
+
         SegmentOnDisk seg_ondisk;
-        m_len = sizeof(SegmentOnDisk) + sizeof(DataHeader) + length;
+        m_len = sizeof(SegmentOnDisk) + sizeof(DataHeader) + slice->GetDataLen();
         memcpy(m_data, &seg_ondisk, sizeof(SegmentOnDisk));
         memcpy(&m_data[sizeof(SegmentOnDisk)], &header, sizeof(DataHeader));
-        memcpy(&m_data[sizeof(SegmentOnDisk) + sizeof(DataHeader)], data, length);
+        memcpy(&m_data[sizeof(SegmentOnDisk) + sizeof(DataHeader)], slice->GetData(), slice->GetDataLen());
 
         return true;
     }
+
 
     SegmentSlice::~SegmentSlice()
     {
@@ -91,10 +104,12 @@ namespace kvdb{
         }
         m_digest = new Kvdb_Digest();
         Kvdb_Key vkey(m_key, m_keyLen);
-        KeyDigestHandle::ComputeDigest(&vkey, *m_digest);
+        if (!KeyDigestHandle::ComputeDigest(&vkey, *m_digest))
+        {
+            return false;
+        }
 
         m_Iscomputed = true;
-
         return true;
     }
 
@@ -334,49 +349,41 @@ namespace kvdb{
         return true;
     }
     
-    //bool DataHandle::WriteData(const Kvdb_Digest& digest, const char* data, uint16_t length)
     bool DataHandle::WriteData(const KVSlice *slice)
     {
-        const Kvdb_Digest* digest = &slice->GetDigest();
-        const char* data = slice->GetData();
-        uint16_t length = slice->GetDataLen();
-
         uint32_t seg_id = 0;
         if (!m_sm->GetEmptySegId(seg_id))
         {
+            __ERROR("Cann't get a new Empty Segment.\n");
             return false;
         }
 
         uint64_t seg_offset; 
-        m_sm->ComputeSegOffsetFromId(seg_id, seg_offset);
+        if (!m_sm->ComputeSegOffsetFromId(seg_id, seg_offset))
+        {
+            __ERROR("Cann't compute segment offset from id: %d.\n", seg_id);
+            return false;
+        }
 
-        uint32_t head_offset = sizeof(SegmentOnDisk);
-        uint32_t data_offset = head_offset + sizeof(DataHeader);
-        uint32_t next_offset = data_offset + length;
-
-        SegmentOnDisk seg_ondisk(1);
-        DataHeader data_header(*digest, length, data_offset, next_offset);
-
-        //---Write data to device 3:
         SegmentSlice segSlice(seg_id, m_sm);
-        segSlice.Put(data_header, data, length);
+        DataHeader data_header;
+        segSlice.Put(slice, data_header);
 
         if (m_bdev->pWrite(segSlice.GetSlice(), segSlice.GetLength(), seg_offset) != segSlice.GetLength()) {
             __ERROR("Could  write data to device: %s\n", strerror(errno));
             return false;
         }
-        //---Write data to device 3 end
 
 
         m_sm->Update(seg_id);
-        m_im->UpdateIndexFromInsert(&data_header, digest, head_offset, seg_offset);
+        m_im->UpdateIndexFromInsert(&data_header, &slice->GetDigest(), sizeof(SegmentOnDisk), seg_offset);
         DBSuperBlock sb = m_sbm->GetSuperBlock();
         sb.current_segment = seg_id;
         m_sbm->SetSuperBlock(sb);
 
 
-        __DEBUG("write seg_id:%d, seg_offset: %ld, head_offset: %d, data_offset:%d, header_len:%d, data_len:%d", 
-                seg_id, seg_offset, head_offset, data_offset, (uint32_t)sizeof(DataHeader), (uint32_t)length );
+        __DEBUG("write seg_id:%u, seg_offset: %lu, head_offset: %ld, data_offset:%u, header_len:%ld, data_len:%u", 
+                seg_id, seg_offset, sizeof(SegmentOnDisk), data_header.GetDataOffset(), sizeof(DataHeader), slice->GetDataLen());
 
         return true;
 

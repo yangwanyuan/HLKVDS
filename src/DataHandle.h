@@ -21,6 +21,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
     class SegmentManager;
+    class KVSlice;
 
     class SegmentSlice{
     public:
@@ -31,7 +32,7 @@ namespace kvdb{
 
         SegmentSlice(uint32_t seg_id, SegmentManager* sm);
 
-        bool Put(DataHeader& header, const char* data, uint16_t length);
+        bool Put(const KVSlice *slice, DataHeader& header);
         const void* GetSlice() const { return m_data; }
         uint32_t GetLength() const { return m_len; }
     private:
@@ -56,8 +57,8 @@ namespace kvdb{
         const char* GetData() const { return m_data; }
         string GetKeyStr() const;
         string GetDataStr() const;
-        int GetKeyLen() const { return m_keyLen; }
-        int GetDataLen() const { return m_dataLen; }
+        uint32_t GetKeyLen() const { return m_keyLen; }
+        uint16_t GetDataLen() const { return m_dataLen; }
         bool IsDigestComputed() const { return m_Iscomputed; }
         bool Is4KData() const{ return GetDataLen() == 4096; }
 

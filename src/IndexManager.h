@@ -36,6 +36,9 @@ namespace kvdb{
         Kvdb_Digest GetDigest() const { return key_digest; }
 
         void SetDigest(const Kvdb_Digest& digest);
+        void SetDataSize(uint16_t size) { data_size = size; }
+        void SetDataOffset(uint32_t offset) { data_offset = offset; }
+        void SetNextHeadOffset(uint32_t offset) { next_header_offset = offset; }
 
     } __attribute__((__packed__));
 
