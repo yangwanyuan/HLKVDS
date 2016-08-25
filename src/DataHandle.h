@@ -141,21 +141,6 @@ namespace kvdb{
 
     };
 
-
-    class DataHandle{
-    public:
-        bool ReadData(HashEntry* entry, string &data);
-        bool WriteData(const KVSlice *slice);
-
-        DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm);
-        ~DataHandle();
-    private:
-        BlockDevice* m_bdev;
-        SuperBlockManager* m_sbm;
-        IndexManager* m_im;
-        SegmentManager* m_sm;
-    };
-
 } //end namespace kvdb
 
 

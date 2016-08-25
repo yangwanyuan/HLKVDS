@@ -54,16 +54,16 @@ namespace kvdb{
         bool WriteSuperBlockToDevice(uint64_t offset);
 
         void SetSuperBlock(DBSuperBlock& sb);
-        DBSuperBlock& GetSuperBlock() const { return *m_superblock; }
+        DBSuperBlock& GetSuperBlock() const { return *m_sb; }
 
-        bool IsElementFull() { return m_superblock->number_elements == m_superblock->hashtable_size; }
+        bool IsElementFull() { return m_sb->number_elements == m_sb->hashtable_size; }
 
         SuperBlockManager(BlockDevice* bdev);
         ~SuperBlockManager();
 
     private:
         BlockDevice* m_bdev;
-        DBSuperBlock* m_superblock;
+        DBSuperBlock* m_sb;
     
     };
 }// namespace kvdb

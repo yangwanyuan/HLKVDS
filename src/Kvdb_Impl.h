@@ -24,7 +24,7 @@ namespace kvdb {
 
         bool Insert(const char* key, uint32_t key_len,
                     const char* data, uint16_t length);
-        bool Get(const char* key, uint32_t key_len, string &data) const;
+        bool Get(const char* key, uint32_t key_len, string &data);
         bool Delete(const char* key, uint32_t key_len);
 
         virtual ~KvdbDS();
@@ -41,13 +41,15 @@ namespace kvdb {
         bool insertNewKey(const KVSlice *slice);
         bool updateExistKey(const KVSlice *slice);
 
+        bool readData(HashEntry* entry, string &data);
+        bool writeData(const KVSlice *slice);
+
 
     private:
-        SuperBlockManager* m_sb_manager;
-        IndexManager* m_index_manager;
-        DataHandle* m_data_handle;
+        SuperBlockManager* m_sb_mgr;
+        IndexManager* m_idx_mgr;
         BlockDevice* m_bdev;
-        SegmentManager* m_segment_manager;
+        SegmentManager* m_seg_mgr;
         string m_filename;
 
         Mutex *m_reqsQueue_mutex;

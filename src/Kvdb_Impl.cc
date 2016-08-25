@@ -43,20 +43,20 @@ namespace kvdb {
             return NULL;
         }
 
-        if (!ds->m_sb_manager->InitSuperBlockForCreateDB())
+        if (!ds->m_sb_mgr->InitSuperBlockForCreateDB())
         {
             delete ds;
             return NULL;
         }
 
-        if (!ds->m_index_manager->InitIndexForCreateDB(hash_table_size))
+        if (!ds->m_idx_mgr->InitIndexForCreateDB(hash_table_size))
         {
             delete ds;
             return NULL;
         }
 
         device_size = ds->m_bdev->GetDeviceCapacity();
-        if (!ds->m_segment_manager->InitSegmentForCreateDB(device_size,
+        if (!ds->m_seg_mgr->InitSegmentForCreateDB(device_size,
                                                           db_meta_size, 
                                                           segment_size))
         {
@@ -65,9 +65,9 @@ namespace kvdb {
         }
 
 
-        hash_table_size = ds->m_index_manager->GetHashTableSize();
-        number_segments = ds->m_segment_manager->GetNumberOfSeg();
-        db_data_size = ds->m_segment_manager->GetDataRegionSize();
+        hash_table_size = ds->m_idx_mgr->GetHashTableSize();
+        number_segments = ds->m_seg_mgr->GetNumberOfSeg();
+        db_data_size = ds->m_seg_mgr->GetDataRegionSize();
         db_size = db_meta_size + db_data_size;
 
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, 
@@ -75,7 +75,7 @@ namespace kvdb {
                         0, db_sb_size, db_index_size, db_data_size, 
                         device_size);
 
-        ds->m_sb_manager->SetSuperBlock(sb);
+        ds->m_sb_mgr->SetSuperBlock(sb);
 
         __INFO("\nCreateKvdbDS table information:\n"
                "\t hashtable_size            : %d\n"
@@ -104,13 +104,13 @@ namespace kvdb {
     bool KvdbDS::writeMetaDataToDevice()
     {
         uint64_t offset = 0;
-        if (!m_sb_manager->WriteSuperBlockToDevice(offset))
+        if (!m_sb_mgr->WriteSuperBlockToDevice(offset))
         {
             return false;
         }
 
         offset = SuperBlockManager::GetSuperBlockSizeOnDevice();
-        if (!m_index_manager->WriteIndexToDevice(offset))
+        if (!m_idx_mgr->WriteIndexToDevice(offset))
         {
             return false;
         }
@@ -123,22 +123,22 @@ namespace kvdb {
         
 
         uint64_t offset = 0;
-        if (!m_sb_manager->LoadSuperBlockFromDevice(offset))
+        if (!m_sb_mgr->LoadSuperBlockFromDevice(offset))
         {
             return false;
         }
 
-        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
+        DBSuperBlock sb = m_sb_mgr->GetSuperBlock();
 
         offset += SuperBlockManager::GetSuperBlockSizeOnDevice();
 
-        if (!m_index_manager->LoadIndexFromDevice(offset, sb.hashtable_size))
+        if (!m_idx_mgr->LoadIndexFromDevice(offset, sb.hashtable_size))
         {
             return false;
         }
 
         offset += sb.db_index_size;
-        if (!m_segment_manager->LoadSegmentTableFromDevice(offset, sb.segment_size, sb.number_segments, sb.current_segment))
+        if (!m_seg_mgr->LoadSegmentTableFromDevice(offset, sb.segment_size, sb.number_segments, sb.current_segment))
         {
             return false;
         }
@@ -202,10 +202,9 @@ namespace kvdb {
     KvdbDS::~KvdbDS()
     {
         closeDB();
-        delete m_index_manager;
-        delete m_sb_manager;
-        delete m_data_handle;
-        delete m_segment_manager;
+        delete m_idx_mgr;
+        delete m_sb_mgr;
+        delete m_seg_mgr;
         delete m_bdev;
         delete m_reqsQueue_mutex;
 
@@ -215,10 +214,9 @@ namespace kvdb {
         m_filename(filename), m_reqs_t(this), m_stop_reqs_t(false)
     {
         m_bdev = BlockDevice::CreateDevice();
-        m_segment_manager = new SegmentManager(m_bdev);
-        m_sb_manager = new SuperBlockManager(m_bdev);
-        m_index_manager = new IndexManager(m_bdev);
-        m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
+        m_seg_mgr = new SegmentManager(m_bdev);
+        m_sb_mgr = new SuperBlockManager(m_bdev);
+        m_idx_mgr = new IndexManager(m_bdev);
 
         m_reqsQueue_mutex = new Mutex;
     }
@@ -236,7 +234,7 @@ namespace kvdb {
         //Kvdb_Digest digest;
         //KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        //if (!m_index_manager->IsKeyExist(&digest))
+        //if (!m_idx_mgr->IsKeyExist(&digest))
         //{
         //    if (!insertNewKey(&digest, data, length))
         //    {
@@ -283,7 +281,7 @@ namespace kvdb {
         //Kvdb_Digest digest;
         //KeyDigestHandle::ComputeDigest(&vkey, digest);
 
-        //if (!m_index_manager->IsKeyExist(&digest))
+        //if (!m_idx_mgr->IsKeyExist(&digest))
         //{
         //    return true;
         //}
@@ -294,10 +292,10 @@ namespace kvdb {
         //}
 
         //
-        //DBSuperBlock sb = m_sb_manager->GetSuperBlock();
+        //DBSuperBlock sb = m_sb_mgr->GetSuperBlock();
         //sb.deleted_elements++;
         //sb.number_elements--;
-        //m_sb_manager->SetSuperBlock(sb);
+        //m_sb_mgr->SetSuperBlock(sb);
         //
         //return true;
         ////----------  sync write end   ----------------------/
@@ -315,10 +313,10 @@ namespace kvdb {
 
         req->Wait();
 
-        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
+        DBSuperBlock sb = m_sb_mgr->GetSuperBlock();
         sb.deleted_elements++;
         sb.number_elements--;
-        m_sb_manager->SetSuperBlock(sb);
+        m_sb_mgr->SetSuperBlock(sb);
 
         bool result  = req->GetState();
         delete req;
@@ -326,7 +324,7 @@ namespace kvdb {
         //----------  async write end ----------------------/
     }
 
-    bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) const
+    bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) 
     {
         if (key == NULL)
         {
@@ -339,20 +337,20 @@ namespace kvdb {
             return false;
         }
 
-        if (!m_index_manager->IsKeyExist(&slice))
+        if (!m_idx_mgr->IsKeyExist(&slice))
         {
             return false;
         }
 
         HashEntry entry;
-        m_index_manager->GetHashEntry(&slice, entry);
+        m_idx_mgr->GetHashEntry(&slice, entry);
 
         if (entry.GetDataSize() == 0 )
         {
             return false;
         }
 
-        if (!m_data_handle->ReadData(&entry, data))
+        if (!readData(&entry, data))
         {
             return false;
         }
@@ -362,50 +360,108 @@ namespace kvdb {
 
     bool KvdbDS::insertNewKey(const KVSlice *slice)
     {
-        //const Kvdb_Digest* digest = &slice->GetDigest();
-        //const char* data = slice->GetData();
-        //uint16_t length = slice->GetDataLen();
-
-        if (m_sb_manager->IsElementFull())
+        if (m_sb_mgr->IsElementFull())
         {
             __ERROR("Error: hash table full!\n");
             return false;
         }
 
-        //if (!m_data_handle->WriteData(*digest, data, length))
-        if (!m_data_handle->WriteData(slice))
+        if (!writeData(slice))
         {
             __ERROR("Can't write to underlying datastore\n");
             return false;
         }
 
-        DBSuperBlock sb = m_sb_manager->GetSuperBlock();
+        DBSuperBlock sb = m_sb_mgr->GetSuperBlock();
         sb.number_elements++;
-        m_sb_manager->SetSuperBlock(sb);
+        m_sb_mgr->SetSuperBlock(sb);
 
         return true;
     }
 
     bool KvdbDS::updateExistKey(const KVSlice *slice)
     {
-        //const Kvdb_Digest* digest = &slice->GetDigest();
-        //const char* data = slice->GetData();
-        //uint16_t length = slice->GetDataLen();
-
-        if (m_sb_manager->IsElementFull())
+        if (m_sb_mgr->IsElementFull())
         {
             __ERROR("Error: hash table full!\n");
             return false;
         }
 
-        //if (!m_data_handle->WriteData(*digest, data, length))
-        if (!m_data_handle->WriteData(slice))
+        if (!writeData(slice))
         {
             __ERROR("Can't write to underlying datastore\n");
             return false;
         }
 
         //TODO: do something for gc
+
+        return true;
+    }
+
+    bool KvdbDS::readData(HashEntry* entry, string &data)
+    {
+        uint16_t data_len = entry->GetDataSize();
+        if (data_len == 0)
+        {
+            return true;
+        }
+
+        uint64_t data_offset = 0;
+        if (!m_seg_mgr->ComputeDataOffsetPhyFromEntry(entry, data_offset))
+        {
+            return false;
+        }
+
+        char *mdata = new char[data_len];
+        if (m_bdev->pRead(mdata, data_len, data_offset) != (ssize_t)data_len)
+        {
+            __ERROR("Could not read data at position");
+            delete[] mdata;
+            return false;
+        }
+        data.assign(mdata, data_len);
+        delete[] mdata;
+
+        __DEBUG("get data offset %ld", data_offset);
+
+        return true;
+    }
+
+    bool KvdbDS::writeData(const KVSlice *slice)
+    {
+        uint32_t seg_id = 0;
+        if (!m_seg_mgr->GetEmptySegId(seg_id))
+        {
+            __ERROR("Cann't get a new Empty Segment.\n");
+            return false;
+        }
+
+        uint64_t seg_offset;
+        if (!m_seg_mgr->ComputeSegOffsetFromId(seg_id, seg_offset))
+        {
+            __ERROR("Cann't compute segment offset from id: %d.\n", seg_id);
+            return false;
+        }
+
+        SegmentSlice segSlice(seg_id, m_seg_mgr);
+        DataHeader data_header;
+        segSlice.Put(slice, data_header);
+
+        if (m_bdev->pWrite(segSlice.GetSlice(), segSlice.GetLength(), seg_offset) != segSlice.GetLength()) {
+            __ERROR("Could  write data to device: %s\n", strerror(errno));
+            return false;
+        }
+
+
+        m_seg_mgr->Update(seg_id);
+        m_idx_mgr->UpdateIndexFromInsert(&data_header, &slice->GetDigest(), sizeof(SegmentOnDisk), seg_offset);
+        DBSuperBlock sb = m_sb_mgr->GetSuperBlock();
+        sb.current_segment = seg_id;
+        m_sb_mgr->SetSuperBlock(sb);
+
+
+        __DEBUG("write seg_id:%u, seg_offset: %lu, head_offset: %ld, data_offset:%u, header_len:%ld, data_len:%u", 
+                seg_id, seg_offset, sizeof(SegmentOnDisk), data_header.GetDataOffset(), sizeof(DataHeader), slice->GetDataLen());
 
         return true;
     }
@@ -424,7 +480,7 @@ namespace kvdb {
 
                 const KVSlice *slice = &req->GetSlice();
 
-                if (!m_index_manager->IsKeyExist(slice))
+                if (!m_idx_mgr->IsKeyExist(slice))
                 {
                     result = insertNewKey(slice);
                 }

@@ -8,18 +8,18 @@
 namespace kvdb{
     bool SuperBlockManager::InitSuperBlockForCreateDB()
     {
-        m_superblock = new DBSuperBlock;
+        m_sb = new DBSuperBlock;
 
-        memset(m_superblock, 0, sizeof(DBSuperBlock));
+        memset(m_sb, 0, sizeof(DBSuperBlock));
         return true;
     }
 
     bool SuperBlockManager::LoadSuperBlockFromDevice(uint64_t offset)
     {   
-        m_superblock = new DBSuperBlock;
+        m_sb = new DBSuperBlock;
         
         uint64_t length = sizeof(DBSuperBlock);
-        if ((uint64_t)m_bdev->pRead(m_superblock, length, offset) != length)
+        if ((uint64_t)m_bdev->pRead(m_sb, length, offset) != length)
         {
             __ERROR("Could not read superblock from device\n"); 
             return false;
@@ -30,7 +30,7 @@ namespace kvdb{
     bool SuperBlockManager::WriteSuperBlockToDevice(uint64_t offset)
     {
         uint64_t length = sizeof(DBSuperBlock);
-        if ((uint64_t)m_bdev->pWrite(m_superblock, length, offset) != length)
+        if ((uint64_t)m_bdev->pWrite(m_sb, length, offset) != length)
         {
             __ERROR("Could not write superblock at position %ld\n", offset);
             return false;
@@ -40,16 +40,16 @@ namespace kvdb{
     
     void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb)
     {
-        m_superblock->hashtable_size        = sb.hashtable_size;
-        m_superblock->number_elements       = sb.number_elements;
-        m_superblock->deleted_elements      = sb.deleted_elements;
-        m_superblock->segment_size          = sb.segment_size;
-        m_superblock->number_segments       = sb.number_segments;
-        m_superblock->current_segment       = sb.current_segment;
-        m_superblock->db_sb_size            = sb.db_sb_size;
-        m_superblock->db_index_size         = sb.db_index_size;
-        m_superblock->db_data_size          = sb.db_data_size;
-        m_superblock->device_size           = sb.device_size;
+        m_sb->hashtable_size        = sb.hashtable_size;
+        m_sb->number_elements       = sb.number_elements;
+        m_sb->deleted_elements      = sb.deleted_elements;
+        m_sb->segment_size          = sb.segment_size;
+        m_sb->number_segments       = sb.number_segments;
+        m_sb->current_segment       = sb.current_segment;
+        m_sb->db_sb_size            = sb.db_sb_size;
+        m_sb->db_index_size         = sb.db_index_size;
+        m_sb->db_data_size          = sb.db_data_size;
+        m_sb->device_size           = sb.device_size;
     }
 
 
@@ -60,16 +60,16 @@ namespace kvdb{
     }
 
     SuperBlockManager::SuperBlockManager(BlockDevice* bdev):
-        m_bdev(bdev), m_superblock(NULL)
+        m_bdev(bdev), m_sb(NULL)
     {
         return;
     }
 
     SuperBlockManager::~SuperBlockManager()
     {
-        if (m_superblock)
+        if (m_sb)
         {
-            delete m_superblock;
+            delete m_sb;
         }
     }
 

@@ -304,6 +304,7 @@ namespace kvdb{
         memcpy(&data_[tailPos_ - 4096], slice->GetData(), 4096);
         headPos_ += sizeof(DataHeader);
         tailPos_ -= 4096;
+        keyNum_++;
     }
 
     void SegmentData::putNon4K(KVSlice *slice, DataHeader &header)
@@ -312,6 +313,7 @@ namespace kvdb{
         headPos_ += sizeof(DataHeader);
         memcpy(&data_[headPos_], slice->GetData(), slice->GetDataLen());
         headPos_ += slice->GetDataLen();
+        keyNum_++;
     }
 
     void SegmentData::fillSegHead()
@@ -319,81 +321,6 @@ namespace kvdb{
         SegmentOnDisk seg(keyNum_);
         memcpy(data_, &seg, sizeof(SegmentOnDisk));
     }
-////////////////////////////////////////////////////////////////////////////////
-    bool DataHandle::ReadData(HashEntry* entry, string &data)
-    {
-        uint16_t data_len = entry->GetDataSize();
-        if (data_len == 0)
-        { 
-            return true;
-        }
-
-        uint64_t data_offset = 0;
-        if (!m_sm->ComputeDataOffsetPhyFromEntry(entry, data_offset))
-        {
-            return false;
-        }
-
-        char *mdata = new char[data_len];
-        if (m_bdev->pRead(mdata, data_len, data_offset) != (ssize_t)data_len)
-        {
-            __ERROR("Could not read data at position");
-            delete[] mdata;
-            return false; 
-        }
-        data.assign(mdata, data_len);
-        delete[] mdata;
-
-        __DEBUG("get data offset %ld", data_offset);
-
-        return true;
-    }
-    
-    bool DataHandle::WriteData(const KVSlice *slice)
-    {
-        uint32_t seg_id = 0;
-        if (!m_sm->GetEmptySegId(seg_id))
-        {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            return false;
-        }
-
-        uint64_t seg_offset; 
-        if (!m_sm->ComputeSegOffsetFromId(seg_id, seg_offset))
-        {
-            __ERROR("Cann't compute segment offset from id: %d.\n", seg_id);
-            return false;
-        }
-
-        SegmentSlice segSlice(seg_id, m_sm);
-        DataHeader data_header;
-        segSlice.Put(slice, data_header);
-
-        if (m_bdev->pWrite(segSlice.GetSlice(), segSlice.GetLength(), seg_offset) != segSlice.GetLength()) {
-            __ERROR("Could  write data to device: %s\n", strerror(errno));
-            return false;
-        }
-
-
-        m_sm->Update(seg_id);
-        m_im->UpdateIndexFromInsert(&data_header, &slice->GetDigest(), sizeof(SegmentOnDisk), seg_offset);
-        DBSuperBlock sb = m_sbm->GetSuperBlock();
-        sb.current_segment = seg_id;
-        m_sbm->SetSuperBlock(sb);
-
-
-        __DEBUG("write seg_id:%u, seg_offset: %lu, head_offset: %ld, data_offset:%u, header_len:%ld, data_len:%u", 
-                seg_id, seg_offset, sizeof(SegmentOnDisk), data_header.GetDataOffset(), sizeof(DataHeader), slice->GetDataLen());
-
-        return true;
-
-    }
-    
-
-    DataHandle::DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm):
-        m_bdev(bdev), m_sbm(sbm), m_im(im), m_sm(sm){}
-
-    DataHandle::~DataHandle(){}
 
 
 }
