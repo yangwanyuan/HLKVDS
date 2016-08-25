@@ -22,20 +22,6 @@ namespace kvdb{
     class IndexManager;
     class SegmentManager;
 
-    class DataHandle{
-    public:
-        bool ReadData(HashEntry* entry, string &data);
-        bool WriteData(const Kvdb_Digest& digest, const char* data, uint16_t length);
-
-        DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm);
-        ~DataHandle();
-    private:
-        BlockDevice* m_bdev;
-        SuperBlockManager* m_sbm;
-        IndexManager* m_im;
-        SegmentManager* m_sm;
-    };
-
     class SegmentSlice{
     public:
         SegmentSlice();
@@ -115,6 +101,60 @@ namespace kvdb{
 
     };
 
+    class SegmentData{
+    public:
+        SegmentData();
+        ~SegmentData();
+        SegmentData(const SegmentData& toBeCopied);
+        SegmentData& operator=(const SegmentData& toBeCopied);
+
+        SegmentData(uint32_t seg_id, SegmentManager* sm);
+
+        bool IsCanWrite(KVSlice *slice) const;
+        bool Put(KVSlice *slice);
+        bool WriteToDevice();
+        void Complete();
+        bool IsCompleted() const{ return completed_;};
+
+    private:
+        bool isExpire() const;
+        bool isCanFit() const;
+        bool put4K();
+        bool putNon4K();
+        void copyHelper(const SegmentData& toBeCopied);
+        void fillSegHead();
+
+        uint32_t segId_;
+        SegmentManager* sm_;
+        uint32_t segSize_;
+        KVTime createTime_;
+
+        uint32_t headPosition_;
+        uint32_t tailPosition_;
+
+        uint32_t keyNum_;
+        uint32_t segHeadSize_;
+        uint32_t freeSize_;
+
+        char* data_;
+        bool completed_;
+
+    };
+
+
+    class DataHandle{
+    public:
+        bool ReadData(HashEntry* entry, string &data);
+        bool WriteData(const KVSlice *slice);
+
+        DataHandle(BlockDevice* bdev, SuperBlockManager* sbm, IndexManager* im, SegmentManager* sm);
+        ~DataHandle();
+    private:
+        BlockDevice* m_bdev;
+        SuperBlockManager* m_sbm;
+        IndexManager* m_im;
+        SegmentManager* m_sm;
+    };
 
 } //end namespace kvdb
 

@@ -207,12 +207,11 @@ namespace kvdb {
         delete m_data_handle;
         delete m_segment_manager;
         delete m_bdev;
-        delete m_reqs_mutex;
+        delete m_reqsQueue_mutex;
 
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        //m_filename(filename)
         m_filename(filename), m_reqs_t(this), m_stop_reqs_t(false)
     {
         m_bdev = BlockDevice::CreateDevice();
@@ -221,7 +220,7 @@ namespace kvdb {
         m_index_manager = new IndexManager(m_bdev);
         m_data_handle = new DataHandle(m_bdev, m_sb_manager, m_index_manager, m_segment_manager);
 
-        m_reqs_mutex = new Mutex;
+        m_reqsQueue_mutex = new Mutex;
     }
 
 
@@ -261,9 +260,9 @@ namespace kvdb {
             return false;
         }
         Request *req = new Request(slice);
-        m_reqs_mutex->Lock();
-        m_reqs.push_back(req);
-        m_reqs_mutex->Unlock();
+        m_reqsQueue_mutex->Lock();
+        m_reqs_list.push_back(req);
+        m_reqsQueue_mutex->Unlock();
 
         req->Wait();
         bool result = req->GetState();
@@ -310,9 +309,9 @@ namespace kvdb {
             return false;
         }
         Request *req = new Request(slice);
-        m_reqs_mutex->Lock();
-        m_reqs.push_back(req);
-        m_reqs_mutex->Unlock();
+        m_reqsQueue_mutex->Lock();
+        m_reqs_list.push_back(req);
+        m_reqsQueue_mutex->Unlock();
 
         req->Wait();
 
@@ -363,9 +362,9 @@ namespace kvdb {
 
     bool KvdbDS::insertNewKey(const KVSlice *slice)
     {
-        const Kvdb_Digest* digest = &slice->GetDigest();
-        const char* data = slice->GetData();
-        uint16_t length = slice->GetDataLen();
+        //const Kvdb_Digest* digest = &slice->GetDigest();
+        //const char* data = slice->GetData();
+        //uint16_t length = slice->GetDataLen();
 
         if (m_sb_manager->IsElementFull())
         {
@@ -373,7 +372,8 @@ namespace kvdb {
             return false;
         }
 
-        if (!m_data_handle->WriteData(*digest, data, length))
+        //if (!m_data_handle->WriteData(*digest, data, length))
+        if (!m_data_handle->WriteData(slice))
         {
             __ERROR("Can't write to underlying datastore\n");
             return false;
@@ -388,9 +388,9 @@ namespace kvdb {
 
     bool KvdbDS::updateExistKey(const KVSlice *slice)
     {
-        const Kvdb_Digest* digest = &slice->GetDigest();
-        const char* data = slice->GetData();
-        uint16_t length = slice->GetDataLen();
+        //const Kvdb_Digest* digest = &slice->GetDigest();
+        //const char* data = slice->GetData();
+        //uint16_t length = slice->GetDataLen();
 
         if (m_sb_manager->IsElementFull())
         {
@@ -398,7 +398,8 @@ namespace kvdb {
             return false;
         }
 
-        if (!m_data_handle->WriteData(*digest, data, length))
+        //if (!m_data_handle->WriteData(*digest, data, length))
+        if (!m_data_handle->WriteData(slice))
         {
             __ERROR("Can't write to underlying datastore\n");
             return false;
@@ -409,16 +410,17 @@ namespace kvdb {
         return true;
     }
 
-    void* KvdbDS::ReqsThreadEntry()
+    void KvdbDS::ReqsThreadEntry()
     {
-        __DEBUG("requests thread startttttttttttttttt!!");
-        bool result = false;
-        while (!m_stop_reqs_t)
+        __DEBUG("Requests thread start!!");
+        while (true)
         {
-            if (!m_reqs.empty())
+            while (!m_reqs_list.empty())
             {
-                m_reqs_mutex->Lock();
-                Request *req = m_reqs.front();
+                bool result = false;
+
+                m_reqsQueue_mutex->Lock();
+                Request *req = m_reqs_list.front();
 
                 const KVSlice *slice = &req->GetSlice();
 
@@ -433,18 +435,20 @@ namespace kvdb {
 
                 req->SetState(result);
                 req->Done();
-                m_reqs.pop_front();
-                m_reqs_mutex->Unlock();
-                __DEBUG("!!!!!!!!Requests thread get req:  The key is %s", (req->GetSlice().GetKeyStr()).c_str());
+                m_reqs_list.pop_front();
+                m_reqsQueue_mutex->Unlock();
+                __DEBUG("Requests thread get req:  The key is %s", (req->GetSlice().GetKeyStr()).c_str());
                 req->Signal();
             }
-            else
+
+            if (m_stop_reqs_t)
             {
-                std::this_thread::yield();
+                break;
             }
+
+            std::this_thread::yield();
         }
-        __DEBUG("requests thread stopppppppppppppppp!!");
-        return NULL;
+        __DEBUG("Requests thread stop!!");
     }
 
-}
+} //namespace kvdb

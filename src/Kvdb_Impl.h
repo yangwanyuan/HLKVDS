@@ -50,7 +50,7 @@ namespace kvdb {
         SegmentManager* m_segment_manager;
         string m_filename;
 
-        Mutex *m_reqs_mutex;
+        Mutex *m_reqsQueue_mutex;
 
     private:
         friend class ReqsThread;
@@ -63,15 +63,15 @@ namespace kvdb {
             ReqsThread(ReqsThread& toBeCopied) = delete;
             ReqsThread& operator=(ReqsThread& toBeCopied) = delete;
 
-            virtual void* Entry() { return m_db->ReqsThreadEntry(); }
+            virtual void* Entry() { m_db->ReqsThreadEntry(); return 0; }
 
         private:
             friend class KvdbDS;
             KvdbDS* m_db;
         };
         ReqsThread m_reqs_t;
-        std::list<Request*> m_reqs;
-        void* ReqsThreadEntry();
+        std::list<Request*> m_reqs_list;
+        void ReqsThreadEntry();
         bool m_stop_reqs_t;
 
     };

@@ -51,6 +51,7 @@ namespace kvdb{
         uint32_t GetNumberOfSeg(){ return m_num_seg; }
         uint64_t GetDataRegionSize(){ return m_seg_size * m_num_seg; }
         uint32_t GetSegmentSize(){ return m_seg_size; }
+        uint32_t GetSegmentHeadSize() { return sizeof(SegmentOnDisk); }
         
 
         bool GetEmptySegId(uint32_t& seg_id);

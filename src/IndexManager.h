@@ -145,7 +145,7 @@ namespace kvdb{
         uint32_t m_size;
         BlockDevice* m_bdev;
 
-        Timing* m_last_timestamp;
+        KVTime* m_last_timestamp;
 
     };
 

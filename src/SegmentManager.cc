@@ -5,13 +5,13 @@ namespace kvdb{
     SegmentOnDisk::SegmentOnDisk():
         checksum(0), number_keys(0)
     {
-        time_stamp = Timing::GetNow();
+        time_stamp = KVTime::GetNow();
     }
 
     SegmentOnDisk::SegmentOnDisk(uint32_t num):
         checksum(0), number_keys(num)
     {
-        time_stamp = Timing::GetNow();
+        time_stamp = KVTime::GetNow();
     }
 
     SegmentOnDisk::~SegmentOnDisk()
@@ -21,7 +21,7 @@ namespace kvdb{
     
     void SegmentOnDisk::Update()
     {
-        time_stamp = Timing::GetNow();
+        time_stamp = KVTime::GetNow();
     }
 
     SegmentStat::~SegmentStat()

@@ -9,10 +9,10 @@
 #include "Db_Structure.h"
 
 namespace kvdb{
-    class Timing{
+    class KVTime{
     public:
         static size_t GetTimeSizeOf(){ return sizeof(time_t); }
-        static char* TimeToChar(Timing& _time);
+        static char* TimeToChar(KVTime& _time);
         static time_t GetNow();
         static char* GetNowChar();
 
@@ -20,11 +20,17 @@ namespace kvdb{
         time_t GetTime();
         void Update();
 
-        bool IsLate(Timing& time_now);
 
-        Timing();
-        Timing(uint64_t _time);
-        ~Timing();
+        KVTime();
+        KVTime(const KVTime& toBeCopied);
+        KVTime& operator=(const KVTime& toBeCopied);
+        bool operator>(const KVTime& toBeCopied);
+        bool operator<(const KVTime& toBeCopied);
+        //get time diff, unit seconds
+        double operator-(const KVTime& toBeCopied);
+        ~KVTime();
+
+        KVTime(uint64_t _time);
     private:
         time_t m_time_stamp;
     };

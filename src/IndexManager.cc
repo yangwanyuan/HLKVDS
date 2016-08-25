@@ -146,12 +146,12 @@ namespace kvdb{
     {
         m_size = ht_size;
 
-        int64_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetTimeSizeOf();
         if (!rebuildTime(offset))
         {
             return false;
         }
-        __DEBUG("Load Hashtable timestamp: %s", Timing::TimeToChar(*m_last_timestamp));
+        __DEBUG("Load Hashtable timestamp: %s", KVTime::TimeToChar(*m_last_timestamp));
         offset += timeLength;
         
         if (!rebuildHashTable(offset))
@@ -165,7 +165,7 @@ namespace kvdb{
 
     bool IndexManager::rebuildTime(uint64_t offset)
     {
-        int64_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetTimeSizeOf();
         time_t _time;
         if (m_bdev->pRead(&_time, timeLength, offset) != timeLength)
         {
@@ -178,12 +178,12 @@ namespace kvdb{
 
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
-        int64_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetTimeSizeOf();
         if (!persistTime(offset))
         {
             return false;
         }
-        __DEBUG("Write Hashtable timestamp: %s", Timing::TimeToChar(*m_last_timestamp));
+        __DEBUG("Write Hashtable timestamp: %s", KVTime::TimeToChar(*m_last_timestamp));
         offset += timeLength;
 
 
@@ -198,7 +198,7 @@ namespace kvdb{
 
     bool IndexManager::persistTime(uint64_t offset)
     {
-        int64_t timeLength = Timing::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetTimeSizeOf();
         m_last_timestamp->Update();
         time_t _time =m_last_timestamp->GetTime();
 
@@ -285,7 +285,7 @@ namespace kvdb{
     IndexManager::IndexManager(BlockDevice* bdev):
         m_hashtable(NULL), m_size(0), m_bdev(bdev)
     {
-        m_last_timestamp = new Timing();
+        m_last_timestamp = new KVTime();
         return ;
     }
 
