@@ -132,9 +132,9 @@ namespace kvdb{
 
     bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
     {
-        m_size = computeHashSizeForCreateDB(numObjects);
+        htSize_ = computeHashSizeForCreateDB(numObjects);
         
-        if (!initHashTable(m_size))
+        if (!initHashTable(htSize_))
         {
             return false;
         }
@@ -144,14 +144,14 @@ namespace kvdb{
 
     bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint32_t ht_size)
     {
-        m_size = ht_size;
+        htSize_ = ht_size;
 
         int64_t timeLength = KVTime::GetTimeSizeOf();
         if (!rebuildTime(offset))
         {
             return false;
         }
-        __DEBUG("Load Hashtable timestamp: %s", KVTime::TimeToChar(*m_last_timestamp));
+        __DEBUG("Load Hashtable timestamp: %s", KVTime::TimeToChar(*lastTime_));
         offset += timeLength;
         
         if (!rebuildHashTable(offset))
@@ -167,12 +167,12 @@ namespace kvdb{
     {
         int64_t timeLength = KVTime::GetTimeSizeOf();
         time_t _time;
-        if (m_bdev->pRead(&_time, timeLength, offset) != timeLength)
+        if (bdev_->pRead(&_time, timeLength, offset) != timeLength)
         {
             __ERROR("Error in reading timestamp from file\n");
             return false;
         }
-        m_last_timestamp->SetTime(_time);
+        lastTime_->SetTime(_time);
         return true;
     }
 
@@ -183,7 +183,7 @@ namespace kvdb{
         {
             return false;
         }
-        __DEBUG("Write Hashtable timestamp: %s", KVTime::TimeToChar(*m_last_timestamp));
+        __DEBUG("Write Hashtable timestamp: %s", KVTime::TimeToChar(*lastTime_));
         offset += timeLength;
 
 
@@ -199,10 +199,10 @@ namespace kvdb{
     bool IndexManager::persistTime(uint64_t offset)
     {
         int64_t timeLength = KVTime::GetTimeSizeOf();
-        m_last_timestamp->Update();
-        time_t _time =m_last_timestamp->GetTime();
+        lastTime_->Update();
+        time_t _time =lastTime_->GetTime();
 
-        if (m_bdev->pWrite((void *)&_time, timeLength, offset ) != timeLength)
+        if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
         {
             __ERROR("Error write timestamp to file\n");
             return false;
@@ -216,9 +216,9 @@ namespace kvdb{
         HashEntry entry(*data_header, phy_offset, NULL);
 
 
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
-        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
         if (!entry_list->search(entry))
         {
@@ -236,9 +236,9 @@ namespace kvdb{
     bool IndexManager::GetHashEntry(const KVSlice *slice, HashEntry &entry)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
-        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
         entry.SetKeyDigest(*digest);
         
@@ -260,9 +260,9 @@ namespace kvdb{
     bool IndexManager::IsKeyExist(const KVSlice* slice)
     {
         const Kvdb_Digest* digest = &slice->GetDigest();
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
-        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
         HashEntry entry;
         entry.SetKeyDigest(*digest);
@@ -283,19 +283,19 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev):
-        m_hashtable(NULL), m_size(0), m_bdev(bdev)
+        hashtable_(NULL), htSize_(0), bdev_(bdev)
     {
-        m_last_timestamp = new KVTime();
+        lastTime_ = new KVTime();
         return ;
     }
 
     IndexManager::~IndexManager()
     {
-        if (m_last_timestamp)
+        if (lastTime_)
         {
-            delete m_last_timestamp;
+            delete lastTime_;
         }
-        if (m_hashtable)
+        if (hashtable_)
         {
             destroyHashTable();
         }
@@ -316,44 +316,44 @@ namespace kvdb{
 
     void IndexManager::createListIfNotExist(uint32_t index)
     {
-        if (!m_hashtable[index])
+        if (!hashtable_[index])
         {
             LinkedList<HashEntry> *entry_list = new LinkedList<HashEntry>;
-            m_hashtable[index] = entry_list;
+            hashtable_[index] = entry_list;
         }
         return;
     }
 
     bool IndexManager::initHashTable(uint32_t size)
     {
-        m_hashtable =  new LinkedList<HashEntry>*[m_size];
+        hashtable_ =  new LinkedList<HashEntry>*[htSize_];
 
         for (uint32_t i = 0; i < size; i++)
         {
-            m_hashtable[i]=NULL;
+            hashtable_[i]=NULL;
         }
         return true;
     }
 
     void IndexManager::destroyHashTable()
     {
-        for (uint32_t i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < htSize_; i++)
         {
-            if (m_hashtable[i])
+            if (hashtable_[i])
             {
-                delete m_hashtable[i];
-                m_hashtable[i] = NULL;
+                delete hashtable_[i];
+                hashtable_[i] = NULL;
             }
         }
-        delete[] m_hashtable;
-        m_hashtable = NULL;
+        delete[] hashtable_;
+        hashtable_ = NULL;
         return;
     }
 
     bool IndexManager::rebuildHashTable(uint64_t offset)
     {
         //Init hashtable
-        if (!initHashTable(m_size))
+        if (!initHashTable(htSize_))
         {
             return false;
         }
@@ -361,8 +361,8 @@ namespace kvdb{
         __DEBUG("initHashTable success");
 
         //Read hashtable 
-        uint64_t table_length = sizeof(int) * m_size;
-        int* counter = new int[m_size];
+        uint64_t table_length = sizeof(int) * htSize_;
+        int* counter = new int[htSize_];
         if (!loadDataFromDevice((void*)counter, table_length, offset))
         {
             return false;
@@ -371,8 +371,8 @@ namespace kvdb{
         __DEBUG("Read hashtable success");
 
         //Read all hash_entry
-        uint64_t length = sizeof(HashEntryOnDisk) * m_size;
-        HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
+        uint64_t length = sizeof(HashEntryOnDisk) * htSize_;
+        HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[htSize_];
         if (!loadDataFromDevice((void*)entry_ondisk, length, offset))
         {
             return false;
@@ -398,7 +398,7 @@ namespace kvdb{
         //ssize_t nread;
         int64_t nread;
         uint64_t h_offset = 0;
-        while ((nread = m_bdev->pRead((uint64_t *)data + h_offset, length, offset)) > 0){
+        while ((nread = bdev_->pRead((uint64_t *)data + h_offset, length, offset)) > 0){
             length -= nread;
             offset += nread;
             h_offset += nread;
@@ -416,7 +416,7 @@ namespace kvdb{
         //ssize_t nwrite;
         int64_t nwrite;
         uint64_t h_offset = 0;
-        while ((nwrite = m_bdev->pWrite((uint64_t *)data + h_offset, length, offset)) > 0){
+        while ((nwrite = bdev_->pWrite((uint64_t *)data + h_offset, length, offset)) > 0){
             length -= nwrite;
             offset += nwrite;
             h_offset += nwrite;
@@ -433,7 +433,7 @@ namespace kvdb{
     {
         //Convert hashtable from device to memory
         int entry_index = 0;
-        for (uint32_t i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < htSize_; i++)
         {
             
             int entry_num = counter[i];
@@ -442,7 +442,7 @@ namespace kvdb{
                 HashEntry entry(entry_ondisk[entry_index], 0);
 
                 createListIfNotExist(i);
-                m_hashtable[i]->insert(entry);
+                hashtable_[i]->insert(entry);
                 entry_index++;
             }
             if (entry_num > 0)
@@ -458,11 +458,11 @@ namespace kvdb{
         uint64_t entry_total = 0;
 
         //write hashtable to device
-        uint64_t table_length = sizeof(int) * m_size;
-        int* counter = new int[m_size];
-        for (uint32_t i = 0; i < m_size; i++)
+        uint64_t table_length = sizeof(int) * htSize_;
+        int* counter = new int[htSize_];
+        for (uint32_t i = 0; i < htSize_; i++)
         {
-            counter[i] = (m_hashtable[i]? m_hashtable[i]->get_size(): 0);
+            counter[i] = (hashtable_[i]? hashtable_[i]->get_size(): 0);
             entry_total += counter[i];
         }
         if (!writeDataToDevice((void*)counter, table_length, offset))
@@ -478,13 +478,13 @@ namespace kvdb{
         uint64_t length = sizeof(HashEntryOnDisk) * entry_total;
         HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
         int entry_index = 0;
-        for (uint32_t i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < htSize_; i++)
         {
-            if (!m_hashtable[i])
+            if (!hashtable_[i])
             {
                 continue;
             }
-            vector<HashEntry> tmp_vec = m_hashtable[i]->get();
+            vector<HashEntry> tmp_vec = hashtable_[i]->get();
             for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
             {
                 entry_ondisk[entry_index++] = (iter->GetEntryOnDisk());

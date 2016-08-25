@@ -5,7 +5,7 @@ namespace kvdb{
     
     char* KVTime::TimeToChar(KVTime& _time)
     {
-        return asctime(localtime(&_time.m_time_stamp));
+        return asctime(localtime(&_time.timestamp_));
     }
 
     time_t KVTime::GetNow()
@@ -25,54 +25,54 @@ namespace kvdb{
 
     void KVTime::SetTime(time_t _time)
     {
-        m_time_stamp = _time;
+        timestamp_ = _time;
     }
 
     time_t KVTime::GetTime()
     {
-        return m_time_stamp;
+        return timestamp_;
     }
 
     void KVTime::Update()
     {
-        time(&m_time_stamp);
+        time(&timestamp_);
     }
     
 
     KVTime::KVTime()
     {
-        time(&m_time_stamp);
+        time(&timestamp_);
     }
 
     KVTime::KVTime(const KVTime& toBeCopied)
     {
-        m_time_stamp = toBeCopied.m_time_stamp;
+        timestamp_ = toBeCopied.timestamp_;
     }
     
     KVTime& KVTime::operator=(const KVTime& toBeCopied)
     {
-        m_time_stamp = toBeCopied.m_time_stamp;
+        timestamp_ = toBeCopied.timestamp_;
         return *this;
     }
 
     bool KVTime::operator>(const KVTime& toBeCopied)
     {
-        return m_time_stamp > toBeCopied.m_time_stamp;
+        return timestamp_ > toBeCopied.timestamp_;
     }
 
     bool KVTime::operator<(const KVTime& toBeCopied)
     {
-        return m_time_stamp < toBeCopied.m_time_stamp;
+        return timestamp_ < toBeCopied.timestamp_;
     }
 
     double KVTime::operator-(const KVTime& toBeCopied)
     {
-        return difftime(m_time_stamp, toBeCopied.m_time_stamp);
+        return difftime(timestamp_, toBeCopied.timestamp_);
     }
 
     KVTime::~KVTime(){}
 
-    KVTime::KVTime(uint64_t _time): m_time_stamp(_time){}
+    KVTime::KVTime(uint64_t _time): timestamp_(_time){}
 
 
     void* Thread::runThread(void* arg)
@@ -80,7 +80,7 @@ namespace kvdb{
         return ((Thread*)arg)->Entry();
     }
 
-    Thread::Thread() : m_tid(0), m_running(0), m_detached(0){}
+    Thread::Thread() : tid_(0), running_(0), detached_(0){}
 
     Thread::~Thread()
     {
@@ -88,10 +88,10 @@ namespace kvdb{
 
     int Thread::Start()
     {
-        int result = pthread_create(&m_tid, NULL, runThread, (void *)this);
+        int result = pthread_create(&tid_, NULL, runThread, (void *)this);
         if (result == 0)
         {
-            m_running = 1;
+            running_ = 1;
         }
         return result;
     }
@@ -99,12 +99,12 @@ namespace kvdb{
     int Thread::Join()
     {
         int result = -1;
-        if (m_running == 1)
+        if (running_ == 1)
         {
-            result = pthread_join(m_tid, NULL);
+            result = pthread_join(tid_, NULL);
             if (result == 0)
             {
-                m_detached = 0;
+                detached_ = 0;
             }
         }
         return result;
@@ -113,12 +113,12 @@ namespace kvdb{
     int Thread::Detach()
     {
         int result = -1;
-        if (m_running == 1 && m_detached == 0)
+        if (running_ == 1 && detached_ == 0)
         {
-            result = pthread_detach(m_tid);
+            result = pthread_detach(tid_);
             if (result == 0)
             {
-                m_detached = 1;
+                detached_ = 1;
             }
         }
         return result;
@@ -126,16 +126,16 @@ namespace kvdb{
 
     bool Thread::Is_started() const
     {
-        return m_tid != 0;
+        return tid_ != 0;
     }
 
     bool Thread::Am_self() const
     {
-        return (pthread_self() == m_tid);
+        return (pthread_self() == tid_);
     }
 
     pthread_t Thread::Self()
     {
-        return m_tid;
+        return tid_;
     }
 } // namespace kvdb

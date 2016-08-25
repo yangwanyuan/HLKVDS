@@ -3,6 +3,7 @@
 #define _KV_DB_KVDB_IMPL_H_
 
 #include <list>
+#include <atomic>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -35,8 +36,8 @@ namespace kvdb {
         bool closeDB();
         bool writeMetaDataToDevice();
         bool readMetaDataFromDevice();
-        void startThreads();
-        void stopThreads();
+        void startThds();
+        void stopThds();
 
         bool insertNewKey(const KVSlice *slice);
         bool updateExistKey(const KVSlice *slice);
@@ -46,36 +47,58 @@ namespace kvdb {
 
 
     private:
-        SuperBlockManager* m_sb_mgr;
-        IndexManager* m_idx_mgr;
-        BlockDevice* m_bdev;
-        SegmentManager* m_seg_mgr;
-        string m_filename;
+        SuperBlockManager* sbMgr_;
+        IndexManager* idxMgr_;
+        BlockDevice* bdev_;
+        SegmentManager* segMgr_;
+        string fileName_;
 
-        Mutex *m_reqsQueue_mutex;
+        Mutex *reqQueMtx_;
+        Mutex *segQueMtx_;
 
     private:
-        friend class ReqsThread;
-        class ReqsThread : public Thread
+        friend class ReqThd;
+        class ReqThd : public Thread
         {
         public:
-            ReqsThread(): m_db(NULL){}
-            ReqsThread(KvdbDS* db): m_db(db){}
-            virtual ~ReqsThread(){}
-            ReqsThread(ReqsThread& toBeCopied) = delete;
-            ReqsThread& operator=(ReqsThread& toBeCopied) = delete;
+            ReqThd(): db_(NULL){}
+            ReqThd(KvdbDS* db): db_(db){}
+            virtual ~ReqThd(){}
+            ReqThd(ReqThd& toBeCopied) = delete;
+            ReqThd& operator=(ReqThd& toBeCopied) = delete;
 
-            virtual void* Entry() { m_db->ReqsThreadEntry(); return 0; }
+            virtual void* Entry() { db_->ReqThdEntry(); return 0; }
 
         private:
             friend class KvdbDS;
-            KvdbDS* m_db;
+            KvdbDS* db_;
         };
-        ReqsThread m_reqs_t;
-        std::list<Request*> m_reqs_list;
-        void ReqsThreadEntry();
-        bool m_stop_reqs_t;
+        ReqThd reqThd_;
+        std::list<Request*> reqQue_;
+        std::atomic<bool> reqThd_stop_;
+        void ReqThdEntry();
 
+    private:
+        friend class SegThd;
+        class SegThd : public Thread
+        {
+        public:
+            SegThd(): db_(NULL){}
+            SegThd(KvdbDS* db): db_(db){}
+            virtual ~SegThd(){}
+            SegThd(SegThd& toBeCopied) = delete;
+            SegThd& operator=(SegThd& toBeCopied) = delete;
+
+            virtual void* Entry() { db_->SegThdEntry(); return 0; }
+
+        private:
+            friend class KvdbDS;
+            KvdbDS* db_;
+        };
+        SegThd segThd_;
+        std::list<SegmentData*> segQue_;
+        std::atomic<bool> segThd_stop_;
+        void SegThdEntry();
     };
 
 }  // namespace kvdb

@@ -33,14 +33,14 @@ namespace kvdb{
         SegmentSlice(uint32_t seg_id, SegmentManager* sm);
 
         bool Put(const KVSlice *slice, DataHeader& header);
-        const void* GetSlice() const { return m_data; }
-        uint32_t GetLength() const { return m_len; }
+        const void* GetSlice() const { return data_; }
+        uint32_t GetLength() const { return length_; }
     private:
-        uint32_t m_id;
-        SegmentManager* m_sm;
-        uint32_t m_seg_size;
-        char* m_data;
-        uint32_t m_len;
+        uint32_t id_;
+        SegmentManager* segMgr_;
+        uint32_t segSize_;
+        char* data_;
+        uint32_t length_;
     };
 
     class KVSlice{
@@ -52,26 +52,26 @@ namespace kvdb{
 
         KVSlice(const char* key, int key_len, const char* data, int data_len);
 
-        const Kvdb_Digest& GetDigest() const { return *m_digest; }
-        const char* GetKey() const { return m_key; }
-        const char* GetData() const { return m_data; }
+        const Kvdb_Digest& GetDigest() const { return *digest_; }
+        const char* GetKey() const { return key_; }
+        const char* GetData() const { return data_; }
         string GetKeyStr() const;
         string GetDataStr() const;
-        uint32_t GetKeyLen() const { return m_keyLen; }
-        uint16_t GetDataLen() const { return m_dataLen; }
-        bool IsDigestComputed() const { return m_Iscomputed; }
+        uint32_t GetKeyLen() const { return keyLength_; }
+        uint16_t GetDataLen() const { return dataLength_; }
+        bool IsDigestComputed() const { return isComputed_; }
         bool Is4KData() const{ return GetDataLen() == 4096; }
 
         void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
         bool ComputeDigest();
 
     private:
-        const char* m_key;
-        uint32_t m_keyLen;
-        const char* m_data;
-        uint16_t m_dataLen;
-        Kvdb_Digest *m_digest;
-        bool m_Iscomputed;
+        const char* key_;
+        uint32_t keyLength_;
+        const char* data_;
+        uint16_t dataLength_;
+        Kvdb_Digest *digest_;
+        bool isComputed_;
 
         void copy_helper(const KVSlice& toBeCopied);
     };
@@ -84,22 +84,22 @@ namespace kvdb{
         Request& operator=(const Request& toBeCopied);
         Request(KVSlice& slice);
 
-        const KVSlice& GetSlice() const { return *m_slice; }
-        int IsDone() const { return m_done; }
+        const KVSlice& GetSlice() const { return *slice_; }
+        int IsDone() const { return isDone_; }
         void Done();
 
         void SetState(bool state);
-        bool GetState() const { return m_write_stat; }
+        bool GetState() const { return writeStat_; }
 
         void Wait();
         void Signal();
 
     private:
-        int m_done;
-        bool m_write_stat;
-        KVSlice *m_slice;
-        Mutex *m_mutex;
-        Cond *m_cond;
+        int isDone_;
+        bool writeStat_;
+        KVSlice *slice_;
+        Mutex *mtx_;
+        Cond *cond_;
 
     };
 
@@ -116,7 +116,7 @@ namespace kvdb{
         bool Put(KVSlice *slice, DataHeader& header);
         const char* GetCompleteSeg() const;
         void Complete();
-        bool IsCompleted() const{ return completed_;};
+        bool IsCompleted() const{ return isCompleted_;};
 
     private:
         bool isExpire() const;
@@ -127,7 +127,7 @@ namespace kvdb{
         void fillSegHead();
 
         uint32_t segId_;
-        SegmentManager* sm_;
+        SegmentManager* segMgr_;
         uint32_t segSize_;
         KVTime creTime_;
 
@@ -137,7 +137,7 @@ namespace kvdb{
         uint32_t keyNum_;
 
         char* data_;
-        bool completed_;
+        bool isCompleted_;
 
     };
 

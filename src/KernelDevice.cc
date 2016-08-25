@@ -15,14 +15,14 @@
    
 namespace kvdb{
     KernelDevice::KernelDevice():
-        m_direct_fd(-1), m_buffer_fd(-1), m_capacity(0), m_blocksize(0), m_path("")
+        directFd_(-1), bufFd_(-1), capacity_(0), blockSize_(0), path_("")
     {
         ;
     }
 
     KernelDevice::~KernelDevice()
     {
-        if (m_direct_fd != -1 || m_buffer_fd != -1)
+        if (directFd_ != -1 || bufFd_ != -1)
         {
             Close();
         }
@@ -30,51 +30,51 @@ namespace kvdb{
 
     int KernelDevice::CreateNewDB(string path, off_t size)
     {
-        m_path = path;
+        path_ = path;
 
         int r = 0;
         //check file exist, if not create a reg file.
-        //if (access(m_path.c_str(), F_OK)){
-        //    m_dtype = REG_FILE;
+        //if (access(path_.c_str(), F_OK)){
+        //    devType_ = REG_FILE;
 
-        //    r = open(m_path.c_str(), O_RDWR | O_CREAT | O_DIRECT, 0666);
+        //    r = open(path_.c_str(), O_RDWR | O_CREAT | O_DIRECT, 0666);
         //    if (r < 0){
         //        __ERROR("Could not create file: %s\n", strerror(errno));
         //        goto create_fail;
         //    }
-        //    m_direct_fd = r;
+        //    directFd_ = r;
 
-        //    r = open(m_path.c_str(), O_RDWR | O_CREAT, 0666);
+        //    r = open(path_.c_str(), O_RDWR | O_CREAT, 0666);
         //    if (r < 0){
         //        __ERROR("Could not create file: %s\n", strerror(errno));
         //        goto create_fail;
         //    }
-        //    m_buffer_fd = r;
+        //    bufFd_ = r;
 
         //}else{
         //
 
-        r = open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
+        r = open(path_.c_str(), O_RDWR | O_DIRECT, 0666);
         if (r < 0)
         {
             __ERROR("Could not create file: %s\n", strerror(errno));
             goto create_fail;
         }
-        m_direct_fd = r;
+        directFd_ = r;
 
-        //r = open(m_path.c_str(), O_RDWR, 0666);
-        //r = open(m_path.c_str(), O_RDWR | O_SYNC, 0666);
-        r = open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
+        //r = open(path_.c_str(), O_RDWR, 0666);
+        //r = open(path_.c_str(), O_RDWR | O_SYNC, 0666);
+        r = open(path_.c_str(), O_RDWR | O_DSYNC, 0666);
         if (r < 0)
         {
             __ERROR("Could not create file: %s\n", strerror(errno));
             goto create_fail;
         }
-        m_buffer_fd = r;
+        bufFd_ = r;
 
         //}
         struct stat statbuf;
-        r = fstat(m_direct_fd, &statbuf);
+        r = fstat(directFd_, &statbuf);
         if (r < 0)
         {
             __ERROR("Could not stat file: %s\n", strerror(errno));
@@ -83,17 +83,17 @@ namespace kvdb{
         
         if (S_ISBLK(statbuf.st_mode))
         {
-            m_dtype = BLOCK_FILE;
-            m_capacity = get_block_device_capacity();
-            m_blocksize = statbuf.st_blksize;
+            devType_ = BLOCK_FILE;
+            capacity_ = get_block_device_capacity();
+            blockSize_ = statbuf.st_blksize;
         }
         else
         {
-            m_dtype = REG_FILE;
-            m_capacity = size;
+            devType_ = REG_FILE;
+            capacity_ = size;
         }
 
-        r = posix_fadvise(m_buffer_fd, 0, 0, POSIX_FADV_RANDOM);
+        r = posix_fadvise(bufFd_, 0, 0, POSIX_FADV_RANDOM);
         if (r < 0)
         {
             __ERROR("couldn't posix_fadvise random");
@@ -117,26 +117,26 @@ namespace kvdb{
         return OK;
 
 create_fail:
-        close(m_direct_fd);
-        close(m_buffer_fd);
-        m_direct_fd = -1;
-        m_buffer_fd = -1;
+        close(directFd_);
+        close(bufFd_);
+        directFd_ = -1;
+        bufFd_ = -1;
         return ERR; 
     }
 
     int KernelDevice::set_device_zero()
     {
         int r = 0;
-        if (m_dtype == REG_FILE)
+        if (devType_ == REG_FILE)
         {
-            r = ftruncate(m_buffer_fd, (off_t)m_capacity);
+            r = ftruncate(bufFd_, (off_t)capacity_);
             if (r < 0)
             {
                 return ERR;
             }
         }
 
-        lseek(m_buffer_fd, 0, SEEK_SET);
+        lseek(bufFd_, 0, SEEK_SET);
         //r = fill_file_with_zeros();
         if (r < 0)
         {
@@ -157,7 +157,7 @@ create_fail:
         while (nbytes > 0)
         {
             size_t bytes_to_write = min(nbytes, BLOCKSIZE);
-            ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
+            ssize_t ret = write(bufFd_, zeros, bytes_to_write);
             if (ret < 0)
             {
                 __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
@@ -170,7 +170,7 @@ create_fail:
 
     int KernelDevice::fill_file_with_zeros()
     {
-        size_t nbytes = m_capacity;
+        size_t nbytes = capacity_;
 
         static const size_t BLOCKSIZE = 8192;
         char zeros[BLOCKSIZE];
@@ -178,7 +178,7 @@ create_fail:
         while (nbytes > 0)
         {
             size_t bytes_to_write = min(nbytes, BLOCKSIZE);
-            ssize_t ret = write(m_buffer_fd, zeros, bytes_to_write);
+            ssize_t ret = write(bufFd_, zeros, bytes_to_write);
             if (ret < 0)
             {
                 __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
@@ -192,7 +192,7 @@ create_fail:
     uint64_t KernelDevice::get_block_device_capacity()
     {   
         uint64_t blocksize ;
-        if (ioctl(m_buffer_fd, BLKGETSIZE64, &blocksize) < 0)
+        if (ioctl(bufFd_, BLKGETSIZE64, &blocksize) < 0)
         {
             __ERROR("Could not get block size: %s\n", strerror(errno));
             return ERR;
@@ -203,26 +203,26 @@ create_fail:
 
     int KernelDevice::Open(string path)
     {
-        m_path = path;
+        path_ = path;
 
         int r = 0;
 
-        m_direct_fd =  open(m_path.c_str(), O_RDWR | O_DIRECT, 0666);
-        if (m_direct_fd < 0)
+        directFd_ =  open(path_.c_str(), O_RDWR | O_DIRECT, 0666);
+        if (directFd_ < 0)
         {
             __ERROR("Could not open file: %s\n", strerror(errno));
             goto open_fail;
         }
-        //m_buffer_fd =  open(m_path.c_str(), O_RDWR, 0666);
-        //m_buffer_fd =  open(m_path.c_str(), O_RDWR | O_SYNC, 0666);
-        m_buffer_fd =  open(m_path.c_str(), O_RDWR | O_DSYNC, 0666);
-        if (m_buffer_fd < 0)
+        //bufFd_ =  open(path_.c_str(), O_RDWR, 0666);
+        //bufFd_ =  open(path_.c_str(), O_RDWR | O_SYNC, 0666);
+        bufFd_ =  open(path_.c_str(), O_RDWR | O_DSYNC, 0666);
+        if (bufFd_ < 0)
         {
             __ERROR("Could not open file: %s\n", strerror(errno));
             goto open_fail;
         }
 
-        r = posix_fadvise(m_buffer_fd, 0, 0, POSIX_FADV_RANDOM);
+        r = posix_fadvise(bufFd_, 0, 0, POSIX_FADV_RANDOM);
         if (r < 0)
         {
             __ERROR("Couldn't posix_fadvise random: %s\n", strerror(errno));
@@ -230,7 +230,7 @@ create_fail:
         }
 
         struct stat statbuf;
-        r = fstat(m_direct_fd, &statbuf);
+        r = fstat(directFd_, &statbuf);
         if (r < 0)
         {
             __ERROR("Couldn't read fstat: %s\n", strerror(errno));
@@ -239,34 +239,34 @@ create_fail:
 
         if (S_ISBLK(statbuf.st_mode))
         {
-            m_dtype = BLOCK_FILE;
-            m_capacity = get_block_device_capacity();
-            m_blocksize = statbuf.st_blksize;
+            devType_ = BLOCK_FILE;
+            capacity_ = get_block_device_capacity();
+            blockSize_ = statbuf.st_blksize;
         }
         else
         {
-            m_dtype = REG_FILE;
-            m_capacity = statbuf.st_size; 
+            devType_ = REG_FILE;
+            capacity_ = statbuf.st_size; 
         }
         return OK;
 open_fail:
-        close(m_buffer_fd);
-        close(m_direct_fd);
-        m_direct_fd = -1;
-        m_buffer_fd = -1;
+        close(bufFd_);
+        close(directFd_);
+        directFd_ = -1;
+        bufFd_ = -1;
         return ERR;
 
     }
 
     void KernelDevice::Close()
     {
-        if (m_direct_fd != -1)
+        if (directFd_ != -1)
         {
-            close(m_direct_fd);
+            close(directFd_);
         }
-        if (m_buffer_fd != -1)
+        if (bufFd_ != -1)
         {
-            close(m_buffer_fd);
+            close(bufFd_);
         }
     }
 
@@ -496,12 +496,12 @@ open_fail:
     
     ssize_t KernelDevice::DirectWriteAligned(const void* buf, size_t count, off_t offset)
     {
-        return pwrite64(m_direct_fd, buf, count, offset);
+        return pwrite64(directFd_, buf, count, offset);
     }
 
     ssize_t KernelDevice::DirectReadAligned(void* buf, size_t count, off_t offset)
     {
-        return pread64(m_direct_fd, buf, count, offset);
+        return pread64(directFd_, buf, count, offset);
     }
 
     ssize_t KernelDevice::DirectWrite(const void* buf, size_t count, off_t offset)
@@ -524,12 +524,12 @@ open_fail:
     
     ssize_t KernelDevice::BufferWrite(const void* buf, size_t count, off_t offset)
     {
-        return pwrite64(m_buffer_fd, buf, count, offset);
+        return pwrite64(bufFd_, buf, count, offset);
     }
 
     ssize_t KernelDevice::BufferRead(void* buf, size_t count, off_t offset)
     {
-        return pread64(m_buffer_fd, buf, count, offset);
+        return pread64(bufFd_, buf, count, offset);
     }
 
     
@@ -556,11 +556,11 @@ open_fail:
 
     ssize_t KernelDevice::pWritev(const struct iovec *iov, int iovcnt, off_t offset)
     {
-        return pwritev(m_buffer_fd, iov, iovcnt, offset);
+        return pwritev(bufFd_, iov, iovcnt, offset);
     }
 
     ssize_t KernelDevice::pReadv(const struct iovec *iov, int iovcnt, off_t offset)
     {
-        return preadv(m_buffer_fd, iov, iovcnt, offset);
+        return preadv(bufFd_, iov, iovcnt, offset);
     }
 }//namespace kvdb

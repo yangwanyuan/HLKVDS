@@ -47,10 +47,10 @@ namespace kvdb{
         bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size);
         bool LoadSegmentTableFromDevice(uint64_t meta_size, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
 
-        uint32_t GetNowSegId(){ return m_current_seg; }
-        uint32_t GetNumberOfSeg(){ return m_num_seg; }
-        uint64_t GetDataRegionSize(){ return m_seg_size * m_num_seg; }
-        uint32_t GetSegmentSize(){ return m_seg_size; }
+        uint32_t GetNowSegId(){ return curSegId_; }
+        uint32_t GetNumberOfSeg(){ return segNum_; }
+        uint64_t GetDataRegionSize(){ return segSize_ * segNum_; }
+        uint32_t GetSegmentSize(){ return segSize_; }
         uint32_t GetSegmentHeadSize() { return sizeof(SegmentOnDisk); }
         
 
@@ -67,15 +67,15 @@ namespace kvdb{
         ~SegmentManager();
 
     private:
-        vector<SegmentStat> m_seg_table;
-        uint64_t m_begin_offset;
-        uint32_t m_seg_size;
-        uint32_t m_num_seg;
-        uint32_t m_current_seg;
-        bool m_is_full;
+        vector<SegmentStat> segTable_;
+        uint64_t startOffset_;
+        uint32_t segSize_;
+        uint32_t segNum_;
+        uint32_t curSegId_;
+        bool isFull_;
         
 
-        BlockDevice* m_bdev;
+        BlockDevice* bdev_;
 
 
     };

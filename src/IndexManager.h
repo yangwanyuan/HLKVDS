@@ -122,7 +122,7 @@ namespace kvdb{
         bool GetHashEntry(const KVSlice *slice, HashEntry &hash_entry);
         bool IsKeyExist(const KVSlice *slice);
 
-        uint32_t GetHashTableSize() const { return m_size; }
+        uint32_t GetHashTableSize() const { return htSize_; }
 
         IndexManager(BlockDevice* bdev);
         ~IndexManager();
@@ -144,11 +144,11 @@ namespace kvdb{
         bool writeDataToDevice(void* data, uint64_t length, uint64_t offset);
 
 
-        LinkedList<HashEntry>** m_hashtable;  
-        uint32_t m_size;
-        BlockDevice* m_bdev;
+        LinkedList<HashEntry>** hashtable_;  
+        uint32_t htSize_;
+        BlockDevice* bdev_;
 
-        KVTime* m_last_timestamp;
+        KVTime* lastTime_;
 
     };
 

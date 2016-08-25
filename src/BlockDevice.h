@@ -32,7 +32,7 @@ namespace kvdb{
         virtual ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset) = 0;
 
     private:
-        //std::string m_path;
+        //std::string path_;
     };
 }//namespace kvdb
 

@@ -32,7 +32,7 @@ namespace kvdb{
 
         KVTime(uint64_t _time);
     private:
-        time_t m_time_stamp;
+        time_t timestamp_;
     };
 
     class Thread
@@ -52,9 +52,9 @@ namespace kvdb{
 
 
     protected:
-        pthread_t m_tid;
-        int m_running;
-        int m_detached;
+        pthread_t tid_;
+        int running_;
+        int detached_;
 
         static void* runThread(void* arg);
     };
@@ -62,31 +62,31 @@ namespace kvdb{
     class Mutex
     {
     public:
-        Mutex() { pthread_mutex_init(&m_mutex, NULL); }
-        virtual ~Mutex() { pthread_mutex_destroy(&m_mutex); }
+        Mutex() { pthread_mutex_init(&mtx_, NULL); }
+        virtual ~Mutex() { pthread_mutex_destroy(&mtx_); }
 
-        int Lock() { return pthread_mutex_lock(&m_mutex); }
-        int Trylock() { return pthread_mutex_trylock(&m_mutex); }
-        int Unlock() { return pthread_mutex_unlock(&m_mutex); }
+        int Lock() { return pthread_mutex_lock(&mtx_); }
+        int Trylock() { return pthread_mutex_trylock(&mtx_); }
+        int Unlock() { return pthread_mutex_unlock(&mtx_); }
 
     private:
         friend class Cond;
-        pthread_mutex_t m_mutex;
+        pthread_mutex_t mtx_;
     };
 
 
     class Cond
     {
     public:
-        Cond(Mutex& mutex) : m_lock(mutex) { pthread_cond_init(&m_cond, NULL); }
-        virtual ~Cond() { pthread_cond_destroy(&m_cond); }
-        int Wait() { return pthread_cond_wait(&m_cond, &(m_lock.m_mutex)); }
-        int Signal() { return pthread_cond_signal(&m_cond); }
-        int Broadcast() { return pthread_cond_broadcast(&m_cond); }
+        Cond(Mutex& mutex) : lock_(mutex) { pthread_cond_init(&cond_, NULL); }
+        virtual ~Cond() { pthread_cond_destroy(&cond_); }
+        int Wait() { return pthread_cond_wait(&cond_, &(lock_.mtx_)); }
+        int Signal() { return pthread_cond_signal(&cond_); }
+        int Broadcast() { return pthread_cond_broadcast(&cond_); }
 
     private:
-        pthread_cond_t m_cond;
-        Mutex& m_lock;
+        pthread_cond_t cond_;
+        Mutex& lock_;
     };
 }
 

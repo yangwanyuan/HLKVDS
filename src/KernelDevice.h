@@ -28,12 +28,12 @@ namespace kvdb{
         ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset);
 
     private:
-        int m_direct_fd;
-        int m_buffer_fd;
-        uint64_t m_capacity;
-        int m_blocksize;
-        std::string m_path;
-        device_type m_dtype;
+        int directFd_;
+        int bufFd_;
+        uint64_t capacity_;
+        int blockSize_;
+        std::string path_;
+        device_type devType_;
         
         int set_device_zero();
         int set_metazone_zero(uint64_t meta_size);
@@ -42,9 +42,9 @@ namespace kvdb{
         int disable_readahead();
 
 
-        uint64_t get_capacity() { return m_capacity; }
+        uint64_t get_capacity() { return capacity_; }
         int get_pagesize() { return getpagesize(); }
-        int get_blocksize() { return m_blocksize; }
+        int get_blocksize() { return blockSize_; }
 
         bool IsSectorAligned(const size_t off){ return off % (get_blocksize()) == 0; }
         bool IsPageAligned(const void* ptr){ return (uint64_t)ptr % (get_pagesize()) == 0; }

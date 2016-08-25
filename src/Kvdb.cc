@@ -3,7 +3,7 @@
 
 namespace kvdb{
 
-    DB *DB::m_db = NULL;
+    DB *DB::instance_ = NULL;
 
     bool DB::CreateDB(string filename,
                     uint32_t hash_table_size,
@@ -24,19 +24,19 @@ namespace kvdb{
     }
 
     bool DB::OpenDB(string filename, DB** db){
-        if (m_db == NULL)
+        if (instance_ == NULL)
         {
-            m_db = new DB();
+            instance_ = new DB();
         }
 
-        m_db->m_kvdb_db = KvdbDS::Open_KvdbDS(filename.c_str());
-        if (!m_db->m_kvdb_db)
+        instance_->kvdb_ = KvdbDS::Open_KvdbDS(filename.c_str());
+        if (!instance_->kvdb_)
         {
             std::cout << "OpenDB failed" <<std::endl;
             return false;
         }
 
-        *db = m_db;
+        *db = instance_;
         //std::cout << "OpenDB success" <<std::endl;
         return true;
     }
@@ -45,11 +45,11 @@ namespace kvdb{
 
     DB::~DB()
     {
-        delete m_db->m_kvdb_db;
+        delete instance_->kvdb_;
     }
 
     bool DB::Insert(const char* key, uint32_t key_len,const char* data, uint16_t length){
-        if (!m_kvdb_db->Insert(key, key_len, data, length))
+        if (!kvdb_->Insert(key, key_len, data, length))
         {
             std::cout << "DB Insert failed" <<std::endl;
             return false;
@@ -58,7 +58,7 @@ namespace kvdb{
     }
 
     bool DB::Delete(const char* key, uint32_t key_len){
-        if (!m_kvdb_db->Delete(key, key_len))
+        if (!kvdb_->Delete(key, key_len))
         {
             std::cout << "DB Delete failed" <<std::endl;
             return false;
@@ -67,7 +67,7 @@ namespace kvdb{
     }
 
     bool DB::Get(const char* key, uint32_t key_len, string &data){
-        if (!m_kvdb_db->Get(key, key_len, data))
+        if (!kvdb_->Get(key, key_len, data))
         {
             std::cout << "DB Get failed" <<std::endl;
             return false;

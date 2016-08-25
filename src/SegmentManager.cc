@@ -36,31 +36,31 @@ namespace kvdb{
             return false;
         }
 
-        m_begin_offset = meta_size;
-        m_seg_size = segment_size;
-        m_num_seg = (device_capacity - meta_size) / segment_size;
-        m_current_seg = 0;
+        startOffset_ = meta_size;
+        segSize_ = segment_size;
+        segNum_ = (device_capacity - meta_size) / segment_size;
+        curSegId_ = 0;
 
         
         //init segment table
         SegmentStat seg_stat;
-        for (uint32_t seg_index = 0; seg_index < m_num_seg; seg_index++)
+        for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
-           m_seg_table.push_back(seg_stat);
+           segTable_.push_back(seg_stat);
         }
 
         //write all segments to device
         SegmentOnDisk seg_ondisk;
-        uint64_t offset = m_begin_offset;
-        for (uint32_t seg_index = 0; seg_index < m_num_seg; seg_index++)
+        uint64_t offset = startOffset_;
+        for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             //write seg to device
-            if ( m_bdev->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
+            if ( bdev_->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
             {
                 __ERROR("can not write segment to device!");
                 return false;
             }
-            offset += m_seg_size;
+            offset += segSize_;
         }
         
         //SegmentOnDisk seg_ondisk(now_time);
@@ -69,22 +69,22 @@ namespace kvdb{
 
     bool SegmentManager::LoadSegmentTableFromDevice(uint64_t meta_size, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg)
     {
-        m_begin_offset = meta_size;
-        m_seg_size = segment_size;
-        m_num_seg = num_seg;
-        m_current_seg = current_seg;
+        startOffset_ = meta_size;
+        segSize_ = segment_size;
+        segNum_ = num_seg;
+        curSegId_ = current_seg;
 
-        uint64_t offset = m_begin_offset;
-        for (uint32_t seg_index = 0; seg_index < m_num_seg; seg_index++)
+        uint64_t offset = startOffset_;
+        for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             SegmentOnDisk seg_ondisk;
             //write seg to device
-            if ( m_bdev->pRead(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
+            if ( bdev_->pRead(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
             {
                 __ERROR("can not write segment to device!");
                 return false;
             }
-            offset += m_seg_size;
+            offset += segSize_;
             SegmentStat seg_stat;
             if (seg_ondisk.number_keys != 0)
             {
@@ -94,7 +94,7 @@ namespace kvdb{
             {
                 seg_stat.state = un_use;
             }
-            m_seg_table.push_back(seg_stat);
+            segTable_.push_back(seg_stat);
         }
         
         return true;
@@ -102,31 +102,31 @@ namespace kvdb{
 
     bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
     {
-        //if (m_is_full)
+        //if (isFull_)
         //{
         //    return false;
         //}
 
-        //seg_id = m_current_seg; 
+        //seg_id = curSegId_; 
 
         //for first use !!
-        if (m_seg_table[m_current_seg].state == un_use)
+        if (segTable_[curSegId_].state == un_use)
         {
-            seg_id = m_current_seg;
+            seg_id = curSegId_;
             return true;
         }
 
-        uint32_t seg_index = m_current_seg + 1; 
+        uint32_t seg_index = curSegId_ + 1; 
         
-        while(seg_index != m_current_seg)
+        while(seg_index != curSegId_)
         {
-            if (m_seg_table[seg_index].state == un_use)
+            if (segTable_[seg_index].state == un_use)
             {
                 seg_id = seg_index;
                 return true;
             }
             seg_index++;
-            if ( seg_index == m_num_seg)
+            if ( seg_index == segNum_)
             {
                 seg_index = 0;
             }
@@ -136,22 +136,22 @@ namespace kvdb{
 
     bool SegmentManager::ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
     {
-        if (seg_id >= m_num_seg)
+        if (seg_id >= segNum_)
         {
             return false;
         }
-        offset = m_begin_offset + seg_id * m_seg_size;   
+        offset = startOffset_ + seg_id * segSize_;   
         return true;
     }
 
     bool SegmentManager::ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id)
     {
-        uint64_t end_offset = m_begin_offset + ((uint64_t)m_seg_size) * ((uint64_t)(m_num_seg - 1));
-        if (offset < m_begin_offset || offset > end_offset)
+        uint64_t end_offset = startOffset_ + ((uint64_t)segSize_) * ((uint64_t)(segNum_ - 1));
+        if (offset < startOffset_ || offset > end_offset)
         {
             return false;
         }
-        seg_id = (offset - m_begin_offset )/ m_seg_size;
+        seg_id = (offset - startOffset_ )/ segSize_;
         return true;
     }
 
@@ -183,39 +183,39 @@ namespace kvdb{
 
     void SegmentManager::Update(uint32_t seg_id)
     {
-        m_current_seg = seg_id;
-        m_seg_table[m_current_seg].state = in_use;
+        curSegId_ = seg_id;
+        segTable_[curSegId_].state = in_use;
 
-        //m_seg_table[seg_id].state = in_use;
+        //segTable_[seg_id].state = in_use;
 
         //uint64_t seg_index = seg_id + 1; 
         //
         //while(seg_index != seg_id)
         //{
-        //    if (m_seg_table[seg_index].state == un_use)
+        //    if (segTable_[seg_index].state == un_use)
         //    {
-        //        m_current_seg = seg_index;
+        //        curSegId_ = seg_index;
         //        return;
         //    }
         //    seg_index++;
-        //    if ( seg_index == m_num_seg)
+        //    if ( seg_index == segNum_)
         //    {
         //        seg_index = 0;
         //    }
         //}
         //
-        //m_is_full = true;
+        //isFull_ = true;
         return;
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        m_begin_offset(0), m_seg_size(0), m_num_seg(0), m_current_seg(0), m_is_full(false), m_bdev(bdev)
+        startOffset_(0), segSize_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev)
     {
         return;
     }
 
     SegmentManager::~SegmentManager()
     {
-        m_seg_table.clear();
+        segTable_.clear();
     }
 } //end namespace kvdb

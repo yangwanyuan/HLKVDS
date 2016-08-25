@@ -27,9 +27,9 @@ namespace kvdb{
             DB(const DB &);
             DB& operator=(const DB &);
  
-            string m_filename;
-            KvdbDS *m_kvdb_db;
-            static DB *m_db;
+            string fileName_;
+            KvdbDS *kvdb_;
+            static DB *instance_;
     };
 
 } // namespace kvdb

@@ -10,18 +10,18 @@
 namespace kvdb{
 
     SegmentSlice::SegmentSlice(uint32_t seg_id, SegmentManager* sm)
-        : m_id(seg_id), m_sm(sm)
+        : id_(seg_id), segMgr_(sm)
     {
-        m_seg_size = m_sm->GetSegmentSize();
-        m_data = new char[m_seg_size];
-        //memset(m_data, 0, m_seg_size);
-        m_len = 0;
+        segSize_ = segMgr_->GetSegmentSize();
+        data_ = new char[segSize_];
+        //memset(data_, 0, segSize_);
+        length_ = 0;
     }
 
     bool SegmentSlice::Put(const KVSlice *slice, DataHeader& header)
     {
         uint64_t seg_offset;
-        m_sm->ComputeSegOffsetFromId(m_id, seg_offset);
+        segMgr_->ComputeSegOffsetFromId(id_, seg_offset);
 
         uint32_t head_offset = sizeof(SegmentOnDisk);
         uint32_t data_offset = head_offset + sizeof(DataHeader);
@@ -33,10 +33,10 @@ namespace kvdb{
         header.SetNextHeadOffset(next_offset);
 
         SegmentOnDisk seg_ondisk;
-        m_len = sizeof(SegmentOnDisk) + sizeof(DataHeader) + slice->GetDataLen();
-        memcpy(m_data, &seg_ondisk, sizeof(SegmentOnDisk));
-        memcpy(&m_data[sizeof(SegmentOnDisk)], &header, sizeof(DataHeader));
-        memcpy(&m_data[sizeof(SegmentOnDisk) + sizeof(DataHeader)], slice->GetData(), slice->GetDataLen());
+        length_ = sizeof(SegmentOnDisk) + sizeof(DataHeader) + slice->GetDataLen();
+        memcpy(data_, &seg_ondisk, sizeof(SegmentOnDisk));
+        memcpy(&data_[sizeof(SegmentOnDisk)], &header, sizeof(DataHeader));
+        memcpy(&data_[sizeof(SegmentOnDisk) + sizeof(DataHeader)], slice->GetData(), slice->GetDataLen());
 
         return true;
     }
@@ -44,26 +44,26 @@ namespace kvdb{
 
     SegmentSlice::~SegmentSlice()
     {
-        if(m_data)
+        if(data_)
         {
-            delete[] m_data;
+            delete[] data_;
         }
     }
 
 
     KVSlice::KVSlice()
-        : m_key(NULL), m_keyLen(0), m_data(NULL), m_dataLen(0), m_digest(NULL), m_Iscomputed(false) {}
+        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false) {}
 
     KVSlice::~KVSlice()
     {
-        if (m_digest)
+        if (digest_)
         {
-            delete m_digest;
+            delete digest_;
         }
     }
 
     KVSlice::KVSlice(const KVSlice& toBeCopied)
-        : m_key(NULL), m_keyLen(0), m_data(NULL), m_dataLen(0), m_digest(NULL), m_Iscomputed(false)
+        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false)
     {
         copy_helper(toBeCopied);
     }
@@ -76,48 +76,48 @@ namespace kvdb{
 
     void KVSlice::copy_helper(const KVSlice& toBeCopied)
     {
-        m_keyLen = toBeCopied.GetKeyLen();
-        m_dataLen = toBeCopied.GetDataLen();
-        m_key = toBeCopied.GetKey();
-        m_data = toBeCopied.GetData();
-        *m_digest = toBeCopied.GetDigest();
-        m_Iscomputed = toBeCopied.IsDigestComputed();
+        keyLength_ = toBeCopied.GetKeyLen();
+        dataLength_ = toBeCopied.GetDataLen();
+        key_ = toBeCopied.GetKey();
+        data_ = toBeCopied.GetData();
+        *digest_ = toBeCopied.GetDigest();
+        isComputed_ = toBeCopied.IsDigestComputed();
     }
 
     KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len)
-        : m_key(key), m_keyLen(key_len), m_data(data), m_dataLen(data_len), m_digest(NULL), m_Iscomputed(false){}
+        : key_(key), keyLength_(key_len), data_(data), dataLength_(data_len), digest_(NULL), isComputed_(false){}
 
     void KVSlice::SetKeyValue(const char* key, int key_len, const char* data, int data_len)
     {
-        m_Iscomputed = false;
-        m_keyLen = key_len;
-        m_dataLen = data_len;
-        m_key = key;
-        m_data = data;
+        isComputed_ = false;
+        keyLength_ = key_len;
+        dataLength_ = data_len;
+        key_ = key;
+        data_ = data;
     }
 
     bool KVSlice::ComputeDigest()
     {
-        if (!m_key)
+        if (!key_)
         {
             return false;
         }
-        m_digest = new Kvdb_Digest();
-        Kvdb_Key vkey(m_key, m_keyLen);
-        if (!KeyDigestHandle::ComputeDigest(&vkey, *m_digest))
+        digest_ = new Kvdb_Digest();
+        Kvdb_Key vkey(key_, keyLength_);
+        if (!KeyDigestHandle::ComputeDigest(&vkey, *digest_))
         {
             return false;
         }
 
-        m_Iscomputed = true;
+        isComputed_ = true;
         return true;
     }
 
     string KVSlice::GetKeyStr() const
     {
-        char * data = new char[m_keyLen + 1];
-        memcpy(data, m_key, m_keyLen);
-        data[m_keyLen] = '\0';
+        char * data = new char[keyLength_ + 1];
+        memcpy(data, key_, keyLength_);
+        data[keyLength_] = '\0';
         string r(data);
         delete[] data;
         return r;
@@ -125,82 +125,82 @@ namespace kvdb{
 
     string KVSlice::GetDataStr() const
     {
-        char * data = new char[m_dataLen + 1];
-        memcpy(data, m_data, m_dataLen);
-        data[m_dataLen] = '\0';
+        char * data = new char[dataLength_ + 1];
+        memcpy(data, data_, dataLength_);
+        data[dataLength_] = '\0';
         string r(data);
         delete[] data;
         return r;
     }
 
-    Request::Request(): m_done(0), m_write_stat(false), m_slice(NULL)
+    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL)
     {
-        m_mutex = new Mutex;
-        m_cond = new Cond(*m_mutex);
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
     }
 
     Request::~Request()
     {
-        delete m_cond;
-        delete m_mutex;
+        delete cond_;
+        delete mtx_;
     }
 
     Request::Request(const Request& toBeCopied)
-        : m_done(toBeCopied.m_done), m_write_stat(toBeCopied.m_write_stat), m_slice(toBeCopied.m_slice)
+        : isDone_(toBeCopied.isDone_), writeStat_(toBeCopied.writeStat_), slice_(toBeCopied.slice_)
     {
-        m_mutex = new Mutex;
-        m_cond = new Cond(*m_mutex);
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
     }
 
     Request& Request::operator=(const Request& toBeCopied)
     {
-        m_done = toBeCopied.m_done;
-        m_write_stat = toBeCopied.m_write_stat;
-        m_slice = toBeCopied.m_slice;
-        m_mutex = new Mutex;
-        m_cond = new Cond(*m_mutex);
+        isDone_ = toBeCopied.isDone_;
+        writeStat_ = toBeCopied.writeStat_;
+        slice_ = toBeCopied.slice_;
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
         return *this;
     }
 
-    Request::Request(KVSlice& slice) : m_done(0), m_write_stat(false), m_slice(&slice)
+    Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice)
     {
-        m_mutex = new Mutex;
-        m_cond = new Cond(*m_mutex);
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
     }
 
 
     void Request::Done()
     {
-        m_mutex->Lock();
-        m_done = 1;
-        m_mutex->Unlock();
+        mtx_->Lock();
+        isDone_ = 1;
+        mtx_->Unlock();
     }
 
     void Request::SetState(bool state)
     {
-        m_mutex->Lock();
-        m_write_stat = state;
-        m_mutex->Unlock();
+        mtx_->Lock();
+        writeStat_ = state;
+        mtx_->Unlock();
     }
 
     void Request::Wait()
     {
-        m_mutex->Lock();
-        m_cond->Wait();
-        m_mutex->Unlock();
+        mtx_->Lock();
+        cond_->Wait();
+        mtx_->Unlock();
     }
 
     void Request::Signal()
     {
-        m_mutex->Lock();
-        m_cond->Signal();
-        m_mutex->Unlock();
+        mtx_->Lock();
+        cond_->Signal();
+        mtx_->Unlock();
     }
 
     SegmentData::SegmentData()
-        :segId_(0), sm_(NULL), segSize_(0), creTime_(KVTime()),
+        :segId_(0), segMgr_(NULL), segSize_(0), creTime_(KVTime()),
         headPos_(0), tailPos_(0), keyNum_(0), data_(NULL),
-        completed_(false){}
+        isCompleted_(false){}
 
     SegmentData::~SegmentData()
     {
@@ -224,21 +224,21 @@ namespace kvdb{
     void SegmentData::copyHelper(const SegmentData& toBeCopied)
     {
         segId_ = toBeCopied.segId_;
-        sm_ = toBeCopied.sm_;
+        segMgr_ = toBeCopied.segMgr_;
         segSize_ = toBeCopied.segSize_;
         creTime_ = toBeCopied.creTime_;
         headPos_ = toBeCopied.headPos_;
         tailPos_ = toBeCopied.tailPos_;
         keyNum_ = toBeCopied.keyNum_;
-        completed_ = toBeCopied.completed_;
+        isCompleted_ = toBeCopied.isCompleted_;
         data_ = new char[segSize_];
         memcpy(data_, toBeCopied.data_, segSize_);
     }
 
     SegmentData::SegmentData(uint32_t seg_id, SegmentManager* sm)
-        : segId_(seg_id), sm_(sm), segSize_(sm_->GetSegmentSize()),
+        : segId_(seg_id), segMgr_(sm), segSize_(segMgr_->GetSegmentSize()),
         creTime_(KVTime()), headPos_(sizeof(SegmentOnDisk)),
-        tailPos_(segSize_), keyNum_(0), completed_(false)
+        tailPos_(segSize_), keyNum_(0), isCompleted_(false)
     {
         data_ = new char[segSize_];
     }
@@ -271,7 +271,7 @@ namespace kvdb{
 
     const char* SegmentData::GetCompleteSeg() const
     {
-        if (!completed_)
+        if (!isCompleted_)
         {
             return NULL;
         }
@@ -281,7 +281,7 @@ namespace kvdb{
     void SegmentData::Complete()
     {
         fillSegHead();
-        completed_ = true;
+        isCompleted_ = true;
     }
 
     bool SegmentData::isExpire() const
