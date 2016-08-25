@@ -17,7 +17,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
 
-    enum SegUseStat{un_use, in_use, full_use};
+    enum SegUseStat{un_use, in_use};
 
     class SegmentOnDisk{
     public:

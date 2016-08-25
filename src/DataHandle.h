@@ -59,6 +59,7 @@ namespace kvdb{
         int GetKeyLen() const { return m_keyLen; }
         int GetDataLen() const { return m_dataLen; }
         bool IsDigestComputed() const { return m_Iscomputed; }
+        bool Is4KData() const{ return GetDataLen() == 4096; }
 
         void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
         bool ComputeDigest();
@@ -111,30 +112,28 @@ namespace kvdb{
         SegmentData(uint32_t seg_id, SegmentManager* sm);
 
         bool IsCanWrite(KVSlice *slice) const;
-        bool Put(KVSlice *slice);
-        bool WriteToDevice();
+        bool Put(KVSlice *slice, DataHeader& header);
+        const char* GetCompleteSeg() const;
         void Complete();
         bool IsCompleted() const{ return completed_;};
 
     private:
         bool isExpire() const;
-        bool isCanFit() const;
-        bool put4K();
-        bool putNon4K();
+        bool isCanFit(KVSlice *slice) const;
+        void put4K(KVSlice *slice, DataHeader& header);
+        void putNon4K(KVSlice *slice, DataHeader& header);
         void copyHelper(const SegmentData& toBeCopied);
         void fillSegHead();
 
         uint32_t segId_;
         SegmentManager* sm_;
         uint32_t segSize_;
-        KVTime createTime_;
+        KVTime creTime_;
 
-        uint32_t headPosition_;
-        uint32_t tailPosition_;
+        uint32_t headPos_;
+        uint32_t tailPos_;
 
         uint32_t keyNum_;
-        uint32_t segHeadSize_;
-        uint32_t freeSize_;
 
         char* data_;
         bool completed_;

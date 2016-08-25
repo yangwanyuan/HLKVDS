@@ -29,6 +29,15 @@ namespace kvdb{
         return true;
     }
 
+    SegmentSlice::~SegmentSlice()
+    {
+        if(m_data)
+        {
+            delete[] m_data;
+        }
+    }
+
+
     KVSlice::KVSlice()
         : m_key(NULL), m_keyLen(0), m_data(NULL), m_dataLen(0), m_digest(NULL), m_Iscomputed(false) {}
 
@@ -174,9 +183,9 @@ namespace kvdb{
     }
 
     SegmentData::SegmentData()
-        :segId_(0), sm_(NULL), segSize_(0), createTime_(KVTime()),
-        headPosition_(0), tailPosition_(0), keyNum_(0), segHeadSize_(0),
-        freeSize_(0), data_(NULL), completed_(false){}
+        :segId_(0), sm_(NULL), segSize_(0), creTime_(KVTime()),
+        headPos_(0), tailPos_(0), keyNum_(0), data_(NULL),
+        completed_(false){}
 
     SegmentData::~SegmentData()
     {
@@ -202,39 +211,56 @@ namespace kvdb{
         segId_ = toBeCopied.segId_;
         sm_ = toBeCopied.sm_;
         segSize_ = toBeCopied.segSize_;
-        createTime_ = toBeCopied.createTime_;
-        headPosition_ = toBeCopied.headPosition_;
-        tailPosition_ = toBeCopied.tailPosition_;
+        creTime_ = toBeCopied.creTime_;
+        headPos_ = toBeCopied.headPos_;
+        tailPos_ = toBeCopied.tailPos_;
         keyNum_ = toBeCopied.keyNum_;
-        segHeadSize_ = toBeCopied.segHeadSize_;
-        freeSize_ = toBeCopied.freeSize_;
         completed_ = toBeCopied.completed_;
         data_ = new char[segSize_];
         memcpy(data_, toBeCopied.data_, segSize_);
     }
 
     SegmentData::SegmentData(uint32_t seg_id, SegmentManager* sm)
-        :segId_(seg_id), sm_(sm), segSize_(sm_->GetSegmentSize()),
-        createTime_(KVTime()), headPosition_(0), tailPosition_(segSize_),
-        keyNum_(0), segHeadSize_(sizeof(SegmentOnDisk)),
-        freeSize_(segSize_ - segHeadSize_), completed_(false)
+        : segId_(seg_id), sm_(sm), segSize_(sm_->GetSegmentSize()),
+        creTime_(KVTime()), headPos_(sizeof(SegmentOnDisk)),
+        tailPos_(segSize_), keyNum_(0), completed_(false)
     {
         data_ = new char[segSize_];
     }
 
     bool SegmentData::IsCanWrite(KVSlice *slice) const
     {
+        if (isExpire())
+        {
+            return false;
+        }
+        return isCanFit(slice);
+    }
+
+    bool SegmentData::Put(KVSlice *slice, DataHeader &header)
+    {
+        if (!isCanFit(slice))
+        {
+            return false;
+        }
+        if (slice->Is4KData())
+        {
+            put4K(slice, header);
+        }
+        else
+        {
+            putNon4K(slice, header);
+        }
         return true;
     }
 
-    bool SegmentData::Put(KVSlice *slice)
+    const char* SegmentData::GetCompleteSeg() const
     {
-        return true;
-    }
-
-    bool SegmentData::WriteToDevice()
-    {
-        return true;
+        if (!completed_)
+        {
+            return NULL;
+        }
+        return data_;
     }
 
     void SegmentData::Complete()
@@ -245,27 +271,38 @@ namespace kvdb{
 
     bool SegmentData::isExpire() const
     {
-        return true;
+        KVTime nowTime;
+        double interval = nowTime - creTime_;
+        return (interval > EXPIRED_TIME);
     }
 
-    bool SegmentData::isCanFit() const
+    bool SegmentData::isCanFit(KVSlice *slice) const
     {
-        return true;
+        uint32_t freeSize = tailPos_ - headPos_;
+        uint32_t needSize = slice->GetDataLen() + sizeof(DataHeader);
+        return freeSize > needSize;
     }
 
-    bool SegmentData::put4K()
+    void SegmentData::put4K(KVSlice *slice, DataHeader &header)
     {
-        return true;
+        memcpy(&data_[headPos_], &header, sizeof(DataHeader));
+        memcpy(&data_[tailPos_ - 4096], slice->GetData(), 4096);
+        headPos_ += sizeof(DataHeader);
+        tailPos_ -= 4096;
     }
 
-    bool SegmentData::putNon4K()
+    void SegmentData::putNon4K(KVSlice *slice, DataHeader &header)
     {
-        return true;
+        memcpy(&data_[headPos_], &header, sizeof(DataHeader));
+        headPos_ += sizeof(DataHeader);
+        memcpy(&data_[headPos_], slice->GetData(), slice->GetDataLen());
+        headPos_ += slice->GetDataLen();
     }
 
     void SegmentData::fillSegHead()
     {
-        ;
+        SegmentOnDisk seg(keyNum_);
+        memcpy(data_, &seg, sizeof(SegmentOnDisk));
     }
 ////////////////////////////////////////////////////////////////////////////////
     bool DataHandle::ReadData(HashEntry* entry, string &data)
@@ -320,31 +357,6 @@ namespace kvdb{
         SegmentOnDisk seg_ondisk(1);
         DataHeader data_header(*digest, length, data_offset, next_offset);
 
-        ////---Write data to device 1:
-        //
-        //m_bdev->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), seg_offset);
-        //m_bdev->pWrite(&data_header, sizeof(DataHeader), seg_offset + head_offset);
-        //m_bdev->pWrite(data, length, seg_offset + data_offset);
-        //
-        ////---Write data to device 1 end
-
-
-        ////---Write data to device 2:
-        //struct iovec iov[3];
-        //iov[0].iov_base = &seg_ondisk;
-        //iov[0].iov_len = sizeof(SegmentOnDisk);
-        //iov[1].iov_base = &data_header;
-        //iov[1].iov_len = sizeof(DataHeader);
-        //iov[2].iov_base = const_cast<char *>(data);
-        //iov[2].iov_len = length;
-
-        //if (m_bdev->pWritev(iov, 3, seg_offset) != (int64_t) (sizeof(SegmentOnDisk) + sizeof(DataHeader) + length)) {
-        //    __ERROR("Could not write iovec structure: %s\n", strerror(errno));
-        //    return false;
-        //}
-        ////---Write data to device 2 end
-
-
         //---Write data to device 3:
         SegmentSlice segSlice(seg_id, m_sm);
         segSlice.Put(data_header, data, length);
@@ -375,14 +387,6 @@ namespace kvdb{
         m_bdev(bdev), m_sbm(sbm), m_im(im), m_sm(sm){}
 
     DataHandle::~DataHandle(){}
-
-    SegmentSlice::~SegmentSlice()
-    {
-        if(m_data)
-        {
-            delete[] m_data;
-        }
-    }
 
 
 }
