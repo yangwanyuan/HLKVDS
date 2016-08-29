@@ -8,25 +8,32 @@ namespace kvdb{
         time_stamp = KVTime::GetNow();
     }
 
+    SegmentOnDisk::~SegmentOnDisk(){}
+
+    SegmentOnDisk::SegmentOnDisk(const SegmentOnDisk& toBeCopied)
+    {
+        time_stamp = toBeCopied.time_stamp;
+        checksum = toBeCopied.checksum;
+        number_keys = toBeCopied.number_keys;
+    }
+
+    SegmentOnDisk& SegmentOnDisk::operator=(const SegmentOnDisk& toBeCopied)
+    {
+        time_stamp = toBeCopied.time_stamp;
+        checksum = toBeCopied.checksum;
+        number_keys = toBeCopied.number_keys;
+        return *this;
+    }
+    
     SegmentOnDisk::SegmentOnDisk(uint32_t num):
         checksum(0), number_keys(num)
     {
         time_stamp = KVTime::GetNow();
     }
 
-    SegmentOnDisk::~SegmentOnDisk()
-    {
-        return;
-    }
-    
     void SegmentOnDisk::Update()
     {
         time_stamp = KVTime::GetNow();
-    }
-
-    SegmentStat::~SegmentStat()
-    {
-        return;
     }
 
     bool SegmentManager::InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size)

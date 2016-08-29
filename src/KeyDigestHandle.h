@@ -39,7 +39,7 @@ namespace kvdb{
         Kvdb_Digest(const Kvdb_Digest &toBeCopied);
         Kvdb_Digest& operator=(const Kvdb_Digest& toBeCopied);
         bool operator==(const Kvdb_Digest& toBeCompare) const;
-        bool SetDigest(unsigned char* data, int len);
+        void SetDigest(unsigned char* data, int len);
         unsigned char* GetDigest() const { return (unsigned char*)value; }
     }__attribute__((__packed__));
 
@@ -47,7 +47,7 @@ namespace kvdb{
     public:
         static uint32_t Hash(const Kvdb_Key *key);
         static uint32_t Hash(const Kvdb_Digest *digest);
-        static bool ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest);
+        static void ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest);
         static string Tostring(Kvdb_Digest *digest);
 
     private:

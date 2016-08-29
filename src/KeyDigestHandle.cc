@@ -43,17 +43,16 @@ namespace kvdb{
         return false;
     }
 
-    bool Kvdb_Digest::SetDigest(unsigned char* data, int len)
+    void Kvdb_Digest::SetDigest(unsigned char* data, int len)
     {
         if (len != sizeof(Kvdb_Digest))
         {
-            return false;
+            return;
         }
         memcpy(value, data, sizeof(Kvdb_Digest));
-        return true;
     }
 
-    bool KeyDigestHandle::ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
+    void KeyDigestHandle::ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
     /*
      * returns RMD(message)
      * message should be a string terminated by '\0'
@@ -95,11 +94,7 @@ namespace kvdb{
             hashcode[i+3] = (MDbuf[i>>2] >> 24);
         }
      
-        if (!digest.SetDigest((unsigned char*)hashcode, RMDsize/8))
-        {
-            return false;
-        }
-        return true;
+        digest.SetDigest((unsigned char*)hashcode, RMDsize/8);
     }
     
     uint32_t KeyDigestHandle::Hash(const Kvdb_Key *key)

@@ -143,8 +143,6 @@ namespace kvdb {
             return false;
         }
 
-
-
         return true;
     }
 
@@ -189,14 +187,14 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        reqThd_stop_ = false;
-        reqThd_.Start();
+        segThd_stop_ = false;
+        segThd_.Start();
     }
 
     void KvdbDS::stopThds()
     {
-        reqThd_stop_ = true;
-        reqThd_.Join();
+        segThd_stop_ = true;
+        segThd_.Join();
     }
 
     KvdbDS::~KvdbDS()
@@ -206,21 +204,18 @@ namespace kvdb {
         delete sbMgr_;
         delete segMgr_;
         delete bdev_;
-        delete reqQueMtx_;
         delete segQueMtx_;
 
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        fileName_(filename), reqThd_(this), reqThd_stop_(false),
-        segThd_(this), segThd_stop_(false)
+        fileName_(filename), segThd_(this), segThd_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
         idxMgr_ = new IndexManager(bdev_);
 
-        reqQueMtx_ = new Mutex;
         segQueMtx_ = new Mutex;
     }
 
@@ -232,44 +227,17 @@ namespace kvdb {
             return false;
         }
 
-        ////----------  sync write begin ----------------------/
-        //Kvdb_Key vkey(key, key_len);
-        //Kvdb_Digest digest;
-        //KeyDigestHandle::ComputeDigest(&vkey, digest);
-
-        //if (!idxMgr_->IsKeyExist(&digest))
-        //{
-        //    if (!insertNewKey(&digest, data, length))
-        //    {
-        //        return false;
-        //    }
-        //}
-        //else
-        //{
-        //    if (!updateExistKey(&digest, data, length))
-        //    {
-        //        return false;
-        //    }
-        //}
-        //return true;
-        ////----------  sync write end   ----------------------/
-
-        //----------  async write begin ----------------------/
         KVSlice slice(key, key_len, data, length);
-        if (!slice.ComputeDigest())
-        {
-            return false;
-        }
-        Request *req = new Request(slice);
-        reqQueMtx_->Lock();
-        reqQue_.push_back(req);
-        reqQueMtx_->Unlock();
+        slice.ComputeDigest();
 
-        req->Wait();
-        bool result = req->GetState();
-        delete req;
-        return result;
-        //----------  async write end ----------------------/
+        if (!idxMgr_->IsKeyExist(&slice))
+        {
+            return insertKey(slice, INSERT);
+        }
+        else
+        {
+            return insertKey(slice, UPDATE);
+        }
     }
 
     bool KvdbDS::Delete(const char* key, uint32_t key_len)
@@ -279,52 +247,15 @@ namespace kvdb {
             return true;
         }
 
-        ////----------  sync write begin ----------------------/
-        //Kvdb_Key vkey(key, key_len);
-        //Kvdb_Digest digest;
-        //KeyDigestHandle::ComputeDigest(&vkey, digest);
-
-        //if (!idxMgr_->IsKeyExist(&digest))
-        //{
-        //    return true;
-        //}
-
-        //if (!updateExistKey(&digest, NULL, 0))
-        //{
-        //    return false;
-        //}
-
-        //
-        //DBSuperBlock sb = sbMgr_->GetSuperBlock();
-        //sb.deleted_elements++;
-        //sb.number_elements--;
-        //sbMgr_->SetSuperBlock(sb);
-        //
-        //return true;
-        ////----------  sync write end   ----------------------/
-
-        //----------  async write begin ----------------------/
         KVSlice slice(key, key_len, NULL, 0);
-        if (!slice.ComputeDigest())
+        slice.ComputeDigest();
+
+        if (!idxMgr_->IsKeyExist(&slice))
         {
-            return false;
+            return true;
         }
-        Request *req = new Request(slice);
-        reqQueMtx_->Lock();
-        reqQue_.push_back(req);
-        reqQueMtx_->Unlock();
+        return insertKey(slice, DELETE);
 
-        req->Wait();
-
-        DBSuperBlock sb = sbMgr_->GetSuperBlock();
-        sb.deleted_elements++;
-        sb.number_elements--;
-        sbMgr_->SetSuperBlock(sb);
-
-        bool result  = req->GetState();
-        delete req;
-        return result;
-        //----------  async write end ----------------------/
     }
 
     bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) 
@@ -335,10 +266,7 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, NULL, 0);
-        if (!slice.ComputeDigest())
-        {
-            return false;
-        }
+        slice.ComputeDigest();
 
         if (!idxMgr_->IsKeyExist(&slice))
         {
@@ -361,7 +289,7 @@ namespace kvdb {
         return true;
     }
 
-    bool KvdbDS::insertNewKey(const KVSlice *slice)
+    bool KvdbDS::insertKey(KVSlice& slice, OpType op_type)
     {
         if (sbMgr_->IsElementFull())
         {
@@ -369,37 +297,58 @@ namespace kvdb {
             return false;
         }
 
-        if (!writeData(slice))
+        Request *req = new Request(slice);
+
+        if (!writeData(req))
         {
             __ERROR("Can't write to underlying datastore\n");
+            delete req;
             return false;
         }
 
-        DBSuperBlock sb = sbMgr_->GetSuperBlock();
-        sb.number_elements++;
-        sbMgr_->SetSuperBlock(sb);
+        req->Wait();
+        bool result = req->GetState();
 
-        return true;
+        if (result)
+        {
+            updateMeta(req, op_type);
+        }
+
+        delete req;
+        return result;
     }
 
-    bool KvdbDS::updateExistKey(const KVSlice *slice)
+    void KvdbDS::updateMeta(Request *req, OpType op_type)
     {
-        if (sbMgr_->IsElementFull())
+        switch (op_type)
         {
-            __ERROR("Error: hash table full!\n");
-            return false;
+            case INSERT:
+            {
+                //Update new key meta
+                DBSuperBlock sb = sbMgr_->GetSuperBlock();
+                sb.number_elements++;
+                sbMgr_->SetSuperBlock(sb);
+            }
+            case UPDATE:
+            {
+                //Update existed key meta
+                //TODO: do something for gc
+                ;
+            }
+            case DELETE:
+            {
+                //Update deleted key meta
+                DBSuperBlock sb = sbMgr_->GetSuperBlock();
+                sb.deleted_elements++;
+                sb.number_elements--;
+                sbMgr_->SetSuperBlock(sb);
+                //TODO: do something for gc
+            }
+            default:
+                break;
         }
-
-        if (!writeData(slice))
-        {
-            __ERROR("Can't write to underlying datastore\n");
-            return false;
-        }
-
-        //TODO: do something for gc
-
-        return true;
     }
+
 
     bool KvdbDS::readData(HashEntry* entry, string &data)
     {
@@ -430,84 +379,36 @@ namespace kvdb {
         return true;
     }
 
-    bool KvdbDS::writeData(const KVSlice *slice)
+    bool KvdbDS::writeData(Request *req)
     {
+        segQueMtx_->Lock();
         uint32_t seg_id = 0;
         if (!segMgr_->GetEmptySegId(seg_id))
         {
             __ERROR("Cann't get a new Empty Segment.\n");
             return false;
         }
+        SegmentData *seg = new SegmentData(seg_id, segMgr_, bdev_);
+        segQue_.push_back(seg);
+        segQueMtx_->Unlock();
 
-        uint64_t seg_offset;
-        if (!segMgr_->ComputeSegOffsetFromId(seg_id, seg_offset))
-        {
-            __ERROR("Cann't compute segment offset from id: %d.\n", seg_id);
-            return false;
-        }
-
-        SegmentSlice segSlice(seg_id, segMgr_);
+        uint64_t seg_offset = seg->GetSegPhyOffset();
         DataHeader data_header;
-        segSlice.Put(slice, data_header);
+        seg->Put(req, data_header);
 
-        if (bdev_->pWrite(segSlice.GetSlice(), segSlice.GetLength(), seg_offset) != segSlice.GetLength()) {
-            __ERROR("Could  write data to device: %s\n", strerror(errno));
-            return false;
-        }
-
-
-        segMgr_->Update(seg_id);
-        idxMgr_->UpdateIndexFromInsert(&data_header, &slice->GetDigest(), sizeof(SegmentOnDisk), seg_offset);
+        //segMgr_->Update(seg_id);
+        idxMgr_->UpdateIndexFromInsert(&data_header, &req->GetSlice().GetDigest(), sizeof(SegmentOnDisk), seg_offset);
         DBSuperBlock sb = sbMgr_->GetSuperBlock();
         sb.current_segment = seg_id;
         sbMgr_->SetSuperBlock(sb);
 
+        seg->Complete();
+
 
         __DEBUG("write seg_id:%u, seg_offset: %lu, head_offset: %ld, data_offset:%u, header_len:%ld, data_len:%u", 
-                seg_id, seg_offset, sizeof(SegmentOnDisk), data_header.GetDataOffset(), sizeof(DataHeader), slice->GetDataLen());
+                seg_id, seg_offset, sizeof(SegmentOnDisk), data_header.GetDataOffset(), sizeof(DataHeader), req->GetSlice().GetDataLen());
 
         return true;
-    }
-
-    void KvdbDS::ReqThdEntry()
-    {
-        __DEBUG("Requests thread start!!");
-        while (true)
-        {
-            while (!reqQue_.empty())
-            {
-                bool result = false;
-
-                reqQueMtx_->Lock();
-                Request *req = reqQue_.front();
-
-                const KVSlice *slice = &req->GetSlice();
-
-                if (!idxMgr_->IsKeyExist(slice))
-                {
-                    result = insertNewKey(slice);
-                }
-                else
-                {
-                    result = updateExistKey(slice);
-                }
-
-                req->SetState(result);
-                req->Done();
-                reqQue_.pop_front();
-                reqQueMtx_->Unlock();
-                __DEBUG("Requests thread get req:  The key is %s", (req->GetSlice().GetKeyStr()).c_str());
-                req->Signal();
-            }
-
-            if (reqThd_stop_)
-            {
-                break;
-            }
-
-            std::this_thread::yield();
-        }
-        __DEBUG("Requests thread stop!!");
     }
 
     void KvdbDS::SegThdEntry()
@@ -515,6 +416,36 @@ namespace kvdb {
         __DEBUG("Segment write thread start!!");
         while (true)
         {
+            while (!segQue_.empty())
+            {
+                segQueMtx_->Lock();
+                SegmentData *seg = segQue_.front();
+                segQueMtx_->Unlock();
+                if (!seg->IsCompleted())
+                {
+                    if (seg->IsExpired())
+                    {
+                        seg->Complete();
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                seg->WriteSegToDevice();
+
+                segQueMtx_->Lock();
+                segQue_.pop_front();
+                segQueMtx_->Unlock();
+
+                __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
+
+                //Update Segmenttable
+                segMgr_->Update(seg->GetSegId());
+                delete seg;
+            }
+
             if (segThd_stop_)
             {
                 break;

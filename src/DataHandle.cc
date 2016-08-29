@@ -104,10 +104,7 @@ namespace kvdb{
         }
         digest_ = new Kvdb_Digest();
         Kvdb_Key vkey(key_, keyLength_);
-        if (!KeyDigestHandle::ComputeDigest(&vkey, *digest_))
-        {
-            return false;
-        }
+        KeyDigestHandle::ComputeDigest(&vkey, *digest_);
 
         isComputed_ = true;
         return true;
@@ -146,7 +143,9 @@ namespace kvdb{
     }
 
     Request::Request(const Request& toBeCopied)
-        : isDone_(toBeCopied.isDone_), writeStat_(toBeCopied.writeStat_), slice_(toBeCopied.slice_)
+        : isDone_(toBeCopied.isDone_),
+            writeStat_(toBeCopied.writeStat_),
+            slice_(toBeCopied.slice_)
     {
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
@@ -198,16 +197,21 @@ namespace kvdb{
     }
 
     SegmentData::SegmentData()
-        :segId_(0), segMgr_(NULL), segSize_(0), creTime_(KVTime()),
-        headPos_(0), tailPos_(0), keyNum_(0), data_(NULL),
-        isCompleted_(false){}
+        :segId_(0), segMgr_(NULL), bdev_(NULL), segSize_(0),
+        creTime_(KVTime()), headPos_(0), tailPos_(0), keyNum_(0),
+        isCompleted_(false), segOndisk_(NULL)
+    {
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
+        segOndisk_ = new SegmentOnDisk;
+    }
 
     SegmentData::~SegmentData()
+
     {
-        if(data_)
-        {
-            delete data_;
-        }
+        delete cond_;
+        delete mtx_;
+        delete segOndisk_;
     }
 
     SegmentData::SegmentData(const SegmentData& toBeCopied)
@@ -225,57 +229,111 @@ namespace kvdb{
     {
         segId_ = toBeCopied.segId_;
         segMgr_ = toBeCopied.segMgr_;
+        bdev_ = toBeCopied.bdev_;
         segSize_ = toBeCopied.segSize_;
         creTime_ = toBeCopied.creTime_;
         headPos_ = toBeCopied.headPos_;
         tailPos_ = toBeCopied.tailPos_;
         keyNum_ = toBeCopied.keyNum_;
         isCompleted_ = toBeCopied.isCompleted_;
-        data_ = new char[segSize_];
-        memcpy(data_, toBeCopied.data_, segSize_);
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
+        reqList_ = toBeCopied.reqList_;
+        segOndisk_ = new SegmentOnDisk(*toBeCopied.segOndisk_);
     }
 
-    SegmentData::SegmentData(uint32_t seg_id, SegmentManager* sm)
-        : segId_(seg_id), segMgr_(sm), segSize_(segMgr_->GetSegmentSize()),
-        creTime_(KVTime()), headPos_(sizeof(SegmentOnDisk)),
-        tailPos_(segSize_), keyNum_(0), isCompleted_(false)
+    SegmentData::SegmentData(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev)
+        : segId_(seg_id), segMgr_(sm), bdev_(bdev),
+        segSize_(segMgr_->GetSegmentSize()), creTime_(KVTime()),
+        headPos_(sizeof(SegmentOnDisk)), tailPos_(segSize_),
+        keyNum_(0), isCompleted_(false), segOndisk_(NULL)
     {
-        data_ = new char[segSize_];
+        mtx_ = new Mutex;
+        cond_ = new Cond(*mtx_);
+        segOndisk_ = new SegmentOnDisk;
     }
 
-    bool SegmentData::IsCanWrite(KVSlice *slice) const
+    bool SegmentData::IsCanWrite(Request* req) const
     {
+        if (IsCompleted())
+        {
+            return false;
+        }
         if (isExpire())
         {
             return false;
         }
-        return isCanFit(slice);
+        return isCanFit(req);
     }
 
-    bool SegmentData::Put(KVSlice *slice, DataHeader &header)
+    bool SegmentData::Put(Request* req, DataHeader &header)
     {
-        if (!isCanFit(slice))
+        const KVSlice *slice = &req->GetSlice();
+        if (!isCanFit(req))
         {
             return false;
         }
         if (slice->Is4KData())
         {
-            put4K(slice, header);
+            put4K(req, header);
         }
         else
         {
-            putNon4K(slice, header);
+            putNon4K(req, header);
         }
         return true;
     }
 
-    const char* SegmentData::GetCompleteSeg() const
+    void SegmentData::WriteSegToDevice()
     {
-        if (!isCompleted_)
+        uint64_t seg_offset = 0;
+        segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+        bdev_->pWrite(segOndisk_, sizeof(SegmentOnDisk), seg_offset);
+        uint32_t head_pos = sizeof(SegmentOnDisk);
+        uint32_t tail_pos = segSize_;
+        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
         {
-            return NULL;
+            const KVSlice *slice = &(*iter)->GetSlice();
+            if (slice->Is4KData())
+            {
+                uint32_t data_offset = tail_pos - 4096;
+                uint32_t next_offset = head_pos + sizeof(DataHeader);
+
+                DataHeader header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
+
+                bdev_->pWrite(&header, sizeof(DataHeader), seg_offset+head_pos);
+                head_pos += sizeof(DataHeader);
+                tail_pos -= 4096;
+                bdev_->pWrite(slice->GetData(), slice->GetDataLen(), seg_offset+tail_pos);
+            }
+            else
+            {
+                uint32_t data_offset = head_pos + sizeof(DataHeader);
+                uint32_t next_offset = data_offset + slice->GetDataLen();
+
+                DataHeader header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
+
+                bdev_->pWrite(&header, sizeof(DataHeader), seg_offset+head_pos);
+                head_pos += sizeof(DataHeader);
+                bdev_->pWrite(slice->GetData(), slice->GetDataLen(), seg_offset+head_pos);
+                head_pos += slice->GetDataLen();
+            }
+
+            (*iter)->Done();
+            (*iter)->SetState(true);
+            (*iter)->Signal();
         }
-        return data_;
+        while (!reqList_.empty())
+        {
+            reqList_.pop_front();
+        }
+    }
+
+    uint64_t SegmentData::GetSegPhyOffset() const
+    {
+        uint64_t offset;
+        segMgr_->ComputeSegOffsetFromId(segId_, offset);
+        return offset;
     }
 
     void SegmentData::Complete()
@@ -291,35 +349,52 @@ namespace kvdb{
         return (interval > EXPIRED_TIME);
     }
 
-    bool SegmentData::isCanFit(KVSlice *slice) const
+    bool SegmentData::isCanFit(Request* req) const
     {
+        const KVSlice *slice = &req->GetSlice();
         uint32_t freeSize = tailPos_ - headPos_;
         uint32_t needSize = slice->GetDataLen() + sizeof(DataHeader);
         return freeSize > needSize;
     }
 
-    void SegmentData::put4K(KVSlice *slice, DataHeader &header)
+    void SegmentData::put4K(Request* req, DataHeader &header)
     {
-        memcpy(&data_[headPos_], &header, sizeof(DataHeader));
-        memcpy(&data_[tailPos_ - 4096], slice->GetData(), 4096);
+        const KVSlice *slice = &req->GetSlice();
+
+        uint32_t data_offset = tailPos_ - 4096;
+        uint32_t next_offset = headPos_ + sizeof(DataHeader);
+
+        header.SetDigest(slice->GetDigest());
+        header.SetDataSize(slice->GetDataLen());
+        header.SetDataOffset(data_offset);
+        header.SetNextHeadOffset(next_offset);
+
         headPos_ += sizeof(DataHeader);
         tailPos_ -= 4096;
         keyNum_++;
+        reqList_.push_back(req);
     }
 
-    void SegmentData::putNon4K(KVSlice *slice, DataHeader &header)
+    void SegmentData::putNon4K(Request* req, DataHeader &header)
     {
-        memcpy(&data_[headPos_], &header, sizeof(DataHeader));
-        headPos_ += sizeof(DataHeader);
-        memcpy(&data_[headPos_], slice->GetData(), slice->GetDataLen());
-        headPos_ += slice->GetDataLen();
+        const KVSlice *slice = &req->GetSlice();
+
+        uint32_t data_offset = headPos_ + sizeof(DataHeader);
+        uint32_t next_offset = headPos_ + sizeof(DataHeader) + slice->GetDataLen();
+
+        header.SetDigest(slice->GetDigest());
+        header.SetDataSize(slice->GetDataLen());
+        header.SetDataOffset(data_offset);
+        header.SetNextHeadOffset(next_offset);
+
+        headPos_ += sizeof(DataHeader) + slice->GetDataLen();
         keyNum_++;
+        reqList_.push_back(req);
     }
 
     void SegmentData::fillSegHead()
     {
-        SegmentOnDisk seg(keyNum_);
-        memcpy(data_, &seg, sizeof(SegmentOnDisk));
+        segOndisk_->SetKeyNum(keyNum_);
     }
 
 

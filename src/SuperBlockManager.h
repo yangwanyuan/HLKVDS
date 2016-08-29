@@ -7,10 +7,12 @@
 using namespace std;
 
 namespace kvdb{
-
+    class SuperBlockManager;
 
     class DBSuperBlock {
     public:
+    //private:
+        friend class SuperBlockManager;
         uint32_t magic_number;
         uint32_t hashtable_size;
         uint32_t number_elements;

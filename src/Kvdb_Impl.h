@@ -39,11 +39,12 @@ namespace kvdb {
         void startThds();
         void stopThds();
 
-        bool insertNewKey(const KVSlice *slice);
-        bool updateExistKey(const KVSlice *slice);
+        enum OpType {INSERT, UPDATE, DELETE};
+        bool insertKey(KVSlice& slice, OpType op_type);
+        void updateMeta(Request *req, OpType op_type);
 
         bool readData(HashEntry* entry, string &data);
-        bool writeData(const KVSlice *slice);
+        bool writeData(Request *req);
 
 
     private:
@@ -53,30 +54,7 @@ namespace kvdb {
         SegmentManager* segMgr_;
         string fileName_;
 
-        Mutex *reqQueMtx_;
         Mutex *segQueMtx_;
-
-    private:
-        friend class ReqThd;
-        class ReqThd : public Thread
-        {
-        public:
-            ReqThd(): db_(NULL){}
-            ReqThd(KvdbDS* db): db_(db){}
-            virtual ~ReqThd(){}
-            ReqThd(ReqThd& toBeCopied) = delete;
-            ReqThd& operator=(ReqThd& toBeCopied) = delete;
-
-            virtual void* Entry() { db_->ReqThdEntry(); return 0; }
-
-        private:
-            friend class KvdbDS;
-            KvdbDS* db_;
-        };
-        ReqThd reqThd_;
-        std::list<Request*> reqQue_;
-        std::atomic<bool> reqThd_stop_;
-        void ReqThdEntry();
 
     private:
         friend class SegThd;
@@ -99,6 +77,7 @@ namespace kvdb {
         std::list<SegmentData*> segQue_;
         std::atomic<bool> segThd_stop_;
         void SegThdEntry();
+
     };
 
 }  // namespace kvdb

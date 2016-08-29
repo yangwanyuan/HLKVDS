@@ -17,6 +17,7 @@ using namespace std;
 
 namespace kvdb{
 
+    class SegmentOnDisk;
     class DataHeader;
     class HashEntry;
     class IndexManager;
@@ -98,6 +99,7 @@ namespace kvdb{
         int isDone_;
         bool writeStat_;
         KVSlice *slice_;
+        //DataHeader header_;
         Mutex *mtx_;
         Cond *cond_;
 
@@ -110,24 +112,29 @@ namespace kvdb{
         SegmentData(const SegmentData& toBeCopied);
         SegmentData& operator=(const SegmentData& toBeCopied);
 
-        SegmentData(uint32_t seg_id, SegmentManager* sm);
+        SegmentData(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
 
-        bool IsCanWrite(KVSlice *slice) const;
-        bool Put(KVSlice *slice, DataHeader& header);
-        const char* GetCompleteSeg() const;
+        bool IsCanWrite(Request* req) const;
+        bool Put(Request* req, DataHeader& header);
+        void WriteSegToDevice();
+        uint64_t GetSegPhyOffset() const;
+        uint32_t GetSegSize() const { return segSize_; }
+        uint32_t GetSegId() const { return segId_; }
         void Complete();
-        bool IsCompleted() const{ return isCompleted_;};
+        bool IsCompleted() const { return isCompleted_;};
+        bool IsExpired() const { return isExpire(); }
 
     private:
         bool isExpire() const;
-        bool isCanFit(KVSlice *slice) const;
-        void put4K(KVSlice *slice, DataHeader& header);
-        void putNon4K(KVSlice *slice, DataHeader& header);
+        bool isCanFit(Request* req) const;
+        void put4K(Request* req, DataHeader& header);
+        void putNon4K(Request* req, DataHeader& header);
         void copyHelper(const SegmentData& toBeCopied);
         void fillSegHead();
 
         uint32_t segId_;
         SegmentManager* segMgr_;
+        BlockDevice* bdev_;
         uint32_t segSize_;
         KVTime creTime_;
 
@@ -135,9 +142,13 @@ namespace kvdb{
         uint32_t tailPos_;
 
         uint32_t keyNum_;
-
-        char* data_;
         bool isCompleted_;
+
+        Mutex *mtx_;
+        Cond *cond_;
+
+        std::list<Request *> reqList_;
+        SegmentOnDisk *segOndisk_;
 
     };
 

@@ -26,9 +26,13 @@ namespace kvdb{
         uint32_t number_keys;
     public:
         SegmentOnDisk();
-        SegmentOnDisk(uint32_t num);
         ~SegmentOnDisk();
+        SegmentOnDisk(const SegmentOnDisk& toBeCopied);
+        SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
+
+        SegmentOnDisk(uint32_t num);
         void Update();
+        void SetKeyNum(uint32_t num) { number_keys = num; }
     }__attribute__((__packed__));
 
 
@@ -39,7 +43,7 @@ namespace kvdb{
 
     public:
         SegmentStat() : state(un_use), inuse_size(0){}
-        ~SegmentStat();
+        ~SegmentStat() {}
     };
 
     class SegmentManager{

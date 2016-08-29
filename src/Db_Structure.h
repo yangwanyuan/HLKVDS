@@ -11,7 +11,7 @@
 
 #define EXPIRED_TIME 0.001 // unit second
 
-#define DEBUG
+//#define DEBUG
 #define INFO
 #define WARN
 #define ERROR

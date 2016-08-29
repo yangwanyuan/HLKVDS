@@ -73,10 +73,13 @@ void OpenExample()
 
     Get(db);
     Insert(db);
+    sleep(2);
     Get(db);
     Delete(db);
+    sleep(2);
     Get(db);
     Insert(db);
+    sleep(2);
 
     delete db;
 }
