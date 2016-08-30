@@ -3,6 +3,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "Utils.h"
 
 using namespace std;
 
@@ -43,6 +44,18 @@ namespace kvdb{
             current_segment(0), db_sb_size(0), db_index_size(0), 
             db_data_size(0), device_size(0){}
 
+        uint32_t GetMagic() const { return magic_number; }
+        uint32_t GetHTSize() const { return hashtable_size; }
+        uint32_t GetElementNum() const { return number_elements; }
+        uint32_t GetDeletedNum() const { return deleted_elements; }
+        uint32_t GetSegmentSize() const { return segment_size; }
+        uint32_t GetSegmentNum() const { return number_segments; }
+        uint32_t GetCurSegmentId() const { return current_segment; }
+        uint32_t GetSbSize() const { return db_sb_size; }
+        uint32_t GetIndexSize() const { return db_index_size; }
+        uint32_t GetDataRegionSize() const { return db_data_size; }
+        uint32_t GetDeviceSize() const { return device_size; }
+
         ~DBSuperBlock(){}
     } __attribute__((__packed__));
 
@@ -56,7 +69,7 @@ namespace kvdb{
         bool WriteSuperBlockToDevice(uint64_t offset);
 
         void SetSuperBlock(DBSuperBlock& sb);
-        DBSuperBlock& GetSuperBlock() const { return *sb_; }
+        const DBSuperBlock& GetSuperBlock() const { return *sb_; }
 
         bool IsElementFull() { return sb_->number_elements == sb_->hashtable_size; }
 
@@ -66,7 +79,7 @@ namespace kvdb{
     private:
         BlockDevice* bdev_;
         DBSuperBlock* sb_;
-    
+
     };
 }// namespace kvdb
 

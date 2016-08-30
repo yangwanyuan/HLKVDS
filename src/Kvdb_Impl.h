@@ -54,7 +54,8 @@ namespace kvdb {
         SegmentManager* segMgr_;
         string fileName_;
 
-        Mutex *segQueMtx_;
+        Mutex sbMtx_;
+        Mutex segQueMtx_;
 
     private:
         friend class SegThd;
@@ -74,7 +75,7 @@ namespace kvdb {
             KvdbDS* db_;
         };
         SegThd segThd_;
-        std::list<SegmentData*> segQue_;
+        std::list<SegmentSlice*> segQue_;
         std::atomic<bool> segThd_stop_;
         void SegThdEntry();
 

@@ -128,17 +128,18 @@ namespace kvdb {
             return false;
         }
 
-        DBSuperBlock sb = sbMgr_->GetSuperBlock();
+        sbMtx_.Lock();
+        const DBSuperBlock sb = sbMgr_->GetSuperBlock();
+        sbMtx_.Unlock();
 
-        offset += SuperBlockManager::GetSuperBlockSizeOnDevice();
-
-        if (!idxMgr_->LoadIndexFromDevice(offset, sb.hashtable_size))
+        offset += sb.GetSbSize();
+        if (!idxMgr_->LoadIndexFromDevice(offset, sb.GetHTSize()))
         {
             return false;
         }
 
-        offset += sb.db_index_size;
-        if (!segMgr_->LoadSegmentTableFromDevice(offset, sb.segment_size, sb.number_segments, sb.current_segment))
+        offset += sb.GetIndexSize();
+        if (!segMgr_->LoadSegmentTableFromDevice(offset, sb.GetSegmentSize(), sb.GetSegmentNum(), sb.GetCurSegmentId()))
         {
             return false;
         }
@@ -204,19 +205,18 @@ namespace kvdb {
         delete sbMgr_;
         delete segMgr_;
         delete bdev_;
-        delete segQueMtx_;
 
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        fileName_(filename), segThd_(this), segThd_stop_(false)
+        fileName_(filename), sbMtx_(Mutex()), segQueMtx_(Mutex()),
+        segThd_(this), segThd_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
         idxMgr_ = new IndexManager(bdev_);
 
-        segQueMtx_ = new Mutex;
     }
 
 
@@ -255,7 +255,6 @@ namespace kvdb {
             return true;
         }
         return insertKey(slice, DELETE);
-
     }
 
     bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) 
@@ -320,29 +319,51 @@ namespace kvdb {
 
     void KvdbDS::updateMeta(Request *req, OpType op_type)
     {
+        //Update Index
+        DataHeader *data_header = &req->GetSlice().GetDataHeader();
+        const Kvdb_Digest *digest = &req->GetSlice().GetDigest();
+
+        uint64_t seg_offset;
+        uint32_t seg_id = req->GetSlice().GetSegId();
+        segMgr_->ComputeSegOffsetFromId(seg_id, seg_offset);
+
+        idxMgr_->UpdateIndexFromInsert(data_header, digest, sizeof(SegmentOnDisk), seg_offset);
+
+        __DEBUG("Update Index: seg_id:%u, seg_offset: %lu, head_offset: %ld, \
+data_offset:%u, header_len:%ld, data_len:%u",
+                seg_id, seg_offset, sizeof(SegmentOnDisk),
+                data_header->GetDataOffset(), sizeof(DataHeader),
+                req->GetSlice().GetDataLen());
+
+        //Update SuperBlock
         switch (op_type)
         {
             case INSERT:
             {
                 //Update new key meta
+                sbMtx_.Lock();
                 DBSuperBlock sb = sbMgr_->GetSuperBlock();
                 sb.number_elements++;
                 sbMgr_->SetSuperBlock(sb);
+                sbMtx_.Unlock();
             }
             case UPDATE:
             {
                 //Update existed key meta
                 //TODO: do something for gc
-                ;
+                sbMtx_.Lock();
+                sbMtx_.Unlock();
             }
             case DELETE:
             {
                 //Update deleted key meta
+                sbMtx_.Lock();
                 DBSuperBlock sb = sbMgr_->GetSuperBlock();
                 sb.deleted_elements++;
                 sb.number_elements--;
                 sbMgr_->SetSuperBlock(sb);
                 //TODO: do something for gc
+                sbMtx_.Unlock();
             }
             default:
                 break;
@@ -381,32 +402,20 @@ namespace kvdb {
 
     bool KvdbDS::writeData(Request *req)
     {
-        segQueMtx_->Lock();
+        segQueMtx_.Lock();
         uint32_t seg_id = 0;
         if (!segMgr_->GetEmptySegId(seg_id))
         {
             __ERROR("Cann't get a new Empty Segment.\n");
             return false;
         }
-        SegmentData *seg = new SegmentData(seg_id, segMgr_, bdev_);
+        SegmentSlice *seg = new SegmentSlice(seg_id, segMgr_, bdev_);
         segQue_.push_back(seg);
-        segQueMtx_->Unlock();
+        segQueMtx_.Unlock();
 
-        uint64_t seg_offset = seg->GetSegPhyOffset();
-        DataHeader data_header;
-        seg->Put(req, data_header);
-
-        //segMgr_->Update(seg_id);
-        idxMgr_->UpdateIndexFromInsert(&data_header, &req->GetSlice().GetDigest(), sizeof(SegmentOnDisk), seg_offset);
-        DBSuperBlock sb = sbMgr_->GetSuperBlock();
-        sb.current_segment = seg_id;
-        sbMgr_->SetSuperBlock(sb);
-
+        seg->Put(req);
         seg->Complete();
-
-
-        __DEBUG("write seg_id:%u, seg_offset: %lu, head_offset: %ld, data_offset:%u, header_len:%ld, data_len:%u", 
-                seg_id, seg_offset, sizeof(SegmentOnDisk), data_header.GetDataOffset(), sizeof(DataHeader), req->GetSlice().GetDataLen());
+        __DEBUG("Put request to seg_id:%u", seg_id);
 
         return true;
     }
@@ -418,9 +427,9 @@ namespace kvdb {
         {
             while (!segQue_.empty())
             {
-                segQueMtx_->Lock();
-                SegmentData *seg = segQue_.front();
-                segQueMtx_->Unlock();
+                segQueMtx_.Lock();
+                SegmentSlice *seg = segQue_.front();
+                segQueMtx_.Unlock();
                 if (!seg->IsCompleted())
                 {
                     if (seg->IsExpired())
@@ -435,14 +444,22 @@ namespace kvdb {
 
                 seg->WriteSegToDevice();
 
-                segQueMtx_->Lock();
+                segQueMtx_.Lock();
                 segQue_.pop_front();
-                segQueMtx_->Unlock();
+                segQueMtx_.Unlock();
 
                 __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
 
-                //Update Segmenttable
-                segMgr_->Update(seg->GetSegId());
+                //Update Segment table
+                uint32_t seg_id = seg->GetSegId();
+                segMgr_->Update(seg_id);
+                //Update Superblock
+                sbMtx_.Lock();
+                DBSuperBlock sb = sbMgr_->GetSuperBlock();
+                sb.current_segment = seg_id;
+                sbMgr_->SetSuperBlock(sb);
+                sbMtx_.Unlock();
+
                 delete seg;
             }
 

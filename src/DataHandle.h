@@ -22,27 +22,6 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
     class SegmentManager;
-    class KVSlice;
-
-    class SegmentSlice{
-    public:
-        SegmentSlice();
-        ~SegmentSlice();
-        SegmentSlice(const SegmentSlice& toBeCopied);
-        SegmentSlice& operator=(const SegmentSlice& toBeCopied);
-
-        SegmentSlice(uint32_t seg_id, SegmentManager* sm);
-
-        bool Put(const KVSlice *slice, DataHeader& header);
-        const void* GetSlice() const { return data_; }
-        uint32_t GetLength() const { return length_; }
-    private:
-        uint32_t id_;
-        SegmentManager* segMgr_;
-        uint32_t segSize_;
-        char* data_;
-        uint32_t length_;
-    };
 
     class KVSlice{
     public:
@@ -62,9 +41,13 @@ namespace kvdb{
         uint16_t GetDataLen() const { return dataLength_; }
         bool IsDigestComputed() const { return isComputed_; }
         bool Is4KData() const{ return GetDataLen() == 4096; }
+        DataHeader& GetDataHeader() const { return *header_; }
+        uint32_t GetSegId() const { return segId_; }
 
         void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
         bool ComputeDigest();
+        void SetDataHeader(const DataHeader *data_header);
+        void SetSegId(uint32_t seg_id);
 
     private:
         const char* key_;
@@ -73,6 +56,9 @@ namespace kvdb{
         uint16_t dataLength_;
         Kvdb_Digest *digest_;
         bool isComputed_;
+        DataHeader *header_;
+        uint32_t segId_;
+        bool hasHeader_;
 
         void copy_helper(const KVSlice& toBeCopied);
     };
@@ -85,7 +71,7 @@ namespace kvdb{
         Request& operator=(const Request& toBeCopied);
         Request(KVSlice& slice);
 
-        const KVSlice& GetSlice() const { return *slice_; }
+        KVSlice& GetSlice() const { return *slice_; }
         int IsDone() const { return isDone_; }
         void Done();
 
@@ -99,23 +85,22 @@ namespace kvdb{
         int isDone_;
         bool writeStat_;
         KVSlice *slice_;
-        //DataHeader header_;
         Mutex *mtx_;
         Cond *cond_;
 
     };
 
-    class SegmentData{
+    class SegmentSlice{
     public:
-        SegmentData();
-        ~SegmentData();
-        SegmentData(const SegmentData& toBeCopied);
-        SegmentData& operator=(const SegmentData& toBeCopied);
+        SegmentSlice();
+        ~SegmentSlice();
+        SegmentSlice(const SegmentSlice& toBeCopied);
+        SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
-        SegmentData(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
+        SegmentSlice(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
 
         bool IsCanWrite(Request* req) const;
-        bool Put(Request* req, DataHeader& header);
+        bool Put(Request* req);
         void WriteSegToDevice();
         uint64_t GetSegPhyOffset() const;
         uint32_t GetSegSize() const { return segSize_; }
@@ -127,9 +112,9 @@ namespace kvdb{
     private:
         bool isExpire() const;
         bool isCanFit(Request* req) const;
-        void put4K(Request* req, DataHeader& header);
-        void putNon4K(Request* req, DataHeader& header);
-        void copyHelper(const SegmentData& toBeCopied);
+        void put4K(Request* req);
+        void putNon4K(Request* req);
+        void copyHelper(const SegmentSlice& toBeCopied);
         void fillSegHead();
 
         uint32_t segId_;
