@@ -298,7 +298,8 @@ namespace kvdb {
 
         Request *req = new Request(slice);
 
-        if (!writeData(req))
+        //if (!writeData(req))
+        if (!enqueReqs(req))
         {
             __ERROR("Can't write to underlying datastore\n");
             delete req;
@@ -329,11 +330,9 @@ namespace kvdb {
 
         idxMgr_->UpdateIndexFromInsert(data_header, digest, sizeof(SegmentOnDisk), seg_offset);
 
-        __DEBUG("Update Index: seg_id:%u, seg_offset: %lu, head_offset: %ld, \
-data_offset:%u, header_len:%ld, data_len:%u",
-                seg_id, seg_offset, sizeof(SegmentOnDisk),
-                data_header->GetDataOffset(), sizeof(DataHeader),
-                req->GetSlice().GetDataLen());
+        __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, seg_offset: %lu, data_offset:%u",
+                req->GetSlice().GetKeyStr().c_str(), req->GetSlice().GetDataLen(),
+                seg_id, seg_offset, data_header->GetDataOffset());
 
         //Update SuperBlock
         switch (op_type)
@@ -400,7 +399,8 @@ data_offset:%u, header_len:%ld, data_len:%u",
         return true;
     }
 
-    bool KvdbDS::writeData(Request *req)
+    //bool KvdbDS::writeData(Request *req)
+    bool KvdbDS::enqueReqs(Request *req)
     {
         segQueMtx_.Lock();
         uint32_t seg_id = 0;
@@ -415,7 +415,7 @@ data_offset:%u, header_len:%ld, data_len:%u",
 
         seg->Put(req);
         seg->Complete();
-        __DEBUG("Put request to seg_id:%u", seg_id);
+        __DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg_id);
 
         return true;
     }

@@ -40,7 +40,7 @@ namespace kvdb{
         uint32_t GetKeyLen() const { return keyLength_; }
         uint16_t GetDataLen() const { return dataLength_; }
         bool IsDigestComputed() const { return isComputed_; }
-        bool Is4KData() const{ return GetDataLen() == 4096; }
+        bool Is4KData() const{ return GetDataLen() == SIZE_4K; }
         DataHeader& GetDataHeader() const { return *header_; }
         uint32_t GetSegId() const { return segId_; }
 
@@ -116,6 +116,7 @@ namespace kvdb{
         void putNon4K(Request* req);
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSegHead();
+        void notifyAndClean(bool req_state);
 
         uint32_t segId_;
         SegmentManager* segMgr_;
@@ -127,6 +128,7 @@ namespace kvdb{
         uint32_t tailPos_;
 
         uint32_t keyNum_;
+        uint32_t key4KNum_;
         bool isCompleted_;
 
         Mutex *mtx_;

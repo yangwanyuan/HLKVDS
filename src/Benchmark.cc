@@ -13,8 +13,8 @@
 #define KEY_LEN 10
 #define DATA_HEADER_LEN 9
 //#define TEST_BS 4096-KEY_LEN-DATA_HEADER_LEN
-//#define TEST_BS 4066
-#define TEST_BS 4050
+#define TEST_BS 4096
+//#define TEST_BS 4050
 //#define TEST_THREAD_NUM 10
 
 using namespace std;

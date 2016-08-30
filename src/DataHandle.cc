@@ -175,7 +175,7 @@ namespace kvdb{
     SegmentSlice::SegmentSlice()
         :segId_(0), segMgr_(NULL), bdev_(NULL), segSize_(0),
         creTime_(KVTime()), headPos_(0), tailPos_(0), keyNum_(0),
-        isCompleted_(false), segOndisk_(NULL)
+        key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
     {
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
@@ -211,6 +211,7 @@ namespace kvdb{
         headPos_ = toBeCopied.headPos_;
         tailPos_ = toBeCopied.tailPos_;
         keyNum_ = toBeCopied.keyNum_;
+        key4KNum_ = toBeCopied.key4KNum_;
         isCompleted_ = toBeCopied.isCompleted_;
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
@@ -222,7 +223,7 @@ namespace kvdb{
         : segId_(seg_id), segMgr_(sm), bdev_(bdev),
         segSize_(segMgr_->GetSegmentSize()), creTime_(KVTime()),
         headPos_(sizeof(SegmentOnDisk)), tailPos_(segSize_),
-        keyNum_(0), isCompleted_(false), segOndisk_(NULL)
+        keyNum_(0), key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
     {
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
@@ -263,48 +264,89 @@ namespace kvdb{
 
     void SegmentSlice::WriteSegToDevice()
     {
-        uint64_t seg_offset = 0;
-        segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
-        bdev_->pWrite(segOndisk_, sizeof(SegmentOnDisk), seg_offset);
-        uint32_t head_pos = sizeof(SegmentOnDisk);
-        uint32_t tail_pos = segSize_;
+        //calculate iovec offset
+        uint64_t front_offset = 0;
+        segMgr_->ComputeSegOffsetFromId(segId_, front_offset);
+        uint64_t back_offset = (front_offset + segSize_) - (SIZE_4K * key4KNum_);
+
+        //alloc iovec
+        uint32_t iovec_num = keyNum_ * 2 + 1;
+        uint32_t front_iovec_num = iovec_num - key4KNum_;
+        uint32_t back_iovec_num = key4KNum_;
+        ssize_t front_nwriten = 0;
+        ssize_t back_nwriten = 0;
+        uint32_t front_index = 0;
+        uint32_t back_index = key4KNum_ - 1;
+
+        struct iovec *iov_front = new struct iovec[front_iovec_num];
+        struct iovec *iov_back = new struct iovec[back_iovec_num];
+
+        //aggregate SegmentOnDisk to iovec
+        iov_front[front_index].iov_base = segOndisk_;
+        iov_front[front_index].iov_len = sizeof(SegmentOnDisk);
+        front_index++;
+        front_nwriten += sizeof(SegmentOnDisk);
+
+        //aggregate iovec
         for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
         {
             const KVSlice *slice = &(*iter)->GetSlice();
+            DataHeader *header = &slice->GetDataHeader();
+            char *data = (char *)slice->GetData();
+            uint16_t data_len = slice->GetDataLen();
+
+            iov_front[front_index].iov_base = header;
+            iov_front[front_index].iov_len = sizeof(DataHeader);
+            front_index++;
+            front_nwriten += sizeof(DataHeader);
+
             if (slice->Is4KData())
             {
-                uint32_t data_offset = tail_pos - 4096;
-                uint32_t next_offset = head_pos + sizeof(DataHeader);
-
-                DataHeader header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
-
-                bdev_->pWrite(&header, sizeof(DataHeader), seg_offset+head_pos);
-                head_pos += sizeof(DataHeader);
-                tail_pos -= 4096;
-                bdev_->pWrite(slice->GetData(), slice->GetDataLen(), seg_offset+tail_pos);
+                iov_back[back_index].iov_base = data;
+                iov_back[back_index].iov_len = data_len;
+                back_index--;
+                back_nwriten += data_len;
             }
             else
             {
-                uint32_t data_offset = head_pos + sizeof(DataHeader);
-                uint32_t next_offset = data_offset + slice->GetDataLen();
-
-                DataHeader header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
-
-                bdev_->pWrite(&header, sizeof(DataHeader), seg_offset+head_pos);
-                head_pos += sizeof(DataHeader);
-                bdev_->pWrite(slice->GetData(), slice->GetDataLen(), seg_offset+head_pos);
-                head_pos += slice->GetDataLen();
+                iov_front[front_index].iov_base = data;
+                iov_front[front_index].iov_len = data_len;
+                front_index++;
+                front_nwriten += data_len;
             }
-
-            (*iter)->Done();
-            (*iter)->SetState(true);
-            (*iter)->Signal();
         }
+
+        //Write segment head, dataheader
+        bool wstat = true;
+        if (bdev_->pWritev(iov_front, front_iovec_num, front_offset) != front_nwriten)
+        {
+            __ERROR("Write Segment front data error, seg_id:%u", segId_);
+            wstat = false;
+        }
+
+        if (bdev_->pWritev(iov_back, back_iovec_num, back_offset) != back_nwriten)
+        {
+            __ERROR("Write Segment front data error, seg_id:%u", segId_);
+            wstat = false;
+        }
+
+        delete[] iov_front;
+        delete[] iov_back;
+        notifyAndClean(wstat);
+    }
+
+    void SegmentSlice::notifyAndClean(bool req_state)
+    {
         while (!reqList_.empty())
         {
+            Request *req = reqList_.front();
+            req->Done();
+            req->SetState(req_state);
+            req->Signal();
             reqList_.pop_front();
         }
     }
+
 
     uint64_t SegmentSlice::GetSegPhyOffset() const
     {
@@ -338,16 +380,17 @@ namespace kvdb{
     {
         const KVSlice *slice = &req->GetSlice();
 
-        uint32_t data_offset = tailPos_ - 4096;
+        uint32_t data_offset = tailPos_ - SIZE_4K;
         uint32_t next_offset = headPos_ + sizeof(DataHeader);
 
         DataHeader data_header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
         req->GetSlice().SetDataHeader(&data_header);
 
         headPos_ += sizeof(DataHeader);
-        tailPos_ -= 4096;
+        tailPos_ -= SIZE_4K;
         keyNum_++;
         reqList_.push_back(req);
+        key4KNum_++;
     }
 
     void SegmentSlice::putNon4K(Request* req)
@@ -369,7 +412,5 @@ namespace kvdb{
     {
         segOndisk_->SetKeyNum(keyNum_);
     }
-
-
 }
 

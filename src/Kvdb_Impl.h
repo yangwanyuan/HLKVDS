@@ -44,7 +44,8 @@ namespace kvdb {
         void updateMeta(Request *req, OpType op_type);
 
         bool readData(HashEntry* entry, string &data);
-        bool writeData(Request *req);
+        //bool writeData(Request *req);
+        bool enqueReqs(Request *req);
 
 
     private:
