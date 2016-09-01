@@ -146,12 +146,12 @@ namespace kvdb{
     {
         htSize_ = ht_size;
 
-        int64_t timeLength = KVTime::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetSizeOnDisk();
         if (!rebuildTime(offset))
         {
             return false;
         }
-        __DEBUG("Load Hashtable timestamp: %s", KVTime::TimeToChar(*lastTime_));
+        __DEBUG("Load Hashtable timestamp: %s", KVTime::ToChar(*lastTime_));
         offset += timeLength;
         
         if (!rebuildHashTable(offset))
@@ -165,7 +165,7 @@ namespace kvdb{
 
     bool IndexManager::rebuildTime(uint64_t offset)
     {
-        int64_t timeLength = KVTime::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetSizeOnDisk();
         time_t _time;
         if (bdev_->pRead(&_time, timeLength, offset) != timeLength)
         {
@@ -178,12 +178,12 @@ namespace kvdb{
 
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
-        int64_t timeLength = KVTime::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetSizeOnDisk();
         if (!persistTime(offset))
         {
             return false;
         }
-        __DEBUG("Write Hashtable timestamp: %s", KVTime::TimeToChar(*lastTime_));
+        __DEBUG("Write Hashtable timestamp: %s", KVTime::ToChar(*lastTime_));
         offset += timeLength;
 
 
@@ -198,10 +198,12 @@ namespace kvdb{
 
     bool IndexManager::persistTime(uint64_t offset)
     {
-        int64_t timeLength = KVTime::GetTimeSizeOf();
+        int64_t timeLength = KVTime::GetSizeOnDisk();
         lastTime_->Update();
         time_t _time =lastTime_->GetTime();
+        //timeval _time =lastTime_->GetTime();
 
+        //if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
         if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
         {
             __ERROR("Error write timestamp to file\n");
@@ -283,7 +285,7 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev):
-        hashtable_(NULL), htSize_(0), bdev_(bdev)
+        hashtable_(NULL), htSize_(0), bdev_(bdev), mtx_(Mutex())
     {
         lastTime_ = new KVTime();
         return ;

@@ -3,77 +3,99 @@
 
 namespace kvdb{
     
-    char* KVTime::TimeToChar(KVTime& _time)
+    const char* KVTime::ToChar(KVTime& _time)
     {
-        return asctime(localtime(&_time.timestamp_));
+        return asctime(localtime(&_time.tm_.tv_sec));
     }
 
     time_t KVTime::GetNow()
     {
-        time_t now;
-        time(&now);
-        return now;
+        timeval now;
+        gettimeofday(&now, NULL);
+        return (time_t)now.tv_sec;
     }
 
-    char* KVTime::GetNowChar()
+    const char* KVTime::GetNowChar()
     {
-        time_t now;
-        time(&now);
-        return asctime(localtime(&now));
+        timeval now;
+        gettimeofday(&now, NULL);
+        return asctime(localtime(&now.tv_sec));
     }
 
 
     void KVTime::SetTime(time_t _time)
     {
-        timestamp_ = _time;
+        tm_.tv_sec = _time;
+        tm_.tv_usec = 0;
     }
 
     time_t KVTime::GetTime()
     {
-        return timestamp_;
+        return (time_t)tm_.tv_sec;
     }
 
     void KVTime::Update()
     {
-        time(&timestamp_);
+        gettimeofday(&tm_, NULL);
     }
     
 
     KVTime::KVTime()
     {
-        time(&timestamp_);
+        gettimeofday(&tm_, NULL);
     }
 
     KVTime::KVTime(const KVTime& toBeCopied)
     {
-        timestamp_ = toBeCopied.timestamp_;
+        tm_ = toBeCopied.tm_;
     }
     
     KVTime& KVTime::operator=(const KVTime& toBeCopied)
     {
-        timestamp_ = toBeCopied.timestamp_;
+        tm_ = toBeCopied.tm_;
         return *this;
     }
 
     bool KVTime::operator>(const KVTime& toBeCopied)
     {
-        return timestamp_ > toBeCopied.timestamp_;
+        if (tm_.tv_sec > toBeCopied.tm_.tv_sec)
+        {
+            return true;
+        }
+        else if (tm_.tv_sec < toBeCopied.tm_.tv_sec )
+        {
+            return false;
+        }
+        else
+        {
+            return tm_.tv_usec > toBeCopied.tm_.tv_usec;
+        }
     }
 
     bool KVTime::operator<(const KVTime& toBeCopied)
     {
-        return timestamp_ < toBeCopied.timestamp_;
+        if (tm_.tv_sec < toBeCopied.tm_.tv_sec)
+        {
+            return true;
+        }
+        else if (tm_.tv_sec > toBeCopied.tm_.tv_sec )
+        {
+            return false;
+        }
+        else
+        {
+            return tm_.tv_usec < toBeCopied.tm_.tv_usec;
+        }
     }
 
-    double KVTime::operator-(const KVTime& toBeCopied)
+    int64_t KVTime::operator-(const KVTime& toBeCopied)
     {
-        return difftime(timestamp_, toBeCopied.timestamp_);
+        int64_t sec_diff = tm_.tv_sec - toBeCopied.tm_.tv_sec;
+        int64_t usec_diff = tm_.tv_usec - toBeCopied.tm_.tv_usec;
+        return sec_diff * 1000000 + usec_diff;
     }
 
     KVTime::~KVTime(){}
-
-    KVTime::KVTime(uint64_t _time): timestamp_(_time){}
-
 
     void* Thread::runThread(void* arg)
     {

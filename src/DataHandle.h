@@ -109,6 +109,9 @@ namespace kvdb{
         bool IsCompleted() const { return isCompleted_;};
         bool IsExpired() const { return isExpire(); }
 
+        void Lock() const { mtx_->Lock(); }
+        void Unlock() const { mtx_->Unlock(); }
+
     private:
         bool isExpire() const;
         bool isCanFit(Request* req) const;
@@ -132,7 +135,6 @@ namespace kvdb{
         bool isCompleted_;
 
         Mutex *mtx_;
-        Cond *cond_;
 
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;

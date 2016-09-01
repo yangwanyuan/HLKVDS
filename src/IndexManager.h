@@ -122,6 +122,9 @@ namespace kvdb{
         bool GetHashEntry(const KVSlice *slice, HashEntry &hash_entry);
         bool IsKeyExist(const KVSlice *slice);
 
+        void Lock() { mtx_.Lock(); }
+        void Unlock() { mtx_.Unlock(); }
+
         uint32_t GetHashTableSize() const { return htSize_; }
 
         IndexManager(BlockDevice* bdev);
@@ -149,6 +152,7 @@ namespace kvdb{
         BlockDevice* bdev_;
 
         KVTime* lastTime_;
+        Mutex mtx_;
 
     };
 

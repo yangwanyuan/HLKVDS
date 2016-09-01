@@ -10,6 +10,8 @@
 
 namespace kvdb {
 
+    KvdbDS* KvdbDS::instance_ = NULL;
+
     KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
                                     uint32_t hash_table_size,
                                     uint32_t segment_size)
@@ -128,9 +130,9 @@ namespace kvdb {
             return false;
         }
 
-        sbMtx_.Lock();
+        sbMgr_->Lock();
         const DBSuperBlock sb = sbMgr_->GetSuperBlock();
-        sbMtx_.Unlock();
+        sbMgr_->Unlock();
 
         offset += sb.GetSbSize();
         if (!idxMgr_->LoadIndexFromDevice(offset, sb.GetHTSize()))
@@ -150,13 +152,26 @@ namespace kvdb {
 
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
-        KvdbDS* ds = new KvdbDS(filename);
-        if (!ds->openDB())
+        if (instance_)
         {
-            delete ds;
+            return instance_;
+        }
+        instance_ = new KvdbDS(filename);
+
+        if (!instance_->openDB())
+        {
+            delete instance_;
             return NULL;
         }
-        return ds;
+        return instance_;
+
+        //KvdbDS* ds = new KvdbDS(filename);
+        //if (!ds->openDB())
+        //{
+        //    delete ds;
+        //    return NULL;
+        //}
+        //return ds;
     }
 
     bool KvdbDS::openDB()
@@ -209,7 +224,7 @@ namespace kvdb {
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        fileName_(filename), sbMtx_(Mutex()), segQueMtx_(Mutex()),
+        fileName_(filename), segQueMtx_(Mutex()),
         segThd_(this), segThd_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
@@ -230,7 +245,11 @@ namespace kvdb {
         KVSlice slice(key, key_len, data, length);
         slice.ComputeDigest();
 
-        if (!idxMgr_->IsKeyExist(&slice))
+        idxMgr_->Lock();
+        int res = idxMgr_->IsKeyExist(&slice);
+        idxMgr_->Unlock();
+
+        if (!res)
         {
             return insertKey(slice, INSERT);
         }
@@ -250,7 +269,11 @@ namespace kvdb {
         KVSlice slice(key, key_len, NULL, 0);
         slice.ComputeDigest();
 
-        if (!idxMgr_->IsKeyExist(&slice))
+        idxMgr_->Lock();
+        int res = idxMgr_->IsKeyExist(&slice);
+        idxMgr_->Unlock();
+
+        if (!res)
         {
             return true;
         }
@@ -267,13 +290,20 @@ namespace kvdb {
         KVSlice slice(key, key_len, NULL, 0);
         slice.ComputeDigest();
 
-        if (!idxMgr_->IsKeyExist(&slice))
+        idxMgr_->Lock();
+        int res = idxMgr_->IsKeyExist(&slice);
+        idxMgr_->Unlock();
+
+        if (!res)
         {
             return false;
         }
 
         HashEntry entry;
+
+        idxMgr_->Lock();
         idxMgr_->GetHashEntry(&slice, entry);
+        idxMgr_->Unlock();
 
         if (entry.GetDataSize() == 0 )
         {
@@ -328,7 +358,9 @@ namespace kvdb {
         uint32_t seg_id = req->GetSlice().GetSegId();
         segMgr_->ComputeSegOffsetFromId(seg_id, seg_offset);
 
+        idxMgr_->Lock();
         idxMgr_->UpdateIndexFromInsert(data_header, digest, sizeof(SegmentOnDisk), seg_offset);
+        idxMgr_->Unlock();
 
         __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, seg_offset: %lu, data_offset:%u",
                 req->GetSlice().GetKeyStr().c_str(), req->GetSlice().GetDataLen(),
@@ -340,29 +372,29 @@ namespace kvdb {
             case INSERT:
             {
                 //Update new key meta
-                sbMtx_.Lock();
+                sbMgr_->Lock();
                 DBSuperBlock sb = sbMgr_->GetSuperBlock();
                 sb.number_elements++;
                 sbMgr_->SetSuperBlock(sb);
-                sbMtx_.Unlock();
+                sbMgr_->Unlock();
             }
             case UPDATE:
             {
                 //Update existed key meta
                 //TODO: do something for gc
-                sbMtx_.Lock();
-                sbMtx_.Unlock();
+                sbMgr_->Lock();
+                sbMgr_->Unlock();
             }
             case DELETE:
             {
                 //Update deleted key meta
-                sbMtx_.Lock();
+                sbMgr_->Lock();
                 DBSuperBlock sb = sbMgr_->GetSuperBlock();
                 sb.deleted_elements++;
                 sb.number_elements--;
                 sbMgr_->SetSuperBlock(sb);
                 //TODO: do something for gc
-                sbMtx_.Unlock();
+                sbMgr_->Unlock();
             }
             default:
                 break;
@@ -402,21 +434,51 @@ namespace kvdb {
     //bool KvdbDS::writeData(Request *req)
     bool KvdbDS::enqueReqs(Request *req)
     {
+        SegmentSlice *seg;
+        findAvailableSeg(req, seg);
+
+        seg->Put(req);
+        //seg->Complete();
+        seg->Unlock();
+        __DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg->GetSegId());
+
+        return true;
+    }
+
+    bool KvdbDS::findAvailableSeg(Request *req, SegmentSlice*& seg)
+    {
+        bool found = false;
         segQueMtx_.Lock();
+        for (list<SegmentSlice*>::iterator iter = segQue_.begin(); iter != segQue_.end(); iter++)
+        {
+            seg = *iter;
+            seg->Lock();
+            if (seg->IsCanWrite(req))
+            {
+                found = true;
+                break;
+            }
+            else
+            {
+                seg->Complete();
+                seg->Unlock();
+            }
+        }
+        if (found)
+        {
+            return true;
+        }
+
         uint32_t seg_id = 0;
         if (!segMgr_->GetEmptySegId(seg_id))
         {
             __ERROR("Cann't get a new Empty Segment.\n");
             return false;
         }
-        SegmentSlice *seg = new SegmentSlice(seg_id, segMgr_, bdev_);
+        seg = new SegmentSlice(seg_id, segMgr_, bdev_);
+        seg->Lock();
         segQue_.push_back(seg);
         segQueMtx_.Unlock();
-
-        seg->Put(req);
-        seg->Complete();
-        __DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg_id);
-
         return true;
     }
 
@@ -454,11 +516,11 @@ namespace kvdb {
                 uint32_t seg_id = seg->GetSegId();
                 segMgr_->Update(seg_id);
                 //Update Superblock
-                sbMtx_.Lock();
+                sbMgr_->Lock();
                 DBSuperBlock sb = sbMgr_->GetSuperBlock();
                 sb.current_segment = seg_id;
                 sbMgr_->SetSuperBlock(sb);
-                sbMtx_.Unlock();
+                sbMgr_->Unlock();
 
                 delete seg;
             }

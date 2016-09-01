@@ -44,8 +44,8 @@ namespace kvdb {
         void updateMeta(Request *req, OpType op_type);
 
         bool readData(HashEntry* entry, string &data);
-        //bool writeData(Request *req);
         bool enqueReqs(Request *req);
+        bool findAvailableSeg(Request *req, SegmentSlice*& seg_ptr);
 
 
     private:
@@ -55,7 +55,6 @@ namespace kvdb {
         SegmentManager* segMgr_;
         string fileName_;
 
-        Mutex sbMtx_;
         Mutex segQueMtx_;
 
     private:
@@ -79,6 +78,9 @@ namespace kvdb {
         std::list<SegmentSlice*> segQue_;
         std::atomic<bool> segThd_stop_;
         void SegThdEntry();
+
+    private:
+        static KvdbDS *instance_;
 
     };
 

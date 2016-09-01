@@ -3,7 +3,7 @@
 
 namespace kvdb{
 
-    DB *DB::instance_ = NULL;
+    DB* DB::instance_ = NULL;
 
     bool DB::CreateDB(string filename,
                     uint32_t hash_table_size,

@@ -60,11 +60,12 @@ namespace kvdb{
     }
 
     SuperBlockManager::SuperBlockManager(BlockDevice* bdev):
-        bdev_(bdev), sb_(NULL){}
+        bdev_(bdev), sb_(NULL), mtx_(Mutex()){}
 
     SuperBlockManager::~SuperBlockManager()
     {
         delete sb_;
     }
+
 
 } // namespace kvdb

@@ -73,12 +73,17 @@ namespace kvdb{
 
         bool IsElementFull() { return sb_->number_elements == sb_->hashtable_size; }
 
+        void Lock() { mtx_.Lock(); }
+        void Unlock() { mtx_.Unlock(); }
+
         SuperBlockManager(BlockDevice* bdev);
         ~SuperBlockManager();
 
     private:
         BlockDevice* bdev_;
         DBSuperBlock* sb_;
+
+        Mutex mtx_;
 
     };
 }// namespace kvdb

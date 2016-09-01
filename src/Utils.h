@@ -2,6 +2,7 @@
 #define _KV_DB_UTILS_H_
 
 #include <time.h>
+#include <sys/time.h>
 #include <inttypes.h>
 #include <sys/types.h>
 #include <pthread.h>
@@ -11,10 +12,10 @@
 namespace kvdb{
     class KVTime{
     public:
-        static size_t GetTimeSizeOf(){ return sizeof(time_t); }
-        static char* TimeToChar(KVTime& _time);
+        static size_t GetSizeOnDisk(){ return sizeof(time_t); }
+        static const char* ToChar(KVTime& _time);
         static time_t GetNow();
-        static char* GetNowChar();
+        static const char* GetNowChar();
 
         void SetTime(time_t _time);
         time_t GetTime();
@@ -26,13 +27,12 @@ namespace kvdb{
         KVTime& operator=(const KVTime& toBeCopied);
         bool operator>(const KVTime& toBeCopied);
         bool operator<(const KVTime& toBeCopied);
-        //get time diff, unit seconds
-        double operator-(const KVTime& toBeCopied);
+        int64_t operator-(const KVTime& toBeCopied);
         ~KVTime();
 
-        KVTime(uint64_t _time);
     private:
-        time_t timestamp_;
+        timeval tm_;
+
     };
 
     class Thread

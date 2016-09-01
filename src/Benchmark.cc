@@ -15,7 +15,7 @@
 //#define TEST_BS 4096-KEY_LEN-DATA_HEADER_LEN
 #define TEST_BS 4096
 //#define TEST_BS 4050
-//#define TEST_THREAD_NUM 10
+#define TEST_THREAD_NUM 10
 
 using namespace std;
 using namespace kvdb;
@@ -141,17 +141,6 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
             cout << "value = " << get_data << endl;
         }
     }
-    //for (int index = 0; index < record_num; index++){
-    //    stringstream key_ss;
-    //    key_ss << index;
-    //    std::string key(key_ss.str());
-    //    key_len = key.length();
-    //    std::string get_data;
-    //    if(!db->Get(key.c_str(), key_len, get_data))
-    //        std::cout << "Get key=" << key << " from DB failed" << std::endl;
-    //    if (strcmp(get_data.c_str(), value.c_str()) != 0)
-    //        std::cout << "Get key=" << key << "failed , the value = " << get_data << std::endl;
-    //}
 
     gettimeofday(&tv_end, NULL);
     double get_time = timeval_diff(&tv_start, &tv_end);
@@ -164,7 +153,6 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
 
 int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &record_num){
 
-    //if (argc != 7 || strcmp(argv[1],'-f') == 0 || strcmp(argv[3],'-s') == 0 || strcmp(argv[5],'-n') == 0)  
     if (argc != 7)  
     {
         return -1;
@@ -181,7 +169,6 @@ int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &reco
     filename = argv[2];
     db_size = atoi(argv[4]);
     record_num = atoi(argv[6]);
-    //std::cout << "filename: " << filename << " db_size: " << db_size << " record_num: " << record_num <<std::endl;
     
     if (db_size < 0 ||  record_num < 0 )
     {

@@ -178,14 +178,12 @@ namespace kvdb{
         key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
     {
         mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
         segOndisk_ = new SegmentOnDisk;
     }
 
     SegmentSlice::~SegmentSlice()
 
     {
-        delete cond_;
         delete mtx_;
         delete segOndisk_;
     }
@@ -214,7 +212,6 @@ namespace kvdb{
         key4KNum_ = toBeCopied.key4KNum_;
         isCompleted_ = toBeCopied.isCompleted_;
         mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
         reqList_ = toBeCopied.reqList_;
         segOndisk_ = new SegmentOnDisk(*toBeCopied.segOndisk_);
     }
@@ -226,7 +223,6 @@ namespace kvdb{
         keyNum_(0), key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
     {
         mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
         segOndisk_ = new SegmentOnDisk;
     }
 
@@ -364,7 +360,8 @@ namespace kvdb{
     bool SegmentSlice::isExpire() const
     {
         KVTime nowTime;
-        double interval = nowTime - creTime_;
+        //double interval = nowTime - creTime_;
+        int64_t interval = nowTime - creTime_;
         return (interval > EXPIRED_TIME);
     }
 
