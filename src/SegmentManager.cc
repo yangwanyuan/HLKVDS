@@ -216,7 +216,7 @@ namespace kvdb{
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        startOffset_(0), segSize_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev)
+        startOffset_(0), segSize_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev), mtx_(Mutex())
     {
         return;
     }

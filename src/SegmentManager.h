@@ -70,6 +70,9 @@ namespace kvdb{
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
 
+        void Lock() { mtx_.Lock(); }
+        void Unlock() { mtx_.Unlock(); }
+
     private:
         vector<SegmentStat> segTable_;
         uint64_t startOffset_;
@@ -80,6 +83,7 @@ namespace kvdb{
         
 
         BlockDevice* bdev_;
+        Mutex mtx_;
 
 
     };

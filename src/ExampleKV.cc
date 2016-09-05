@@ -6,9 +6,8 @@
 
 #define TEST_RECORD_NUM 1
 
-//#define TEST_DB_FILENAME "000_db"
-//#define TEST_DB_FILENAME "/dev/loop0"
 #define TEST_DB_FILENAME "/dev/sdc1"
+//#define TEST_DB_FILENAME "/dev/sdc3"
 
 void Get(kvdb::DB *db)
 {
@@ -53,7 +52,6 @@ void Delete(kvdb::DB *db)
         key_ss << index;
         std::string key(key_ss.str());
         key_len = key.length();
-        //std::string get_data;
         db->Delete(key.c_str(), key_len);
         std::cout << "Delete Item Success. key = " << key << std::endl;
     }
@@ -67,9 +65,6 @@ void OpenExample()
     {
         return;
     }
-
-    //int key_len;
-    //int value_len;
 
     Get(db);
     Insert(db);

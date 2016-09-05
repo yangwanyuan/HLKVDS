@@ -10,34 +10,25 @@
 #include <stdlib.h>
 #include "Kvdb_Impl.h"
 
+#define SEGMENT_SIZE 256 * 1024
 #define KEY_LEN 10
-#define DATA_HEADER_LEN 9
-//#define TEST_BS 4096-KEY_LEN-DATA_HEADER_LEN
+
 #define TEST_BS 4096
-//#define TEST_BS 4050
-#define TEST_THREAD_NUM 10
+//#define TEST_THREAD_NUM 64
+#define TEST_THREAD_NUM 128
 
 using namespace std;
 using namespace kvdb;
 
+enum Option{ INSERT, GET };
 
-double timeval_diff(const struct timeval * const start, const struct timeval * const end)
-{
-    /* Calculate the second difference*/
-    double r = end->tv_sec - start->tv_sec;
-
-    /* Calculate the microsecond difference */
-    if (end->tv_usec > start->tv_usec)
-    {
-        r += (end->tv_usec - start->tv_usec)/1000000.0;
-    }
-    else if (end->tv_usec < start->tv_usec)
-    {
-        r -= (start->tv_usec - end->tv_usec)/1000000.0;
-    }
-
-    return r;
-}
+struct thread_arg{
+    KvdbDS *db;
+    int key_start;
+    int key_end;
+    vector<string> *key_list;
+    string* data;
+};
 
 void usage()
 {
@@ -47,15 +38,14 @@ void usage()
 int Create_DB(string filename, int db_size)
 {
     int ht_size = db_size ;
-    int segment_size = 256*1024;
+    int segment_size = SEGMENT_SIZE;
 
-    struct timeval tv_start, tv_end;
-    gettimeofday(&tv_start, NULL);
-
+    KVTime tv_start;
     KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, segment_size);
 
-    gettimeofday(&tv_end, NULL);
-    double diff_time = timeval_diff(&tv_start, &tv_end);
+    KVTime tv_end;
+    double diff_time = (tv_end - tv_start) / 1000000.0;
+
     cout << "Create DB use time: " << diff_time << "s" << endl;
     delete db;
     db = NULL;
@@ -67,45 +57,75 @@ void Create_Keys(int record_num, vector<string> &key_list)
     for (int index = 0; index < record_num; index++)
     {
         char c_key[KEY_LEN+1] = "kkkkkkkkkk";
-        //string key_last = string('k', 10);
-        //char c_key[10] = {'k','k','k','k','k','k','k','k','k','k'};
         stringstream key_ss;
         key_ss << index;
         string key(key_ss.str());
         memcpy(c_key, key.c_str(), key.length());
         string key_last = c_key;
         key_list.push_back(key_last);
-        //cout << "key_len:" << key_last.length() << endl;
     }
 }
 
+void* fun_insert(void *arg)
+{
+    thread_arg *t_args = (thread_arg*)arg;
+    KvdbDS *db = t_args->db;
+    int key_start = t_args->key_start;
+    int key_end = t_args->key_end;
+    vector<string> &key_list = *t_args->key_list;
+
+    string *value = t_args->data;
+
+    //string value = string(TEST_BS, 'v');
+    //int value_size = value.length();
+    int value_size = TEST_BS;
+    int key_len = KEY_LEN;
+
+    for (int i = key_start; i < key_end + 1;  i++)
+    {
+        string key = key_list[i];
+        if (!db->Insert(key.c_str(), key_len, value->c_str(), value_size))
+        {
+            cout << "Insert key=" << key << "to DB failed!" << endl;
+        }
+    }
+    return NULL;
+
+}
 void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
 {
 
     cout << "Insert Bench Start, record_num = " << record_num << ", Please wait ..." << endl;
 
-    string value = string(TEST_BS, 'v');
-    int value_size = value.length();
-    int key_len = KEY_LEN;
-    
-    struct timeval tv_start, tv_end;
-    gettimeofday(&tv_start, NULL);
+    string data = string(TEST_BS, 'v');
 
-    for (vector<string>::iterator iter = key_list.begin(); iter != key_list.end(); iter++)
+    thread_arg arglist[TEST_THREAD_NUM];
+    pthread_t pidlist[TEST_THREAD_NUM];
+    for (int i = 0; i < TEST_THREAD_NUM; i++)
     {
-        string key = *iter;
-        if ( key == "40999kkkkk")
-        {
-            cout << "hello" << endl;
-        }
-        if (!db->Insert(key.c_str(), key_len, value.c_str(), value_size))
-        {
-            cout << "Insert key=" << key << "to DB failed!" << endl;
-        }
+        int start = (record_num / TEST_THREAD_NUM) * i ;
+        int end = (record_num / TEST_THREAD_NUM) * (i+1) - 1;
+        arglist[i].db = db;
+        arglist[i].key_start = start;
+        arglist[i].key_end = end;
+        arglist[i].key_list = &key_list;
+        arglist[i].data = &data;
     }
 
-    gettimeofday(&tv_end, NULL);
-    double insert_time = timeval_diff(&tv_start, &tv_end);
+    KVTime tv_start;
+    for (int i=0; i<TEST_THREAD_NUM; i++)
+    {
+        pthread_create(&pidlist[i], NULL, fun_insert, &arglist[i] );
+    }
+
+    for (int i=0; i<TEST_THREAD_NUM; i++)
+    {
+        pthread_join(pidlist[i], NULL);
+    }
+
+    KVTime tv_end;
+    double insert_time = (tv_end - tv_start) / 1000000.0;
+
     cout << "Insert Bench Finish. use time: " << insert_time << "s" <<endl;
     cout << "Insert Bench Result: " << record_num / insert_time << " per second." <<endl;
 
@@ -119,8 +139,7 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
     string value = string(TEST_BS, 'v');
     int key_len = KEY_LEN;
 
-    struct timeval tv_start, tv_end;
-    gettimeofday(&tv_start, NULL);
+    KVTime tv_start;
 
     for (vector<string>::iterator iter = key_list.begin(); iter != key_list.end(); iter++)
     {
@@ -142,8 +161,8 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
         }
     }
 
-    gettimeofday(&tv_end, NULL);
-    double get_time = timeval_diff(&tv_start, &tv_end);
+    KVTime tv_end;
+    double get_time = (tv_end - tv_start) / 1000000.0;
 
     cout << "Get Sequential Bench Finish. use time: " << get_time << "s" << endl;
     cout << "Get Sequential Bench Result: " << record_num / get_time << " per second." <<endl;

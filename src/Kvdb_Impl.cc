@@ -320,7 +320,10 @@ namespace kvdb {
 
     bool KvdbDS::insertKey(KVSlice& slice, OpType op_type)
     {
-        if (sbMgr_->IsElementFull())
+        sbMgr_->Lock();
+        bool res = sbMgr_->IsElementFull();
+        sbMgr_->Unlock();
+        if (res)
         {
             __ERROR("Error: hash table full!\n");
             return false;
@@ -328,7 +331,6 @@ namespace kvdb {
 
         Request *req = new Request(slice);
 
-        //if (!writeData(req))
         if (!enqueReqs(req))
         {
             __ERROR("Can't write to underlying datastore\n");
@@ -439,8 +441,9 @@ namespace kvdb {
 
         seg->Put(req);
         //seg->Complete();
-        seg->Unlock();
         __DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg->GetSegId());
+        seg->Unlock();
+        //__DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg->GetSegId());
 
         return true;
     }
@@ -464,19 +467,24 @@ namespace kvdb {
                 seg->Unlock();
             }
         }
+        segQueMtx_.Unlock();
         if (found)
         {
             return true;
         }
 
         uint32_t seg_id = 0;
-        if (!segMgr_->GetEmptySegId(seg_id))
+        segMgr_->Lock();
+        bool res = segMgr_->GetEmptySegId(seg_id);
+        segMgr_->Unlock();
+        if (!res)
         {
             __ERROR("Cann't get a new Empty Segment.\n");
             return false;
         }
         seg = new SegmentSlice(seg_id, segMgr_, bdev_);
         seg->Lock();
+        segQueMtx_.Lock();
         segQue_.push_back(seg);
         segQueMtx_.Unlock();
         return true;
@@ -488,42 +496,54 @@ namespace kvdb {
         while (true)
         {
             while (!segQue_.empty())
+            //segQueMtx_.Lock();
+            //if (!segQue_.empty())
             {
                 segQueMtx_.Lock();
                 SegmentSlice *seg = segQue_.front();
+                seg->Lock();
                 segQueMtx_.Unlock();
-                if (!seg->IsCompleted())
+                if (seg->IsCompleted())
+                {
+
+                    seg->WriteSegToDevice();
+                    seg->Unlock();
+
+                    segQueMtx_.Lock();
+                    __DEBUG("Segment thread segQue size %lu", segQue_.size());
+                    segQue_.pop_front();
+                    __DEBUG("Segment thread segQue size %lu", segQue_.size());
+                    segQueMtx_.Unlock();
+
+                    __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
+
+                    //Update Segment table
+                    uint32_t seg_id = seg->GetSegId();
+                    segMgr_->Lock();
+                    segMgr_->Update(seg_id);
+                    segMgr_->Unlock();
+                    //Update Superblock
+                    sbMgr_->Lock();
+                    DBSuperBlock sb = sbMgr_->GetSuperBlock();
+                    sb.current_segment = seg_id;
+                    sbMgr_->SetSuperBlock(sb);
+                    sbMgr_->Unlock();
+
+                    delete seg;
+                }
+                else
                 {
                     if (seg->IsExpired())
                     {
                         seg->Complete();
+                        __DEBUG("Segment thread: seg expired,complete it, seg_id:%d", seg->GetSegId());
                     }
-                    else
-                    {
-                        break;
-                    }
-                }
 
-                seg->WriteSegToDevice();
-
-                segQueMtx_.Lock();
-                segQue_.pop_front();
-                segQueMtx_.Unlock();
-
-                __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
-
-                //Update Segment table
-                uint32_t seg_id = seg->GetSegId();
-                segMgr_->Update(seg_id);
-                //Update Superblock
-                sbMgr_->Lock();
-                DBSuperBlock sb = sbMgr_->GetSuperBlock();
-                sb.current_segment = seg_id;
-                sbMgr_->SetSuperBlock(sb);
-                sbMgr_->Unlock();
-
-                delete seg;
+                    seg->Unlock();
+                    std::this_thread::yield();
+                } 
             }
+            //segQueMtx_.Unlock();
 
             if (segThd_stop_)
             {
