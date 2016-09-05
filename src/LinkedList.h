@@ -21,42 +21,26 @@ namespace kvdb{
 
     template <typename T>
     class LinkedList{
-    //public:
-        //class Node{
-        //public:
-        //    T data;
-        //    Node* next;
-
-        //    Node(T value, Node* nd): data(value), next(nd){};
-        //};
-
     public:
-        LinkedList();
+        LinkedList(): head_(NULL), size_(0){}
         LinkedList(const LinkedList<T> &);
         ~LinkedList();
-        LinkedList& operator= (const LinkedList<T> &);
+        LinkedList& operator=(const LinkedList<T> &);
         bool insert(T toBeInserted);
         bool remove(T toBeRemoved);
         bool search(T toBeSearched);
         vector<T> get();
-        int get_size() {return m_size;}
+        int get_size() { return size_; }
 
     private:
-        Node<T>* m_head;
-        int m_size;
+        Node<T>* head_;
+        int size_;
 
         void copyHelper(const LinkedList &);
         void removeAll();
 
 
     };
-
-    template <typename T>
-    LinkedList<T>::LinkedList()
-    {
-        m_head = NULL;
-        m_size = 0;
-    }
 
     template <typename T>
     LinkedList<T>::LinkedList(const LinkedList<T> &toBeCopied)
@@ -71,10 +55,10 @@ namespace kvdb{
     }
 
     template <typename T>
-    LinkedList<T> &LinkedList<T>::operator= (const LinkedList<T> &toBeCopied)
+    LinkedList<T> &LinkedList<T>::operator=(const LinkedList<T> &toBeCopied)
     {
         // Only do if the parameter is not the calling object 
-        if(this != &toBeCopied)
+        if (this != &toBeCopied)
         {
             removeAll();
             copyHelper(toBeCopied);
@@ -86,24 +70,24 @@ namespace kvdb{
     void LinkedList<T>::copyHelper(const LinkedList<T> &toBeCopied)
     {   
         // If the parameter list is empty
-        if(toBeCopied.m_head == NULL)
+        if (toBeCopied.head_ == NULL)
         {
             // Create an empty list
-            m_head = NULL;
-            m_size = 0;
+            head_ = NULL;
+            size_ = 0;
         }
         else
         {
             // Deep copy the contents of the parameter list
-            m_size = toBeCopied.m_size;
+            size_ = toBeCopied.size_;
             // Copy the first node first
-            Node<T>* copyNode = new Node<T>(toBeCopied.m_head->data, NULL);
-            m_head = copyNode;
+            Node<T>* copyNode = new Node<T>(toBeCopied.head_->data, NULL);
+            head_ = copyNode;
     
-            Node<T>* ptr = toBeCopied.m_head;
+            Node<T>* ptr = toBeCopied.head_;
             ptr = ptr->next;
             // Copy the rest of the list until the tail
-            while(ptr != NULL)
+            while (ptr != NULL)
             {
                 copyNode->next = new Node<T>(ptr->data, NULL);
                 copyNode = copyNode->next;
@@ -116,16 +100,16 @@ namespace kvdb{
     template <typename T>
     void LinkedList<T>::removeAll()
     {
-        Node<T>* tempNode = m_head;
+        Node<T>* tempNode = head_;
         // De-allocate all the memory associated with the calling list from the head to tail
-        while(tempNode != NULL)
+        while (tempNode != NULL)
         {
-            tempNode = m_head->next;
-            delete m_head;
-            m_head = tempNode;
+            tempNode = head_->next;
+            delete head_;
+            head_ = tempNode;
         }
         // Also set the size of the list to zero
-        m_size = 0;
+        size_ = 0;
     
     }
 
@@ -133,7 +117,7 @@ namespace kvdb{
     bool LinkedList<T>::insert(T toBeInserted)
     {
         // If the string is already in the list
-        if(search(toBeInserted))
+        if (search(toBeInserted))
         {
             return false;
         }
@@ -143,20 +127,20 @@ namespace kvdb{
             Node<T>* newNode = new Node<T>(toBeInserted, NULL);
     
             //If the list is empty
-            if(m_head == NULL)
+            if (head_ == NULL)
             {
-                m_head = newNode;
+                head_ = newNode;
             }
             else    // Else if the list is not empty
             {
-                //newNode->next = m_head;
-                //m_head = newNode;
-                Node<T>* tempNode = m_head;
-                while(tempNode->next != NULL)
+                //newNode->next = head_;
+                //head_ = newNode;
+                Node<T>* tempNode = head_;
+                while (tempNode->next != NULL)
                     tempNode = tempNode->next;
                 tempNode->next = newNode;
             }
-            m_size++;
+            size_++;
             return true;
         }
     }
@@ -165,36 +149,36 @@ namespace kvdb{
     bool LinkedList<T>::remove(T toBeRemoved)
     {   
         // If string does not exist in the list
-        if(!search(toBeRemoved))
+        if (!search(toBeRemoved))
         {
             return false;
         }
         else    // String exist
         {
             // Node initialisation (so can remove and point the right one)
-            Node<T>* nodePtr = m_head;
+            Node<T>* nodePtr = head_;
             Node<T>* tempNode = nodePtr->next;
     
             //If the head is the node we want to remove
-            if(m_head->data == toBeRemoved)
+            if (head_->data == toBeRemoved)
             {
-                m_head = tempNode;
+                head_ = tempNode;
                 delete nodePtr;
-                m_size--;
+                size_--;
                 return true;
             }
             else
             {
                 // Find the one user want to remove till the tail
-                while(tempNode != NULL)
+                while (tempNode != NULL)
                 {
                     //If we found the node
-                    if(tempNode->data == toBeRemoved)
+                    if (tempNode->data == toBeRemoved)
                     {
                         // Point the node before the current to the node after the current
                         nodePtr->next = tempNode->next;
                         delete tempNode;
-                        m_size--;
+                        size_--;
                         return true;
     
                     }
@@ -211,13 +195,13 @@ namespace kvdb{
     template <typename T>
     bool LinkedList<T>::search(T toBeSearched) 
     {
-        Node<T>* tempNode = m_head;
+        Node<T>* tempNode = head_;
         
         //Check until the last node in list
-        while(tempNode != NULL)
+        while (tempNode != NULL)
         {
             // If the current node contain the data that user wanted to check
-            if(tempNode->data == toBeSearched)
+            if (tempNode->data == toBeSearched)
             {
                 return true;
             }
@@ -233,11 +217,11 @@ namespace kvdb{
     vector<T> LinkedList<T>::get() 
     {
         vector<T> tempVector;
-        if(m_head != NULL)
+        if (head_ != NULL)
         {
-            Node<T>* tempNode = m_head;
+            Node<T>* tempNode = head_;
             // Till the last node
-            while(tempNode != NULL)
+            while (tempNode != NULL)
             {
                 // Push back the contents in the vector
                 tempVector.push_back(tempNode->data);

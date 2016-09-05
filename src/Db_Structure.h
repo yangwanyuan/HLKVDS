@@ -9,13 +9,19 @@
 #define RMDsize 160
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
+//#define EXPIRED_TIME 80 // unit microseconds
+#define EXPIRED_TIME 10000 // unit microseconds
+#define SIZE_4K 4096
 
-#define DEBUG
+//#define DEBUG
+#define INFO
+#define WARN
+#define ERROR
 
 #ifdef DEBUG
-#include <unistd.h>
+#include <pthread.h>
 #define __DEBUG(x...) do {                                    \
-        fprintf(stderr,"[%d] %s(%d) ",(int)getgid(), __FUNCTION__,__LINE__); \
+        fprintf(stderr,"[DEBUG] [Pid:%ld] %s (%s:%d) : ",(uint64_t)pthread_self(), __FUNCTION__, __FILE__,__LINE__); \
         fprintf(stderr,##x);             \
         fprintf(stderr,"\n");              \
 }while(0)
@@ -23,50 +29,50 @@
     #define __DEBUG(x...)
 #endif
 
+#ifdef INFO
+#include <pthread.h>
+#define __INFO(x...) do {                                    \
+        fprintf(stderr,"[INFO]  [Pid:%ld] %s (%s:%d) : ",(uint64_t)pthread_self(), __FUNCTION__, __FILE__,__LINE__); \
+        fprintf(stderr,##x);             \
+        fprintf(stderr,"\n");              \
+}while(0)
+#else
+    #define __INFO(x...)
+#endif
+
+#ifdef WARN
+#include <pthread.h>
+#define __WARN(x...) do {                                    \
+        fprintf(stderr,"[WARN]  [Pid:%ld] %s (%s:%d) : ",(uint64_t)pthread_self(), __FUNCTION__, __FILE__,__LINE__); \
+        fprintf(stderr,##x);             \
+        fprintf(stderr,"\n");              \
+}while(0)
+#else
+    #define __WARN(x...)
+#endif
+
+#ifdef ERROR
+#include <pthread.h>
+#define __ERROR(x...) do {                                    \
+        fprintf(stderr,"[ERROR] [Pid:%ld] %s (%s:%d) : ",(uint64_t)pthread_self(), __FUNCTION__, __FILE__,__LINE__); \
+        fprintf(stderr,##x);             \
+        fprintf(stderr,"\n");              \
+}while(0)
+#else
+    #define __ERROR(x...)
+#endif
 
 #define OK 0
 #define ERR (-1)
 
+typedef uint16_t U16;
+typedef uint32_t U32;
+typedef uint64_t U64;
+typedef int16_t S16;
+typedef int32_t S32;
+typedef int64_t S64;
+
 namespace kvdb {
-    //struct DBSuperBlock {
-    //    uint64_t magic_number;
-    //    uint64_t hashtable_size;
-    //    uint64_t number_elements;
-    //    uint64_t deleted_elements;
-    //    double max_deleted_ratio;
-    //    double max_load_factor;
-    //    off_t data_insertion_point;  // offset to where the next record should go
-    //    off_t data_start_point;  // offset showing where first record is
-    //    uint64_t segment_size;
-    //    uint64_t number_segments;
-    //} __attribute__((__packed__));
-
-
-    //struct DataHeader {
-    //    uint32_t key_digest[KEYDIGEST_SIZE];
-    //    uint16_t data_size;
-    //    uint32_t data_offset;
-    //    uint32_t next_header_offset;
-    //} __attribute__((__packed__));
-
-    ////struct DataHeaderOffset{
-    ////    uint32_t segment_id;
-    ////    uint32_t header_offset;
-    ////}__attribute__((__packed__));
-    //struct DataHeaderOffset{
-    //    uint32_t physical_offset;
-    //}__attribute__((__packed__));
-
-    //struct HashEntryOnDisk {
-    //    DataHeader header;
-    //    DataHeaderOffset header_offset;
-    //} __attribute__((__packed__));
-
-    //struct HashEntry {
-    //    HashEntryOnDisk hash_entry;
-    //    uint32_t pointer;
-    //} __attribute__((__packed__));
-
 
 }  // namespace kvdb
 

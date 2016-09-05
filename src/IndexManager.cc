@@ -11,15 +11,57 @@
 
 namespace kvdb{
 
-    HashEntryOnDisk::HashEntryOnDisk()
+    DataHeader::DataHeader() : key_digest(Kvdb_Digest()), data_size(0), data_offset(0), next_header_offset(0){}
+
+    DataHeader::DataHeader(const Kvdb_Digest &digest, uint16_t size, uint32_t offset, uint32_t next_offset) : key_digest(digest), data_size(size), data_offset(offset), next_header_offset(next_offset){}
+
+    DataHeader::DataHeader(const DataHeader& toBeCopied)
     {
-        ;
+        key_digest = toBeCopied.key_digest;
+        data_size = toBeCopied.data_size;
+        data_offset = toBeCopied.data_offset;
+        next_header_offset = toBeCopied.next_header_offset;
     }
 
-    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset)
+    DataHeader::~DataHeader(){}
+
+    DataHeader& DataHeader::operator=(const DataHeader& toBeCopied)
+    {
+        key_digest = toBeCopied.key_digest;
+        data_size = toBeCopied.data_size;
+        data_offset = toBeCopied.data_offset;
+        next_header_offset = toBeCopied.next_header_offset;
+        return *this;
+    }
+
+    void DataHeader::SetDigest(const Kvdb_Digest& digest)
+    {
+        key_digest = digest;
+    }
+
+
+    DataHeaderOffset::DataHeaderOffset(const DataHeaderOffset& toBeCopied)
+    {
+        physical_offset = toBeCopied.physical_offset;
+    }
+
+    DataHeaderOffset::~DataHeaderOffset(){}
+
+    DataHeaderOffset& DataHeaderOffset::operator=(const DataHeaderOffset& toBeCopied)
+    {
+        physical_offset = toBeCopied.physical_offset;
+        return *this;
+    }
+
+    HashEntryOnDisk::HashEntryOnDisk() : header(DataHeader()), header_offset(DataHeaderOffset()){}
+
+    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset) : header(dataheader), header_offset(offset){}
+
+    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, uint64_t offset)
     {
         header = dataheader;
-        header_offset = offset;
+        DataHeaderOffset h_off(offset);
+        header_offset = h_off;
         return;
     }
 
@@ -29,31 +71,28 @@ namespace kvdb{
         header_offset = toBeCopied.header_offset;
     }
 
-    HashEntryOnDisk::~HashEntryOnDisk()
-    {
-        ;
-    }
+    HashEntryOnDisk::~HashEntryOnDisk(){}
 
-    bool HashEntryOnDisk::operator== (const HashEntryOnDisk& toBeCompare)
-    {
-        return true;
-    }
 
-    HashEntryOnDisk& HashEntryOnDisk::operator= (const HashEntryOnDisk& toBeCopied)
+    HashEntryOnDisk& HashEntryOnDisk::operator=(const HashEntryOnDisk& toBeCopied)
     {
         header = toBeCopied.header;
         header_offset = toBeCopied.header_offset;
         return *this;
     }
 
-    HashEntry::HashEntry()
+    void HashEntryOnDisk::SetKeyDigest(const Kvdb_Digest& digest)
     {
-        pointer = NULL;
-        return;
+        header.SetDigest(digest);
     }
 
-    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr)
+    HashEntry::HashEntry(): entryOndisk(HashEntryOnDisk()), pointer(NULL){}
+
+    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr): entryOndisk(entry_ondisk), pointer(read_ptr){}
+
+    HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr)
     {
+        HashEntryOnDisk entry_ondisk(data_header, header_offset);
         entryOndisk = entry_ondisk;
         pointer = read_ptr;
     }
@@ -70,10 +109,12 @@ namespace kvdb{
         return;
     }
 
-    bool HashEntry::operator==(const HashEntry& toBeCompare)
+    bool HashEntry::operator==(const HashEntry& toBeCompare) const
     {
-        if (!memcmp(&(entryOndisk.header.key_digest), &(toBeCompare.entryOndisk.header.key_digest), sizeof(Kvdb_Digest) ))
+        if (this->GetKeyDigest() == toBeCompare.GetKeyDigest())
+        {
             return true;
+        }
         return false;
     }
 
@@ -84,68 +125,103 @@ namespace kvdb{
         return *this;
     }
 
-    bool IndexManager::InitIndexForCreateDB(uint64_t numObjects)
+    void HashEntry::SetKeyDigest(const Kvdb_Digest& digest)
     {
-        m_size = ComputeHashSizeForCreateDB(numObjects);
+        entryOndisk.SetKeyDigest(digest);
+    }
+
+    bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
+    {
+        htSize_ = computeHashSizeForCreateDB(numObjects);
         
-        if(!InitHashTable(m_size))
+        if (!initHashTable(htSize_))
+        {
             return false;
+        }
 
         return true;
     }
 
-    bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint64_t ht_size)
+    bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint32_t ht_size)
     {
-        m_size = ht_size;
+        htSize_ = ht_size;
 
-        //Read timestamp from device
-        ssize_t timeLength = Timing::GetTimeSizeOf();
-        if(!m_last_timestamp->LoadTimeFromDevice(offset))
+        int64_t timeLength = KVTime::GetSizeOnDisk();
+        if (!rebuildTime(offset))
+        {
             return false;
-        __DEBUG("Load Hashtable timestamp: %s", m_last_timestamp->TimeToChar());
+        }
+        __DEBUG("Load Hashtable timestamp: %s", KVTime::ToChar(*lastTime_));
         offset += timeLength;
         
-        if(!_RebuildHashTable(offset))
+        if (!rebuildHashTable(offset))
+        {
             return false;
+        }
         __DEBUG("Rebuild Hashtable Success");
 
         return true;
     }
 
+    bool IndexManager::rebuildTime(uint64_t offset)
+    {
+        int64_t timeLength = KVTime::GetSizeOnDisk();
+        time_t _time;
+        if (bdev_->pRead(&_time, timeLength, offset) != timeLength)
+        {
+            __ERROR("Error in reading timestamp from file\n");
+            return false;
+        }
+        lastTime_->SetTime(_time);
+        return true;
+    }
+
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
-        //Write timestamp to device
-        ssize_t timeLength = Timing::GetTimeSizeOf();
-        m_last_timestamp->UpdateTimeToNow();
-        if(!m_last_timestamp->WriteTimeToDevice(offset))
+        int64_t timeLength = KVTime::GetSizeOnDisk();
+        if (!persistTime(offset))
+        {
             return false;
-        __DEBUG("Write Hashtable timestamp: %s", m_last_timestamp->TimeToChar());
+        }
+        __DEBUG("Write Hashtable timestamp: %s", KVTime::ToChar(*lastTime_));
         offset += timeLength;
 
 
-        if(!_PersistHashTable(offset))
+        if (!persistHashTable(offset))
+        {
             return false;
+        }
         __DEBUG("Persist Hashtable Success");
     
         return true;
     }
 
-    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, Kvdb_Digest *digest, uint32_t header_offset)
+    bool IndexManager::persistTime(uint64_t offset)
     {
-        HashEntryOnDisk entry_ondisk;
-        //memcpy(&entry_ondisk.header, data_header, sizeof(DataHeader));
-        entry_ondisk.header = *data_header;
-        entry_ondisk.header_offset.physical_offset = header_offset;
+        int64_t timeLength = KVTime::GetSizeOnDisk();
+        lastTime_->Update();
+        time_t _time =lastTime_->GetTime();
+        //timeval _time =lastTime_->GetTime();
 
-        //HashEntry entry;
-        //memcpy(&entry.entryOndisk, &entry_ondisk, sizeof(HashEntryOnDisk));
-        HashEntry entry(entry_ondisk, NULL);
+        //if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
+        if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
+        {
+            __ERROR("Error write timestamp to file\n");
+            return false;
+        }
+        return true;
+    }
 
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, const Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset)
+    {
+        uint64_t phy_offset = header_offset + seg_offset;
+        HashEntry entry(*data_header, phy_offset, NULL);
 
-        CreateListIfNotExist(hash_index);
 
-        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
+        createListIfNotExist(hash_index);
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+
         if (!entry_list->search(entry))
         {
             entry_list->insert(entry);
@@ -153,33 +229,27 @@ namespace kvdb{
         else
         {
             entry_list->remove(entry);
+            //TODO:: need do something for gc.
             entry_list->insert(entry);
         }
         return true; 
     }
 
-    bool IndexManager::GetHashEntry(Kvdb_Digest *digest, HashEntry &entry)
+    bool IndexManager::GetHashEntry(const KVSlice *slice, HashEntry &entry)
     {
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % m_size;
+        const Kvdb_Digest *digest = &slice->GetDigest();
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
+        createListIfNotExist(hash_index);
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
-        CreateListIfNotExist(hash_index);
-
-        LinkedList<HashEntry> *entry_list = m_hashtable[hash_index];
-
-        //memcpy(&entry.entryOndisk.header.key_digest, &digest->value, sizeof(Kvdb_Digest) );
-        entry.entryOndisk.header.key_digest = *digest;
+        entry.SetKeyDigest(*digest);
         
-        if(entry_list->search(entry))
+        if (entry_list->search(entry))
         {
              vector<HashEntry> tmp_vec = entry_list->get();
-             for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
+             for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
              {
-                 //if(!memcmp(iter->entryOndisk.header.key_digest, entry.entryOndisk.header.key_digest, sizeof(Kvdb_Digest)))
-                 //{
-                 //    memcpy(&entry, (const void*)(&*iter), sizeof(HashEntry));
-                 //    return true;
-                 //}
-                 if(iter->entryOndisk.header.key_digest == entry.entryOndisk.header.key_digest)
+                 if (iter->GetKeyDigest() == entry.GetKeyDigest())
                  {
                      entry = *iter;
                      return true;
@@ -189,7 +259,24 @@ namespace kvdb{
         return false;
     }
 
-    uint64_t IndexManager::GetIndexSizeOnDevice(uint64_t ht_size)
+    bool IndexManager::IsKeyExist(const KVSlice* slice)
+    {
+        const Kvdb_Digest* digest = &slice->GetDigest();
+        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
+        createListIfNotExist(hash_index);
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+
+        HashEntry entry;
+        entry.SetKeyDigest(*digest);
+
+        if(entry_list->search(entry))
+        {
+            return true;
+        }
+        return false;
+    }
+
+    uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
     {
         uint64_t index_size = sizeof(time_t) + sizeof(HashEntryOnDisk) * ht_size;
         uint64_t index_size_pages = index_size / getpagesize();
@@ -197,24 +284,26 @@ namespace kvdb{
     }
 
 
-    IndexManager::IndexManager(DataHandle* data_handle, BlockDevice* bdev):
-        m_data_handle(data_handle), m_hashtable(NULL), m_size(0), m_bdev(bdev)
+    IndexManager::IndexManager(BlockDevice* bdev):
+        hashtable_(NULL), htSize_(0), bdev_(bdev), mtx_(Mutex())
     {
-        m_last_timestamp = new Timing(bdev);
+        lastTime_ = new KVTime();
         return ;
     }
 
     IndexManager::~IndexManager()
     {
-        if(m_last_timestamp)
-            delete m_last_timestamp;
-        if(m_hashtable)
+        if (lastTime_)
         {
-            DestroyHashTable();
+            delete lastTime_;
+        }
+        if (hashtable_)
+        {
+            destroyHashTable();
         }
     }
 
-    uint32_t IndexManager::ComputeHashSizeForCreateDB(uint32_t number)
+    uint32_t IndexManager::computeHashSizeForCreateDB(uint32_t number)
     {
         // Gets the next highest power of 2 larger than number
         number--;
@@ -227,75 +316,77 @@ namespace kvdb{
         return number;
     }
 
-    void IndexManager::CreateListIfNotExist(int index)
+    void IndexManager::createListIfNotExist(uint32_t index)
     {
-        if(!m_hashtable[index])
+        if (!hashtable_[index])
         {
             LinkedList<HashEntry> *entry_list = new LinkedList<HashEntry>;
-            m_hashtable[index] = entry_list;
+            hashtable_[index] = entry_list;
         }
         return;
     }
 
-    bool IndexManager::InitHashTable(int size)
+    bool IndexManager::initHashTable(uint32_t size)
     {
-        m_hashtable =  new LinkedList<HashEntry>*[m_size];
+        hashtable_ =  new LinkedList<HashEntry>*[htSize_];
 
-        //memset(m_hashtable, 0, sizeof(LinkedList*)*m_size);
-        for(int i=0; i<size; i++)
-            m_hashtable[i]=NULL;
+        for (uint32_t i = 0; i < size; i++)
+        {
+            hashtable_[i]=NULL;
+        }
         return true;
     }
 
-    void IndexManager::DestroyHashTable()
+    void IndexManager::destroyHashTable()
     {
-        for(int i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < htSize_; i++)
         {
-            if(m_hashtable[i])
+            if (hashtable_[i])
             {
-                delete m_hashtable[i];
-                m_hashtable[i] = NULL;
+                delete hashtable_[i];
+                hashtable_[i] = NULL;
             }
         }
-        delete[] m_hashtable;
-        m_hashtable = NULL;
+        delete[] hashtable_;
+        hashtable_ = NULL;
         return;
     }
 
-    bool IndexManager::_RebuildHashTable(uint64_t offset)
+    bool IndexManager::rebuildHashTable(uint64_t offset)
     {
         //Init hashtable
-        if(!InitHashTable(m_size))
+        if (!initHashTable(htSize_))
+        {
             return false;
+        }
         
-        __DEBUG("InitHashTable success");
+        __DEBUG("initHashTable success");
 
         //Read hashtable 
-        uint64_t table_length = sizeof(int) * m_size;
-        int* counter = new int[m_size];
-        if(!_LoadDataFromDevice((void*)counter, table_length, offset))
+        uint64_t table_length = sizeof(int) * htSize_;
+        int* counter = new int[htSize_];
+        if (!loadDataFromDevice((void*)counter, table_length, offset))
+        {
             return false;
+        }
         offset += table_length;
         __DEBUG("Read hashtable success");
 
         //Read all hash_entry
-        uint64_t length = sizeof(HashEntryOnDisk) * m_size;
-        HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
-        if(!_LoadDataFromDevice((void*)entry_ondisk, length, offset))
+        uint64_t length = sizeof(HashEntryOnDisk) * htSize_;
+        HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[htSize_];
+        if (!loadDataFromDevice((void*)entry_ondisk, length, offset))
+        {
             return false;
+        }
         offset += length;
         __DEBUG("Read all hash_entry success");
-        //uint64_t length = sizeof(HashEntryOnDisk) * m_size;
-        //HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
-        //for(int i = 0; i< m_size; i++)
-        //{
-        //    m_bdev->pRead(&entry_ondisk[i], sizeof(HashEntryOnDisk), offset);
-        //    offset += sizeof(HashEntryOnDisk);
-        //}
        
         //Convert hashtable from device to memory
-        if(!_ConvertHashEntryFromDiskToMem(counter, entry_ondisk))
+        if (!convertHashEntryFromDiskToMem(counter, entry_ondisk))
+        {
             return false;
+        }
         __DEBUG("rebuild hash_table success");
 
         delete[] entry_ondisk;
@@ -304,120 +395,110 @@ namespace kvdb{
         return true; 
     }
 
-    bool IndexManager::_LoadDataFromDevice(void* data, uint64_t length, uint64_t offset)
+    bool IndexManager::loadDataFromDevice(void* data, uint64_t length, uint64_t offset)
     {
-        ssize_t nread;
+        //ssize_t nread;
+        int64_t nread;
         uint64_t h_offset = 0;
-        while((nread = m_bdev->pRead((uint64_t *)data + h_offset, length, offset)) > 0){
+        while ((nread = bdev_->pRead((uint64_t *)data + h_offset, length, offset)) > 0){
             length -= nread;
             offset += nread;
             h_offset += nread;
-            if (nread < 0){
-                perror("Error in reading hashtable from file\n");
+            if (nread < 0)
+            {
+                __ERROR("Error in reading hashtable from file\n");
                 return false;
             }
         }
         return true;
     }
 
-    bool IndexManager::_WriteDataToDevice(void* data, uint64_t length, uint64_t offset)
+    bool IndexManager::writeDataToDevice(void* data, uint64_t length, uint64_t offset)
     {
-        ssize_t nwrite;
+        //ssize_t nwrite;
+        int64_t nwrite;
         uint64_t h_offset = 0;
-        while((nwrite = m_bdev->pWrite((uint64_t *)data + h_offset, length, offset)) > 0){
+        while ((nwrite = bdev_->pWrite((uint64_t *)data + h_offset, length, offset)) > 0){
             length -= nwrite;
             offset += nwrite;
             h_offset += nwrite;
-            if (nwrite < 0){
-                perror("Error in reading hashtable from file\n");
+            if (nwrite < 0)
+            {
+                __ERROR("Error in reading hashtable from file\n");
                 return false;
             }
         }
         return true;
     }
 
-    bool IndexManager::_ConvertHashEntryFromDiskToMem(int* counter, HashEntryOnDisk* entry_ondisk)
+    bool IndexManager::convertHashEntryFromDiskToMem(int* counter, HashEntryOnDisk* entry_ondisk)
     {
         //Convert hashtable from device to memory
         int entry_index = 0;
-        for(int i = 0; i < m_size; i++)
+        for (uint32_t i = 0; i < htSize_; i++)
         {
             
             int entry_num = counter[i];
-            for(int j=0; j< entry_num; j++)
+            for (int j = 0; j < entry_num; j++)
             {
                 HashEntry entry(entry_ondisk[entry_index], 0);
-                //entry.entryOndisk = entry_ondisk[entry_index];
-                //entry.pointer = 0;
 
-                CreateListIfNotExist(i);
-                m_hashtable[i]->insert(entry);
+                createListIfNotExist(i);
+                hashtable_[i]->insert(entry);
                 entry_index++;
             }
             if (entry_num > 0)
+            {
                 __DEBUG("read hashtable[%d]=%d", i, entry_num);
+            }
         }
         return true;
     }
 
-    bool IndexManager::_PersistHashTable(uint64_t offset)
+    bool IndexManager::persistHashTable(uint64_t offset)
     {
         uint64_t entry_total = 0;
 
         //write hashtable to device
-        uint64_t table_length = sizeof(int) * m_size;
-        int* counter = new int[m_size];
-        for(int i=0; i<m_size; i++)
+        uint64_t table_length = sizeof(int) * htSize_;
+        int* counter = new int[htSize_];
+        for (uint32_t i = 0; i < htSize_; i++)
         {
-            counter[i] = (m_hashtable[i]? m_hashtable[i]->get_size(): 0);
+            counter[i] = (hashtable_[i]? hashtable_[i]->get_size(): 0);
             entry_total += counter[i];
         }
-        if(!_WriteDataToDevice((void*)counter, table_length, offset))
+        if (!writeDataToDevice((void*)counter, table_length, offset))
+        {
             return false;
+        }
         offset += table_length;
         delete[] counter;
         __DEBUG("write hashtable to device success");
 
 
         //write hash entry to device
-        //uint64_t length = sizeof(HashEntryOnDisk) * m_size;
-        //HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[m_size];
         uint64_t length = sizeof(HashEntryOnDisk) * entry_total;
         HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
         int entry_index = 0;
-        for(int i=0; i<m_size; i++)
+        for (uint32_t i = 0; i < htSize_; i++)
         {
-            if (!m_hashtable[i])
-                continue;
-            vector<HashEntry> tmp_vec = m_hashtable[i]->get();
-            for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
+            if (!hashtable_[i])
             {
-                entry_ondisk[entry_index++] = (iter->entryOndisk);
+                continue;
+            }
+            vector<HashEntry> tmp_vec = hashtable_[i]->get();
+            for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
+            {
+                entry_ondisk[entry_index++] = (iter->GetEntryOnDisk());
             }
         }
-        //for(int i = entry_index; i< m_size; i++)
-        //{
-        //    memset(&entry_ondisk[i], 0, sizeof(HashEntryOnDisk));
-        //}
-        //uint64_t empty_length = sizeof(HashEntryOnDisk) *(m_size- entry_total);
-        //memset(((HashEntryOnDisk *)entry_ondisk + entry_index), 0 , empty_length);
-        if(!_WriteDataToDevice((void *)entry_ondisk, length, offset))
+
+        if (!writeDataToDevice((void *)entry_ondisk, length, offset))
+        {
             return false;
+        }
         delete[] entry_ondisk;
         __DEBUG("write all hash entry to device success");
-        //for(int i=0; i<m_size; i++)
-        //{
-        //    if (!m_hashtable[i])
-        //        continue;
-        //    vector<HashEntry> tmp_vec = m_hashtable[i]->get();
-        //    for(vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
-        //    {
-        //        HashEntryOnDisk entry_ondisk;
-        //        entry_ondisk = (iter->entryOndisk);
-        //        m_bdev->pWrite( &entry_ondisk, sizeof(HashEntryOnDisk), offset);
-        //        offset += sizeof(HashEntryOnDisk);
-        //    }
-        //}
 
         return true;
     

@@ -6,14 +6,14 @@
 
 #define TEST_RECORD_NUM 1
 
-//#define TEST_DB_FILENAME "000_db"
-//#define TEST_DB_FILENAME "/dev/loop0"
 #define TEST_DB_FILENAME "/dev/sdc1"
+//#define TEST_DB_FILENAME "/dev/sdc3"
 
 void Get(kvdb::DB *db)
 {
     int key_len;
-    for (int index=0; index <TEST_RECORD_NUM; index++){
+    for (int index = 0; index < TEST_RECORD_NUM; index++)
+    {
         stringstream key_ss;
         key_ss << index;
         std::string key(key_ss.str());
@@ -28,15 +28,16 @@ void Insert(kvdb::DB *db)
 {
     int key_len;
     int value_len;
-    for (int index=0; index<TEST_RECORD_NUM; index++){
+    for (int index = 0; index < TEST_RECORD_NUM; index++)
+    {
         stringstream key_ss;
         key_ss << index;
         std::string key(key_ss.str());
         std::string value = "Begin" + key + "End";
         key_len = key.length();
         value_len = value.length();
-        std::cout << "Insert Item Success. key = " << key << " ,value = " << value << std::endl;
         db->Insert(key.c_str(), key_len, value.c_str(), value_len);
+        std::cout << "Insert Item Success. key = " << key << " ,value = " << value << std::endl;
     }
 
 
@@ -45,12 +46,12 @@ void Insert(kvdb::DB *db)
 void Delete(kvdb::DB *db)
 {
     int key_len;
-    for (int index=0; index <TEST_RECORD_NUM; index++){
+    for (int index = 0; index < TEST_RECORD_NUM; index++)
+    {
         stringstream key_ss;
         key_ss << index;
         std::string key(key_ss.str());
         key_len = key.length();
-        //std::string get_data;
         db->Delete(key.c_str(), key_len);
         std::cout << "Delete Item Success. key = " << key << std::endl;
     }
@@ -61,17 +62,19 @@ void OpenExample()
     kvdb::DB *db;
 
     if (!kvdb::DB::OpenDB(TEST_DB_FILENAME, &db))
+    {
         return;
-
-    //int key_len;
-    //int value_len;
+    }
 
     Get(db);
     Insert(db);
+    sleep(2);
     Get(db);
     Delete(db);
+    sleep(2);
     Get(db);
     Insert(db);
+    sleep(2);
 
     delete db;
 }

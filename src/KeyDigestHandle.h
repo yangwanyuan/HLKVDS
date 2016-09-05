@@ -16,35 +16,38 @@ using namespace std;
 namespace kvdb{
     class Kvdb_Key{
     private:
-        char* value;
-        size_t len;
+        const char* value;
+        uint32_t len;
 
     public:
-        size_t GetLen(){return len;}
-        char* GetValue(){return value;}
+        uint32_t GetLen() const { return len; }
+        const char* GetValue() const { return value; }
         Kvdb_Key(): value(NULL), len(0){}
         Kvdb_Key(const char* key, uint32_t key_len);
-        Kvdb_Key(Kvdb_Key& toBeCopied);
+        Kvdb_Key(const Kvdb_Key& toBeCopied);
         ~Kvdb_Key();
     }__attribute__((__packed__));
 
     class Kvdb_Digest{
-    public:
+    private:
+        friend class KeyDigestHandle;
         uint32_t value[KEYDIGEST_INT_NUM];
 
     public:
         Kvdb_Digest();
-        Kvdb_Digest(Kvdb_Digest &toBeCopied);
         ~Kvdb_Digest();
+        Kvdb_Digest(const Kvdb_Digest &toBeCopied);
         Kvdb_Digest& operator=(const Kvdb_Digest& toBeCopied);
-        bool operator==(const Kvdb_Digest& toBeCompare);
+        bool operator==(const Kvdb_Digest& toBeCompare) const;
+        void SetDigest(unsigned char* data, int len);
+        unsigned char* GetDigest() const { return (unsigned char*)value; }
     }__attribute__((__packed__));
 
     class KeyDigestHandle{
     public:
-        static uint32_t Hash(Kvdb_Key *key);
-        static uint32_t Hash(Kvdb_Digest *digest);
-        static void ComputeDigest(Kvdb_Key *key, Kvdb_Digest &digest);
+        static uint32_t Hash(const Kvdb_Key *key);
+        static uint32_t Hash(const Kvdb_Digest *digest);
+        static void ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest);
         static string Tostring(Kvdb_Digest *digest);
 
     private:

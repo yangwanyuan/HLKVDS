@@ -2,57 +2,162 @@
 #include "Utils.h"
 
 namespace kvdb{
-    void Timing::UpdateTimeToNow()
-    {
-        time(&m_time_stamp);
-    }
     
-    char* Timing::TimeToChar()
+    const char* KVTime::ToChar(KVTime& _time)
     {
-        return asctime(localtime(&m_time_stamp));
-    }
-    
-    bool Timing::IsLate(Timing &time_now)
-    {
-        if(time_now.m_time_stamp > m_time_stamp)
-            return true;
-        return false;
-    }
-    
-    Timing::Timing(BlockDevice* bdev):m_bdev(bdev)
-    {
-        ;
-    }
-    
-    //Timing::Timing(time_t &time_stamp)
-    //{
-    //    m_time_stamp = time_stamp;
-    //}
-    
-    Timing::~Timing()
-    {
-        ;
-    }
-    
-    bool Timing::LoadTimeFromDevice(off_t offset)
-    {
-        ssize_t timeLength = GetTimeSizeOf();
-        if(m_bdev->pRead(&m_time_stamp, timeLength, offset) != timeLength){
-            perror("Error in reading timestamp from file\n");
-            return false;
-        }
-        return true;
-    }
-    
-    bool Timing::WriteTimeToDevice(off_t offset)
-    {
-        ssize_t timeLength = GetTimeSizeOf();
-        if(m_bdev->pWrite((void *)&m_time_stamp, timeLength, offset ) != timeLength)
-        {
-            perror("Error write timestamp to file\n");
-            return false;
-        }
-        return true;
+        return asctime(localtime(&_time.tm_.tv_sec));
     }
 
+    time_t KVTime::GetNow()
+    {
+        timeval now;
+        gettimeofday(&now, NULL);
+        return (time_t)now.tv_sec;
+    }
+
+    const char* KVTime::GetNowChar()
+    {
+        timeval now;
+        gettimeofday(&now, NULL);
+        return asctime(localtime(&now.tv_sec));
+    }
+
+
+    void KVTime::SetTime(time_t _time)
+    {
+        tm_.tv_sec = _time;
+        tm_.tv_usec = 0;
+    }
+
+    time_t KVTime::GetTime()
+    {
+        return (time_t)tm_.tv_sec;
+    }
+
+    void KVTime::Update()
+    {
+        gettimeofday(&tm_, NULL);
+    }
+    
+
+    KVTime::KVTime()
+    {
+        gettimeofday(&tm_, NULL);
+    }
+
+    KVTime::KVTime(const KVTime& toBeCopied)
+    {
+        tm_ = toBeCopied.tm_;
+    }
+    
+    KVTime& KVTime::operator=(const KVTime& toBeCopied)
+    {
+        tm_ = toBeCopied.tm_;
+        return *this;
+    }
+
+    bool KVTime::operator>(const KVTime& toBeCopied)
+    {
+        if (tm_.tv_sec > toBeCopied.tm_.tv_sec)
+        {
+            return true;
+        }
+        else if (tm_.tv_sec < toBeCopied.tm_.tv_sec )
+        {
+            return false;
+        }
+        else
+        {
+            return tm_.tv_usec > toBeCopied.tm_.tv_usec;
+        }
+    }
+
+    bool KVTime::operator<(const KVTime& toBeCopied)
+    {
+        if (tm_.tv_sec < toBeCopied.tm_.tv_sec)
+        {
+            return true;
+        }
+        else if (tm_.tv_sec > toBeCopied.tm_.tv_sec )
+        {
+            return false;
+        }
+        else
+        {
+            return tm_.tv_usec < toBeCopied.tm_.tv_usec;
+        }
+    }
+
+    int64_t KVTime::operator-(const KVTime& toBeCopied)
+    {
+        int64_t sec_diff = tm_.tv_sec - toBeCopied.tm_.tv_sec;
+        int64_t usec_diff = tm_.tv_usec - toBeCopied.tm_.tv_usec;
+        return sec_diff * 1000000 + usec_diff;
+    }
+
+    KVTime::~KVTime(){}
+
+    void* Thread::runThread(void* arg)
+    {
+        return ((Thread*)arg)->Entry();
+    }
+
+    Thread::Thread() : tid_(0), running_(0), detached_(0){}
+
+    Thread::~Thread()
+    {
+    }
+
+    int Thread::Start()
+    {
+        int result = pthread_create(&tid_, NULL, runThread, (void *)this);
+        if (result == 0)
+        {
+            running_ = 1;
+        }
+        return result;
+    }
+
+    int Thread::Join()
+    {
+        int result = -1;
+        if (running_ == 1)
+        {
+            result = pthread_join(tid_, NULL);
+            if (result == 0)
+            {
+                detached_ = 0;
+            }
+        }
+        return result;
+    }
+
+    int Thread::Detach()
+    {
+        int result = -1;
+        if (running_ == 1 && detached_ == 0)
+        {
+            result = pthread_detach(tid_);
+            if (result == 0)
+            {
+                detached_ = 1;
+            }
+        }
+        return result;
+    }
+
+    bool Thread::Is_started() const
+    {
+        return tid_ != 0;
+    }
+
+    bool Thread::Am_self() const
+    {
+        return (pthread_self() == tid_);
+    }
+
+    pthread_t Thread::Self()
+    {
+        return tid_;
+    }
 } // namespace kvdb

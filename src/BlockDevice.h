@@ -22,6 +22,8 @@ namespace kvdb{
         virtual int Open(string path) = 0;
         virtual void Close() = 0;
 
+        virtual uint64_t GetDeviceCapacity() = 0;
+
         virtual ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf = true) = 0;
         virtual ssize_t pRead(void* buf, size_t count, off_t offset, bool readbuf = true) = 0; 
         //virtual ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf = false) = 0;
@@ -30,7 +32,7 @@ namespace kvdb{
         virtual ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset) = 0;
 
     private:
-        //std::string m_path;
+        //std::string path_;
     };
 }//namespace kvdb
 
