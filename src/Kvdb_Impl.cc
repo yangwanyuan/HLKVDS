@@ -379,6 +379,7 @@ namespace kvdb {
                 sb.number_elements++;
                 sbMgr_->SetSuperBlock(sb);
                 sbMgr_->Unlock();
+                break;
             }
             case UPDATE:
             {
@@ -386,6 +387,7 @@ namespace kvdb {
                 //TODO: do something for gc
                 sbMgr_->Lock();
                 sbMgr_->Unlock();
+                break;
             }
             case DELETE:
             {
@@ -395,8 +397,9 @@ namespace kvdb {
                 sb.deleted_elements++;
                 sb.number_elements--;
                 sbMgr_->SetSuperBlock(sb);
-                //TODO: do something for gc
                 sbMgr_->Unlock();
+                //TODO: do something for gc
+                break;
             }
             default:
                 break;
@@ -463,6 +466,12 @@ namespace kvdb {
             }
             else
             {
+                //Update Segment table
+                uint32_t seg_id = seg->GetSegId();
+                segMgr_->Lock();
+                segMgr_->Update(seg_id);
+                segMgr_->Unlock();
+
                 seg->Complete();
                 seg->Unlock();
             }
@@ -506,8 +515,8 @@ namespace kvdb {
                 if (seg->IsCompleted())
                 {
 
-                    seg->WriteSegToDevice();
                     seg->Unlock();
+                    seg->WriteSegToDevice();
 
                     segQueMtx_.Lock();
                     __DEBUG("Segment thread segQue size %lu", segQue_.size());
@@ -517,12 +526,8 @@ namespace kvdb {
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
 
-                    //Update Segment table
-                    uint32_t seg_id = seg->GetSegId();
-                    segMgr_->Lock();
-                    segMgr_->Update(seg_id);
-                    segMgr_->Unlock();
                     //Update Superblock
+                    uint32_t seg_id = seg->GetSegId();
                     sbMgr_->Lock();
                     DBSuperBlock sb = sbMgr_->GetSuperBlock();
                     sb.current_segment = seg_id;
@@ -535,6 +540,12 @@ namespace kvdb {
                 {
                     if (seg->IsExpired())
                     {
+                        //Update Segment table
+                        uint32_t seg_id = seg->GetSegId();
+                        segMgr_->Lock();
+                        segMgr_->Update(seg_id);
+                        segMgr_->Unlock();
+
                         seg->Complete();
                         __DEBUG("Segment thread: seg expired,complete it, seg_id:%d", seg->GetSegId());
                     }

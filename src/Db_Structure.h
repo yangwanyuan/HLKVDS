@@ -10,7 +10,7 @@
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
 //#define EXPIRED_TIME 80 // unit microseconds
-#define EXPIRED_TIME 10000 // unit microseconds
+#define EXPIRED_TIME 4000 // unit microseconds
 #define SIZE_4K 4096
 
 //#define DEBUG
