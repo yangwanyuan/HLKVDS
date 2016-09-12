@@ -61,6 +61,7 @@ namespace kvdb{
         bool hasHeader_;
 
         void copy_helper(const KVSlice& toBeCopied);
+
     };
 
     class Request{
@@ -98,6 +99,7 @@ namespace kvdb{
         SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
         SegmentSlice(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
+        //SegmentSlice(SegmentManager* sm, BlockDevice* bdev);
 
         bool IsCanWrite(Request* req) const;
         bool Put(Request* req);
@@ -105,9 +107,13 @@ namespace kvdb{
         uint64_t GetSegPhyOffset() const;
         uint32_t GetSegSize() const { return segSize_; }
         uint32_t GetSegId() const { return segId_; }
+        uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
+        uint32_t GetKeyNum() const { return keyNum_; }
         void Complete();
         bool IsCompleted() const { return isCompleted_;};
         bool IsExpired() const { return isExpire(); }
+
+        //void SetSegId(uint32_t id) { segId_ = id; }
 
         void Lock() const { mtx_->Lock(); }
         void Unlock() const { mtx_->Unlock(); }
@@ -120,6 +126,10 @@ namespace kvdb{
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSegHead();
         void notifyAndClean(bool req_state);
+        void _writeToDeviceHugeHole();
+        void _writeToDevice();
+        //void _writeDataToDevice();
+        //void copyToData();
 
         uint32_t segId_;
         SegmentManager* segMgr_;
@@ -139,9 +149,9 @@ namespace kvdb{
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;
 
+        //char* data_;
     };
 
 } //end namespace kvdb
-
 
 #endif //#ifndef _KV_DB_DATAHANDLE_H_

@@ -228,9 +228,10 @@ namespace kvdb{
         }
         else
         {
-            entry_list->remove(entry);
+            //entry_list->remove(entry);
             //TODO:: need do something for gc.
-            entry_list->insert(entry);
+            //entry_list->insert(entry);
+            entry_list->update(entry);
         }
         return true; 
     }

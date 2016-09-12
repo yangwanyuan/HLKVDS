@@ -66,6 +66,7 @@ namespace kvdb{
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
         void Update(uint32_t seg_id);
+        char* GetZeros() const { return zeros_; }
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
@@ -84,6 +85,8 @@ namespace kvdb{
 
         BlockDevice* bdev_;
         Mutex mtx_;
+
+        char* zeros_;
 
 
     };

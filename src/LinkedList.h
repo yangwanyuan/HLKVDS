@@ -4,7 +4,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <vector>
-//#include <string>
 
 using namespace std;
 namespace kvdb{
@@ -29,6 +28,7 @@ namespace kvdb{
         bool insert(T toBeInserted);
         bool remove(T toBeRemoved);
         bool search(T toBeSearched);
+        bool update(T toBeUpdated);
         vector<T> get();
         int get_size() { return size_; }
 
@@ -57,7 +57,6 @@ namespace kvdb{
     template <typename T>
     LinkedList<T> &LinkedList<T>::operator=(const LinkedList<T> &toBeCopied)
     {
-        // Only do if the parameter is not the calling object 
         if (this != &toBeCopied)
         {
             removeAll();
@@ -69,24 +68,19 @@ namespace kvdb{
     template <typename T>
     void LinkedList<T>::copyHelper(const LinkedList<T> &toBeCopied)
     {   
-        // If the parameter list is empty
         if (toBeCopied.head_ == NULL)
         {
-            // Create an empty list
             head_ = NULL;
             size_ = 0;
         }
         else
         {
-            // Deep copy the contents of the parameter list
             size_ = toBeCopied.size_;
-            // Copy the first node first
             Node<T>* copyNode = new Node<T>(toBeCopied.head_->data, NULL);
             head_ = copyNode;
     
             Node<T>* ptr = toBeCopied.head_;
             ptr = ptr->next;
-            // Copy the rest of the list until the tail
             while (ptr != NULL)
             {
                 copyNode->next = new Node<T>(ptr->data, NULL);
@@ -101,95 +95,76 @@ namespace kvdb{
     void LinkedList<T>::removeAll()
     {
         Node<T>* tempNode = head_;
-        // De-allocate all the memory associated with the calling list from the head to tail
         while (tempNode != NULL)
         {
             tempNode = head_->next;
             delete head_;
             head_ = tempNode;
         }
-        // Also set the size of the list to zero
         size_ = 0;
-    
     }
 
     template <typename T>
     bool LinkedList<T>::insert(T toBeInserted)
     {
-        // If the string is already in the list
-        if (search(toBeInserted))
+        bool flag = false;
+
+        Node<T>* newNode = new Node<T>(toBeInserted, NULL);
+        if (head_ == NULL)
         {
-            return false;
+            head_ = newNode;
         }
-        else    // Else if the string is not in the list
+        else
         {
-            // Create a new node of that string
-            Node<T>* newNode = new Node<T>(toBeInserted, NULL);
-    
-            //If the list is empty
-            if (head_ == NULL)
+            Node<T>* tempNode = head_;
+            while (tempNode->next != NULL)
             {
-                head_ = newNode;
+                if (tempNode->data == toBeInserted)
+                {
+                    delete newNode;
+                    break;
+                }
+                tempNode = tempNode->next;
             }
-            else    // Else if the list is not empty
-            {
-                //newNode->next = head_;
-                //head_ = newNode;
-                Node<T>* tempNode = head_;
-                while (tempNode->next != NULL)
-                    tempNode = tempNode->next;
-                tempNode->next = newNode;
-            }
-            size_++;
-            return true;
+            tempNode->next = newNode;
+            flag = true;
         }
+        size_++;
+        return flag;
     }
 
     template <typename T>
     bool LinkedList<T>::remove(T toBeRemoved)
     {   
-        // If string does not exist in the list
-        if (!search(toBeRemoved))
+        bool flag = false;
+
+        Node<T>* nodePtr = head_;
+        Node<T>* tempNode = nodePtr->next;
+
+        if (head_->data == toBeRemoved)
         {
-            return false;
+            head_ = tempNode;
+            delete nodePtr;
+            size_--;
+            flag = true;
         }
-        else    // String exist
+        else
         {
-            // Node initialisation (so can remove and point the right one)
-            Node<T>* nodePtr = head_;
-            Node<T>* tempNode = nodePtr->next;
-    
-            //If the head is the node we want to remove
-            if (head_->data == toBeRemoved)
+            while (tempNode != NULL)
             {
-                head_ = tempNode;
-                delete nodePtr;
-                size_--;
-                return true;
-            }
-            else
-            {
-                // Find the one user want to remove till the tail
-                while (tempNode != NULL)
+                if (tempNode->data == toBeRemoved)
                 {
-                    //If we found the node
-                    if (tempNode->data == toBeRemoved)
-                    {
-                        // Point the node before the current to the node after the current
-                        nodePtr->next = tempNode->next;
-                        delete tempNode;
-                        size_--;
-                        return true;
-    
-                    }
-                    // Keep going the list insequence
-                    nodePtr = nodePtr->next;
-                    tempNode = tempNode->next;
+                    nodePtr->next = tempNode->next;
+                    delete tempNode;
+                    size_--;
+                    flag = true;
+                    break;
                 }
+                nodePtr = nodePtr->next;
+                tempNode = tempNode->next;
             }
         }
-        // If not there, not possible tho, cause checked before 
-        return false;
+        return flag;
     }
 
     template <typename T>
@@ -197,10 +172,8 @@ namespace kvdb{
     {
         Node<T>* tempNode = head_;
         
-        //Check until the last node in list
         while (tempNode != NULL)
         {
-            // If the current node contain the data that user wanted to check
             if (tempNode->data == toBeSearched)
             {
                 return true;
@@ -208,9 +181,27 @@ namespace kvdb{
             tempNode = tempNode->next;
     
         }
-        // Only return false if data not found after program had went thru the whole list
         return false;
     
+    }
+
+    template <typename T>
+    bool LinkedList<T>::update(T toBeUpdated)
+    {
+        bool flag = false;
+        Node<T>* tempNode = head_;
+
+        while (tempNode != NULL)
+        {
+            if (tempNode->data == toBeUpdated)
+            {
+                tempNode->data = toBeUpdated;
+                flag = true;
+                break;
+            }
+            tempNode = tempNode->next;
+        }
+        return flag;
     }
 
     template <typename T>
@@ -220,12 +211,9 @@ namespace kvdb{
         if (head_ != NULL)
         {
             Node<T>* tempNode = head_;
-            // Till the last node
             while (tempNode != NULL)
             {
-                // Push back the contents in the vector
                 tempVector.push_back(tempNode->data);
-                // Move on to the  next node
                 tempNode = tempNode->next;
             }
         }

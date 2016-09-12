@@ -15,7 +15,6 @@
 
 #define TEST_BS 4096
 //#define TEST_THREAD_NUM 64
-//#define TEST_THREAD_NUM 256
 #define TEST_THREAD_NUM 128
 
 using namespace std;

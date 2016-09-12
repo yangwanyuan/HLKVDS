@@ -71,6 +71,8 @@ namespace kvdb{
         }
         
         //SegmentOnDisk seg_ondisk(now_time);
+        zeros_ = new char[segSize_];
+        memset(zeros_, 0 , segSize_);
         return true;
     }
 
@@ -104,6 +106,8 @@ namespace kvdb{
             segTable_.push_back(seg_stat);
         }
         
+        zeros_ = new char[segSize_];
+        memset(zeros_, 0 , segSize_);
         return true;
     }
 
@@ -223,6 +227,7 @@ namespace kvdb{
 
     SegmentManager::~SegmentManager()
     {
+        delete[] zeros_;
         segTable_.clear();
     }
 } //end namespace kvdb
