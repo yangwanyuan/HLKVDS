@@ -104,7 +104,7 @@ namespace kvdb{
         segId_ = seg_id;
     }
 
-    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL)
+    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL), opType_(OpType::UNKOWN)
     {
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
@@ -119,7 +119,8 @@ namespace kvdb{
     Request::Request(const Request& toBeCopied)
         : isDone_(toBeCopied.isDone_),
             writeStat_(toBeCopied.writeStat_),
-            slice_(toBeCopied.slice_)
+            slice_(toBeCopied.slice_),
+            opType_(toBeCopied.opType_)
     {
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
@@ -130,12 +131,13 @@ namespace kvdb{
         isDone_ = toBeCopied.isDone_;
         writeStat_ = toBeCopied.writeStat_;
         slice_ = toBeCopied.slice_;
+        opType_ = toBeCopied.opType_;
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);
         return *this;
     }
 
-    Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice)
+    Request::Request(KVSlice& slice, OpType op_type) : isDone_(0), writeStat_(false), slice_(&slice), opType_(op_type)
     {
         mtx_ = new Mutex;
         cond_ = new Cond(*mtx_);

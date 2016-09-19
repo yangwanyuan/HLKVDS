@@ -24,6 +24,7 @@ namespace kvdb{
     class IndexManager;
     class SegmentManager;
 
+
     class KVSlice{
     public:
         KVSlice();
@@ -66,11 +67,12 @@ namespace kvdb{
 
     class Request{
     public:
+        //enum OpType {UNKOWN, INSERT, UPDATE, DELETE};
         Request();
         ~Request();
         Request(const Request& toBeCopied);
         Request& operator=(const Request& toBeCopied);
-        Request(KVSlice& slice);
+        Request(KVSlice& slice, OpType op_type);
 
         KVSlice& GetSlice() const { return *slice_; }
         int IsDone() const { return isDone_; }
@@ -78,6 +80,7 @@ namespace kvdb{
 
         void SetState(bool state);
         bool GetState() const { return writeStat_; }
+        OpType GetOpType() const { return opType_; }
 
         void Wait();
         void Signal();
@@ -86,6 +89,7 @@ namespace kvdb{
         int isDone_;
         bool writeStat_;
         KVSlice *slice_;
+        OpType opType_;
         Mutex *mtx_;
         Cond *cond_;
 

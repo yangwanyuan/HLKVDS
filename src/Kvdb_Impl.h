@@ -29,6 +29,7 @@ namespace kvdb {
         bool Delete(const char* key, uint32_t key_len);
 
         virtual ~KvdbDS();
+        //enum OpType {INSERT, UPDATE, DELETE};
 
     private:
         KvdbDS(const string& filename);
@@ -39,11 +40,8 @@ namespace kvdb {
         void startThds();
         void stopThds();
 
-        enum OpType {INSERT, UPDATE, DELETE};
         bool insertKey(KVSlice& slice, OpType op_type);
-        void updateMeta(Request *req, OpType op_type);
-        void updateSuperBlock(OpType op_type);
-        void recoverSuperBlock(OpType op_type);
+        void updateIndex(Request *req);
 
         bool readData(HashEntry* entry, string &data);
         bool enqueReqs(Request *req);

@@ -74,7 +74,7 @@ typedef int32_t S32;
 typedef int64_t S64;
 
 namespace kvdb {
-
+    enum struct OpType {UNKOWN, INSERT, UPDATE, DELETE};
 }  // namespace kvdb
 
 #endif  // #define _KV_DB_DB_STRUCTURE_H_

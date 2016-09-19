@@ -221,26 +221,32 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndexFromInsert(KVSlice* slice)
+    bool IndexManager::UpdateIndexFromInsert(KVSlice* slice, OpType op_type)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
 
         HashEntry entry = slice->GetHashEntry();
 
-
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
-        if (!entry_list->search(entry))
+        //Lock();
+        switch(op_type)
         {
-            entry_list->insert(entry);
+            case OpType::INSERT:
+                entry_list->insert(entry);
+                break;
+            case OpType::UPDATE:
+                entry_list->update(entry);
+                break;
+            case OpType::DELETE:
+                entry_list->remove(entry);
+                break;
+            default:
+                break;
         }
-        else
-        {
-            //TODO:: need do something for gc.
-            entry_list->update(entry);
-        }
+        //Unlock();
         return true; 
     }
 

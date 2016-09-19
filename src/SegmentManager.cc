@@ -123,7 +123,7 @@ namespace kvdb{
     bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
     {
         //for first use !!
-        mtx_.Lock();
+        //mtx_.Lock();
         if (segTable_[curSegId_].state == un_use)
         {
             seg_id = curSegId_;
@@ -138,7 +138,7 @@ namespace kvdb{
             if (segTable_[seg_index].state == un_use)
             {
                 seg_id = seg_index;
-                mtx_.Unlock();
+                //mtx_.Unlock();
                 return true;
             }
             seg_index++;
@@ -147,7 +147,7 @@ namespace kvdb{
                 seg_index = 0;
             }
         }
-        mtx_.Unlock();
+        //mtx_.Unlock();
         return false;
     }
 
@@ -200,10 +200,10 @@ namespace kvdb{
 
     void SegmentManager::Update(uint32_t seg_id)
     {
-        mtx_.Lock();
+        //mtx_.Lock();
         curSegId_ = seg_id;
         segTable_[curSegId_].state = in_use;
-        mtx_.Unlock();
+        //mtx_.Unlock();
 
     }
 

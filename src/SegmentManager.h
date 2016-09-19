@@ -71,8 +71,8 @@ namespace kvdb{
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
 
-        //void Lock() { mtx_.Lock(); }
-        //void Unlock() { mtx_.Unlock(); }
+        void Lock() { mtx_.Lock(); }
+        void Unlock() { mtx_.Unlock(); }
 
     private:
         vector<SegmentStat> segTable_;

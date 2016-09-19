@@ -121,9 +121,6 @@ namespace kvdb {
 
     bool KvdbDS::readMetaDataFromDevice()
     {
-        __INFO("\nReading hashtable from file...");
-        
-
         uint64_t offset = 0;
         if (!sbMgr_->LoadSuperBlockFromDevice(offset))
         {
@@ -142,6 +139,27 @@ namespace kvdb {
         {
             return false;
         }
+
+        __INFO("\nReading meta information from file:\n"
+               "\t hashtable_size            : %d\n"
+               "\t num_entries               : %d\n"
+               "\t deleted_entries           : %d\n"
+               "\t segment_size              : %d Bytes\n"
+               "\t number_segments           : %d\n"
+               "\t Database Superblock Size  : %ld Bytes\n"
+               "\t Database Index Size       : %ld Bytes\n"
+               "\t Total DB Meta Region Size : %ld Bytes\n"
+               "\t Total DB Data Region Size : %ld Bytes\n"
+               "\t Total DB Total Size       : %ld Bytes\n"
+               "\t Total Device Size         : %ld Bytes",
+               sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
+               sbMgr_->GetDeletedNum(), sbMgr_->GetSegmentSize(),
+               sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
+               sbMgr_->GetIndexSize(),
+               (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize()),
+               sbMgr_->GetDataRegionSize(),
+               (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetDataRegionSize()),
+               sbMgr_->GetDeviceSize());
 
         return true;
     }
@@ -229,85 +247,142 @@ namespace kvdb {
 
     bool KvdbDS::Insert(const char* key, uint32_t key_len, const char* data, uint16_t length)
     {
+        bool res = false;
         if (key == NULL)
         {
-            return false;
+            return res;
         }
-
-        //bool res = sbMgr_->IsElementFull();
-        //if (res)
-        //{
-        //    __ERROR("Error: hash table full!\n");
-        //    return false;
-        //}
 
         KVSlice slice(key, key_len, data, length);
         slice.ComputeDigest();
 
         idxMgr_->Lock();
-        int res = idxMgr_->IsKeyExist(&slice);
+        res = idxMgr_->IsKeyExist(&slice);
         idxMgr_->Unlock();
 
+        OpType op_type = OpType::UNKOWN;
         if (!res)
         {
-            return insertKey(slice, INSERT);
+            op_type = OpType::INSERT;
         }
         else
         {
-            return insertKey(slice, UPDATE);
+            op_type = OpType::UPDATE;
         }
+
+        //Update SuperBlock
+        sbMgr_->Lock();
+        res = sbMgr_->IsElementFull();
+        if (res)
+        {
+            __ERROR("Error: hash table full!\n");
+            sbMgr_->Unlock();
+            return false;
+        }
+        switch (op_type)
+        {
+            case OpType::INSERT:
+                sbMgr_->AddElement();
+                break;
+            case OpType::UPDATE:
+                break;
+            default:
+                break;
+        }
+        sbMgr_->Unlock();
+
+        res = insertKey(slice, op_type);
+
+        //recovery SuperBlock if failed
+        if (!res)
+        {
+            sbMgr_->Lock();
+            switch (op_type)
+            {
+                case OpType::INSERT:
+                    sbMgr_->DeleteElement();
+                    break;
+                case OpType::UPDATE:
+                    break;
+                default:
+                    break;
+            }
+            sbMgr_->Unlock();
+        }
+        return res;
+
     }
 
     bool KvdbDS::Delete(const char* key, uint32_t key_len)
     {
+        bool res = false;
         if (key == NULL)
         {
-            return true;
+            return res;
         }
 
-        //bool res = sbMgr_->IsElementFull();
-        //if (res)
-        //{
-        //    __ERROR("Error: hash table full!\n");
-        //    return false;
-        //}
+        //Update SuperBlock
+        sbMgr_->Lock();
+        res = sbMgr_->IsElementFull();
+        if (res)
+        {
+            __ERROR("Error: hash table full!\n");
+            sbMgr_->Unlock();
+            return false;
+        }
+        sbMgr_->AddDeleted();
+        sbMgr_->DeleteElement();
+        sbMgr_->Unlock();
 
         KVSlice slice(key, key_len, NULL, 0);
         slice.ComputeDigest();
 
         idxMgr_->Lock();
-        int res = idxMgr_->IsKeyExist(&slice);
+        res = idxMgr_->IsKeyExist(&slice);
         idxMgr_->Unlock();
 
+        //the key is not exist
         if (!res)
         {
             return true;
         }
-        return insertKey(slice, DELETE);
+
+        res = insertKey(slice, OpType::DELETE);
+
+        //recovery SuperBlock if failed
+        if (!res)
+        {
+            sbMgr_->Lock();
+            sbMgr_->DeleteDeleted();
+            sbMgr_->AddElement();
+            sbMgr_->Unlock();
+        }
+        return res;
     }
 
     bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) 
     {
+        bool res = false;
         if (key == NULL)
         {
-            return false;
+            return res;
         }
 
         KVSlice slice(key, key_len, NULL, 0);
         slice.ComputeDigest();
 
         idxMgr_->Lock();
-        int res = idxMgr_->IsKeyExist(&slice);
-        idxMgr_->Unlock();
+        res = idxMgr_->IsKeyExist(&slice);
+        //idxMgr_->Unlock();
 
         if (!res)
         {
-            //idxMgr_->Unlock();
-            return false;
+            idxMgr_->Unlock();
+            return res;
         }
 
 
-        idxMgr_->Lock();
+        //idxMgr_->Lock();
         idxMgr_->GetHashEntry(&slice);
         idxMgr_->Unlock();
 
@@ -319,26 +394,14 @@ namespace kvdb {
             return false;
         }
 
-        if (!readData(&entry, data))
-        {
-            return false;
-        }
+        res = readData(&entry, data);
+        return res;
 
-        return true;
     }
 
     bool KvdbDS::insertKey(KVSlice& slice, OpType op_type)
     {
-        sbMgr_->Lock();
-        bool res = sbMgr_->IsElementFull();
-        sbMgr_->Unlock();
-        if (res)
-        {
-            __ERROR("Error: hash table full!\n");
-            return false;
-        }
-
-        Request *req = new Request(slice);
+        Request *req = new Request(slice, op_type);
 
         if (!enqueReqs(req))
         {
@@ -352,125 +415,27 @@ namespace kvdb {
 
         if (result)
         {
-            updateMeta(req, op_type);
+            updateIndex(req);
         }
 
         delete req;
         return result;
     }
 
-    void KvdbDS::updateSuperBlock(OpType op_type)
-    {
-        //Update SuperBlock
-        switch (op_type)
-        {
-            case INSERT:
-            {
-                //Update new key meta
-                sbMgr_->Lock();
-                sbMgr_->AddElement();
-                sbMgr_->Unlock();
-                break;
-            }
-            case UPDATE:
-            {
-                //Update existed key meta
-                //TODO: do something for gc
-                break;
-            }
-            case DELETE:
-            {
-                //Update deleted key meta
-                sbMgr_->Lock();
-                sbMgr_->AddDeleted();
-                sbMgr_->DeleteElement();
-                sbMgr_->Unlock();
-                //TODO: do something for gc
-                break;
-            }
-            default:
-                break;
-        }
-    }
-
-    void KvdbDS::recoverSuperBlock(OpType op_type)
-    {
-        //Recover SuperBlock
-        switch (op_type)
-        {
-            case INSERT:
-            {
-                //Update new key meta
-                sbMgr_->Lock();
-                sbMgr_->DeleteElement();
-                sbMgr_->Unlock();
-                break;
-            }
-            case UPDATE:
-            {
-                //Update existed key meta
-                //TODO: do something for gc
-                break;
-            }
-            case DELETE:
-            {
-                //Update deleted key meta
-                sbMgr_->Lock();
-                sbMgr_->DeleteDeleted();
-                sbMgr_->AddElement();
-                sbMgr_->Unlock();
-                //TODO: do something for gc
-                break;
-            }
-            default:
-                break;
-        } 
-    }
-
-    void KvdbDS::updateMeta(Request *req, OpType op_type)
+    void KvdbDS::updateIndex(Request *req)
     {
         //Update Index
         KVSlice *slice = &req->GetSlice();
+        OpType op_type = req->GetOpType();
 
 
         idxMgr_->Lock();
-        idxMgr_->UpdateIndexFromInsert(slice);
+        idxMgr_->UpdateIndexFromInsert(slice, op_type);
         idxMgr_->Unlock();
 
         __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
                 slice->GetKeyStr().c_str(), slice->GetDataLen(),
                 slice->GetSegId(), slice->GetHashEntry().GetDataOffsetInSeg());
-
-        //Update SuperBlock
-        switch (op_type)
-        {
-            case INSERT:
-            {
-                //Update new key meta
-                sbMgr_->Lock();
-                sbMgr_->AddElement();
-                sbMgr_->Unlock();
-                break;
-            }
-            case UPDATE:
-            {
-                //Update existed key meta
-                //TODO: do something for gc
-                break;
-            }
-            case DELETE:
-            {
-                //Update deleted key meta
-                sbMgr_->Lock();
-                sbMgr_->AddDeleted();
-                sbMgr_->DeleteElement();
-                sbMgr_->Unlock();
-                //TODO: do something for gc
-                break;
-            }
-            default:
-                break;
-        }
     }
 
 
@@ -543,13 +508,16 @@ namespace kvdb {
         }
 
         uint32_t seg_id = 0;
+        segMgr_->Lock();
         bool res = segMgr_->GetEmptySegId(seg_id);
         if (!res)
         {
             __ERROR("Cann't get a new Empty Segment.\n");
+            segMgr_->Unlock();
             return false;
         }
         segMgr_->Update(seg_id);
+        segMgr_->Unlock();
 
         seg = new SegmentSlice(seg_id, segMgr_, bdev_);
         seg->Lock();

@@ -51,10 +51,10 @@ namespace kvdb{
         uint32_t GetSegmentSize() const { return segment_size; }
         uint32_t GetSegmentNum() const { return number_segments; }
         uint32_t GetCurSegmentId() const { return current_segment; }
-        uint32_t GetSbSize() const { return db_sb_size; }
-        uint32_t GetIndexSize() const { return db_index_size; }
-        uint32_t GetDataRegionSize() const { return db_data_size; }
-        uint32_t GetDeviceSize() const { return device_size; }
+        uint64_t GetSbSize() const { return db_sb_size; }
+        uint64_t GetIndexSize() const { return db_index_size; }
+        uint64_t GetDataRegionSize() const { return db_data_size; }
+        uint64_t GetDeviceSize() const { return device_size; }
 
         ~DBSuperBlock(){}
     } __attribute__((__packed__));
@@ -83,10 +83,10 @@ namespace kvdb{
         uint32_t GetSegmentSize() const { return sb_->segment_size; }
         uint32_t GetSegmentNum() const { return sb_->number_segments; }
         uint32_t GetCurSegmentId() const { return sb_->current_segment; }
-        uint32_t GetSbSize() const { return sb_->db_sb_size; }
-        uint32_t GetIndexSize() const { return sb_->db_index_size; }
-        uint32_t GetDataRegionSize() const { return sb_->db_data_size; }
-        uint32_t GetDeviceSize() const { return sb_->device_size; }
+        uint64_t GetSbSize() const { return sb_->db_sb_size; }
+        uint64_t GetIndexSize() const { return sb_->db_index_size; }
+        uint64_t GetDataRegionSize() const { return sb_->db_data_size; }
+        uint64_t GetDeviceSize() const { return sb_->device_size; }
         void AddElement() { sb_->number_elements++; }
         void DeleteElement() { sb_->number_elements--; }
         void AddDeleted() { sb_->deleted_elements++; }
