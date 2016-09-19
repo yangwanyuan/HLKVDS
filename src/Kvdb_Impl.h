@@ -42,10 +42,12 @@ namespace kvdb {
         enum OpType {INSERT, UPDATE, DELETE};
         bool insertKey(KVSlice& slice, OpType op_type);
         void updateMeta(Request *req, OpType op_type);
+        void updateSuperBlock(OpType op_type);
+        void recoverSuperBlock(OpType op_type);
 
         bool readData(HashEntry* entry, string &data);
         bool enqueReqs(Request *req);
-        bool findAvailableSeg(Request *req, SegmentSlice*& seg_ptr);
+        bool findAndLockSeg(Request *req, SegmentSlice*& seg_ptr);
 
 
     private:
@@ -56,6 +58,7 @@ namespace kvdb {
         string fileName_;
 
         Mutex segQueMtx_;
+        Cond segQueCond_;
 
     // Seg Write to device thread
     private:
@@ -79,52 +82,6 @@ namespace kvdb {
         std::list<SegmentSlice*> segWriteQue_;
         std::atomic<bool> segWriteT_stop_;
         void SegWriteThdEntry();
-
-    ////Seg producer thread
-    //private:
-    //    friend class SegProductThd;
-    //    class SegProductThd : public Thread
-    //    {
-    //    public:
-    //        SegProductThd(): db_(NULL){}
-    //        SegProductThd(KvdbDS* db): db_(db){}
-    //        virtual ~SegProductThd(){}
-    //        SegProductThd(SegProductThd& toBeCopied) = delete;
-    //        SegProductThd& operator=(SegProductThd& toBeCopied) = delete;
-
-    //        virtual void* Entry() { db_->SegProductThdEntry(); return 0; }
-
-    //    private:
-    //        friend class KvdbDS;
-    //        KvdbDS* db_;
-    //    };
-    //    SegProductThd segProductT_;
-    //    std::list<SegmentSlice*> segProductQue_;
-    //    std::atomic<bool> segProductT_stop_;
-    //    void SegProductThdEntry();
-    //
-    //
-    //private:
-    //    friend class SegTimeoutThd;
-    //    class SegTimeoutThd : public Thread
-    //    {
-    //    public:
-    //        SegTimeoutThd(): db_(NULL){}
-    //        SegTimeoutThd(KvdbDS* db): db_(db){}
-    //        virtual ~SegTimeoutThd(){}
-    //        SegTimeoutThd(SegTimeoutThd& toBeCopied) = delete;
-    //        SegTimeoutThd& operator=(SegTimeoutThd& toBeCopied) = delete;
-
-    //        virtual void* Entry() { db_->SegTimeoutThdEntry(); return 0; }
-
-    //    private:
-    //        friend class KvdbDS;
-    //        KvdbDS* db_;
-    //    };
-    //    SegTimeoutThd segTimeoutT_;
-    //    std::list<SegmentSlice*> segWorkQue_;
-    //    std::atomic<bool> segTimeoutT_stop_;
-    //    void SegTimeoutThdEntry();
 
     private:
         static KvdbDS *instance_;

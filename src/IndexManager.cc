@@ -86,26 +86,35 @@ namespace kvdb{
         header.SetDigest(digest);
     }
 
-    HashEntry::HashEntry(): entryOndisk(HashEntryOnDisk()), pointer(NULL){}
+    HashEntry::HashEntry(): cachePtr_(NULL)
+    {
+        entryPtr_ = new HashEntryOnDisk;
+    }
 
-    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr): entryOndisk(entry_ondisk), pointer(read_ptr){}
+    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr): cachePtr_(read_ptr)
+    {
+        entryPtr_ = new HashEntryOnDisk(entry_ondisk);
+    }
 
     HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr)
     {
-        HashEntryOnDisk entry_ondisk(data_header, header_offset);
-        entryOndisk = entry_ondisk;
-        pointer = read_ptr;
+        entryPtr_ = new HashEntryOnDisk(data_header, header_offset);
+        cachePtr_ = read_ptr;
     }
 
     HashEntry::HashEntry(const HashEntry& toBeCopied)
     {
-        entryOndisk = toBeCopied.entryOndisk;
-        pointer = toBeCopied.pointer;
+        entryPtr_ = new HashEntryOnDisk(*toBeCopied.entryPtr_);
+        cachePtr_ = toBeCopied.cachePtr_;
     }
 
     HashEntry::~HashEntry()
     {
-        pointer = NULL;
+        cachePtr_ = NULL;
+        if (entryPtr_)
+        {
+            delete entryPtr_;
+        }
         return;
     }
 
@@ -120,14 +129,14 @@ namespace kvdb{
 
     HashEntry& HashEntry::operator=(const HashEntry& toBeCopied)
     {
-        entryOndisk = toBeCopied.entryOndisk;
-        pointer = toBeCopied.pointer;
+        entryPtr_ = new HashEntryOnDisk(*toBeCopied.entryPtr_);
+        cachePtr_ = toBeCopied.cachePtr_;
         return *this;
     }
 
     void HashEntry::SetKeyDigest(const Kvdb_Digest& digest)
     {
-        entryOndisk.SetKeyDigest(digest);
+        entryPtr_->SetKeyDigest(digest);
     }
 
     bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
@@ -146,7 +155,7 @@ namespace kvdb{
     {
         htSize_ = ht_size;
 
-        int64_t timeLength = KVTime::GetSizeOnDisk();
+        int64_t timeLength = KVTime::SizeOf();
         if (!rebuildTime(offset))
         {
             return false;
@@ -165,7 +174,7 @@ namespace kvdb{
 
     bool IndexManager::rebuildTime(uint64_t offset)
     {
-        int64_t timeLength = KVTime::GetSizeOnDisk();
+        int64_t timeLength = KVTime::SizeOf();
         time_t _time;
         if (bdev_->pRead(&_time, timeLength, offset) != timeLength)
         {
@@ -178,7 +187,7 @@ namespace kvdb{
 
     bool IndexManager::WriteIndexToDevice(uint64_t offset)
     {
-        int64_t timeLength = KVTime::GetSizeOnDisk();
+        int64_t timeLength = KVTime::SizeOf();
         if (!persistTime(offset))
         {
             return false;
@@ -198,7 +207,7 @@ namespace kvdb{
 
     bool IndexManager::persistTime(uint64_t offset)
     {
-        int64_t timeLength = KVTime::GetSizeOnDisk();
+        int64_t timeLength = KVTime::SizeOf();
         lastTime_->Update();
         time_t _time =lastTime_->GetTime();
         //timeval _time =lastTime_->GetTime();
@@ -212,10 +221,11 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndexFromInsert(DataHeader *data_header, const Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset)
+    bool IndexManager::UpdateIndexFromInsert(KVSlice* slice)
     {
-        uint64_t phy_offset = header_offset + seg_offset;
-        HashEntry entry(*data_header, phy_offset, NULL);
+        const Kvdb_Digest *digest = &slice->GetDigest();
+
+        HashEntry entry = slice->GetHashEntry();
 
 
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
@@ -228,21 +238,20 @@ namespace kvdb{
         }
         else
         {
-            //entry_list->remove(entry);
             //TODO:: need do something for gc.
-            //entry_list->insert(entry);
             entry_list->update(entry);
         }
         return true; 
     }
 
-    bool IndexManager::GetHashEntry(const KVSlice *slice, HashEntry &entry)
+    bool IndexManager::GetHashEntry(KVSlice *slice)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
+        HashEntry entry;
         entry.SetKeyDigest(*digest);
         
         if (entry_list->search(entry))
@@ -250,9 +259,11 @@ namespace kvdb{
              vector<HashEntry> tmp_vec = entry_list->get();
              for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
              {
-                 if (iter->GetKeyDigest() == entry.GetKeyDigest())
+                 //if (iter->GetKeyDigest() == entry.GetKeyDigest())
+                 if (iter->GetKeyDigest() == *digest)
                  {
                      entry = *iter;
+                     slice->SetHashEntry(&entry);
                      return true;
                  }
              }
@@ -279,7 +290,7 @@ namespace kvdb{
 
     uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
     {
-        uint64_t index_size = sizeof(time_t) + sizeof(HashEntryOnDisk) * ht_size;
+        uint64_t index_size = sizeof(time_t) + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
         uint64_t index_size_pages = index_size / getpagesize();
         return (index_size_pages + 1) * getpagesize();
     }
@@ -374,7 +385,7 @@ namespace kvdb{
         __DEBUG("Read hashtable success");
 
         //Read all hash_entry
-        uint64_t length = sizeof(HashEntryOnDisk) * htSize_;
+        uint64_t length = IndexManager::SizeOfHashEntryOnDisk() * htSize_;
         HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[htSize_];
         if (!loadDataFromDevice((void*)entry_ondisk, length, offset))
         {
@@ -478,7 +489,7 @@ namespace kvdb{
 
 
         //write hash entry to device
-        uint64_t length = sizeof(HashEntryOnDisk) * entry_total;
+        uint64_t length = IndexManager::SizeOfHashEntryOnDisk() * entry_total;
         HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
         int entry_index = 0;
         for (uint32_t i = 0; i < htSize_; i++)

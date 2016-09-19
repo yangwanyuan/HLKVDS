@@ -75,6 +75,7 @@ namespace kvdb{
         uint32_t GetDataOffsetInSeg() const { return header.GetDataOffset(); }
         uint32_t GetNextHeadOffsetInSeg() const { return header.GetNextHeadOffset(); }
         Kvdb_Digest GetKeyDigest() const { return header.GetDigest(); }
+        DataHeader& GetDataHeader() { return header; }
 
         void SetKeyDigest(const Kvdb_Digest& digest);
 
@@ -84,8 +85,8 @@ namespace kvdb{
     class HashEntry
     {
     private:
-        HashEntryOnDisk entryOndisk;
-        void* pointer;
+        HashEntryOnDisk *entryPtr_;
+        void* cachePtr_;
 
     public:
         HashEntry();
@@ -96,13 +97,13 @@ namespace kvdb{
         bool operator==(const HashEntry& toBeCompare) const;
         HashEntry& operator=(const HashEntry& toBeCopied);
 
-        uint64_t GetHeaderOffsetPhy() const { return entryOndisk.GetHeaderOffsetPhy(); }
-        uint16_t GetDataSize() const { return entryOndisk.GetDataSize(); }
-        uint32_t GetDataOffsetInSeg() const { return entryOndisk.GetDataOffsetInSeg(); }
-        uint32_t GetNextHeadOffsetInSeg() const { return entryOndisk.GetNextHeadOffsetInSeg(); }
-        void* GetReadCachePtr() const { return pointer; }
-        Kvdb_Digest GetKeyDigest() const { return entryOndisk.GetKeyDigest(); }
-        HashEntryOnDisk GetEntryOnDisk() const { return entryOndisk; }
+        uint64_t GetHeaderOffsetPhy() const { return entryPtr_->GetHeaderOffsetPhy(); }
+        uint16_t GetDataSize() const { return entryPtr_->GetDataSize(); }
+        uint32_t GetDataOffsetInSeg() const { return entryPtr_->GetDataOffsetInSeg(); }
+        uint32_t GetNextHeadOffsetInSeg() const { return entryPtr_->GetNextHeadOffsetInSeg(); }
+        void* GetReadCachePtr() const { return cachePtr_; }
+        Kvdb_Digest GetKeyDigest() const { return entryPtr_->GetKeyDigest(); }
+        HashEntryOnDisk& GetEntryOnDisk() { return *entryPtr_; }
 
         void SetKeyDigest(const Kvdb_Digest& digest);
 
@@ -112,14 +113,17 @@ namespace kvdb{
 
     class IndexManager{
     public:
+        static inline size_t SizeOfDataHeader(){ return sizeof(DataHeader); }
+        static inline size_t SizeOfHashEntryOnDisk(){ return sizeof(HashEntryOnDisk); }
+
         static uint64_t GetIndexSizeOnDevice(uint32_t ht_size);
         bool InitIndexForCreateDB(uint32_t numObjects);
 
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
-        bool UpdateIndexFromInsert(DataHeader *data_header, const Kvdb_Digest *digest, uint32_t header_offset, uint64_t seg_offset);
-        bool GetHashEntry(const KVSlice *slice, HashEntry &hash_entry);
+        bool UpdateIndexFromInsert(KVSlice* slice);
+        bool GetHashEntry(KVSlice *slice);
         bool IsKeyExist(const KVSlice *slice);
 
         void Lock() { mtx_.Lock(); }

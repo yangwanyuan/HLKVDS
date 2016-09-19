@@ -45,6 +45,8 @@ namespace kvdb{
 
     class KeyDigestHandle{
     public:
+        static inline size_t SizeOfDigest(){ return sizeof(Kvdb_Digest); }
+
         static uint32_t Hash(const Kvdb_Key *key);
         static uint32_t Hash(const Kvdb_Digest *digest);
         static void ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest);

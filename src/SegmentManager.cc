@@ -1,4 +1,5 @@
 #include "SegmentManager.h"
+#include <math.h>
 
 namespace kvdb{
 
@@ -38,15 +39,19 @@ namespace kvdb{
 
     bool SegmentManager::InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size)
     {
-        if ((segment_size != ((segment_size>>12)<<12)) || (device_capacity < meta_size))
+        uint32_t align_bit = log2(ALIGNED_SIZE);
+        if ((segment_size != ((segment_size>>align_bit)<<align_bit)) || (device_capacity < meta_size))
         {
             return false;
         }
 
         startOffset_ = meta_size;
         segSize_ = segment_size;
-        segNum_ = (device_capacity - meta_size) / segment_size;
+        segSizeBit_ = log2(segSize_);
+        segNum_ = (device_capacity - meta_size) >> segSizeBit_;
         curSegId_ = 0;
+
+        endOffset_ = startOffset_ + ((uint64_t)segNum_ << segSizeBit_);
 
         
         //init segment table
@@ -58,11 +63,12 @@ namespace kvdb{
 
         //write all segments to device
         SegmentOnDisk seg_ondisk;
+        ssize_t seg_size = SegmentManager::SizeOfSegOnDisk();
         uint64_t offset = startOffset_;
         for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             //write seg to device
-            if ( bdev_->pWrite(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
+            if ( bdev_->pWrite(&seg_ondisk, seg_size, offset) != seg_size)
             {
                 __ERROR("can not write segment to device!");
                 return false;
@@ -80,15 +86,18 @@ namespace kvdb{
     {
         startOffset_ = meta_size;
         segSize_ = segment_size;
+        segSizeBit_ = log2(segSize_);
         segNum_ = num_seg;
         curSegId_ = current_seg;
+        endOffset_ = startOffset_ + ((uint64_t)segNum_ << segSizeBit_);
 
+        ssize_t seg_size = SegmentManager::SizeOfSegOnDisk();
         uint64_t offset = startOffset_;
         for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             SegmentOnDisk seg_ondisk;
             //write seg to device
-            if ( bdev_->pRead(&seg_ondisk, sizeof(SegmentOnDisk), offset) != sizeof(SegmentOnDisk))
+            if ( bdev_->pRead(&seg_ondisk, seg_size, offset) != seg_size)
             {
                 __ERROR("can not write segment to device!");
                 return false;
@@ -113,17 +122,12 @@ namespace kvdb{
 
     bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
     {
-        //if (isFull_)
-        //{
-        //    return false;
-        //}
-
-        //seg_id = curSegId_; 
-
         //for first use !!
+        mtx_.Lock();
         if (segTable_[curSegId_].state == un_use)
         {
             seg_id = curSegId_;
+            mtx_.Unlock();
             return true;
         }
 
@@ -134,6 +138,7 @@ namespace kvdb{
             if (segTable_[seg_index].state == un_use)
             {
                 seg_id = seg_index;
+                mtx_.Unlock();
                 return true;
             }
             seg_index++;
@@ -142,6 +147,7 @@ namespace kvdb{
                 seg_index = 0;
             }
         }
+        mtx_.Unlock();
         return false;
     }
 
@@ -151,18 +157,18 @@ namespace kvdb{
         {
             return false;
         }
-        offset = startOffset_ + seg_id * segSize_;   
+        //offset = startOffset_ + seg_id * segSize_;
+        offset = startOffset_ + ((uint64_t)seg_id << segSizeBit_); 
         return true;
     }
 
     bool SegmentManager::ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id)
     {
-        uint64_t end_offset = startOffset_ + ((uint64_t)segSize_) * ((uint64_t)(segNum_ - 1));
-        if (offset < startOffset_ || offset > end_offset)
+        if (offset < startOffset_ || offset > endOffset_)
         {
             return false;
         }
-        seg_id = (offset - startOffset_ )/ segSize_;
+        seg_id = (offset - startOffset_ ) >> segSizeBit_;
         return true;
     }
 
@@ -194,36 +200,15 @@ namespace kvdb{
 
     void SegmentManager::Update(uint32_t seg_id)
     {
+        mtx_.Lock();
         curSegId_ = seg_id;
         segTable_[curSegId_].state = in_use;
+        mtx_.Unlock();
 
-        //segTable_[seg_id].state = in_use;
-
-        //uint64_t seg_index = seg_id + 1; 
-        //
-        //while(seg_index != seg_id)
-        //{
-        //    if (segTable_[seg_index].state == un_use)
-        //    {
-        //        curSegId_ = seg_index;
-        //        return;
-        //    }
-        //    seg_index++;
-        //    if ( seg_index == segNum_)
-        //    {
-        //        seg_index = 0;
-        //    }
-        //}
-        //
-        //isFull_ = true;
-        return;
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        startOffset_(0), segSize_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev), mtx_(Mutex())
-    {
-        return;
-    }
+        startOffset_(0), endOffset_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev), mtx_(Mutex()) {}
 
     SegmentManager::~SegmentManager()
     {

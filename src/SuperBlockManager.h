@@ -61,6 +61,7 @@ namespace kvdb{
 
     class SuperBlockManager{
     public:
+        static inline size_t SizeOfDBSuperBlock(){ return sizeof(DBSuperBlock); }
         static uint64_t GetSuperBlockSizeOnDevice(); 
 
         bool InitSuperBlockForCreateDB();
@@ -71,10 +72,26 @@ namespace kvdb{
         void SetSuperBlock(DBSuperBlock& sb);
         const DBSuperBlock& GetSuperBlock() const { return *sb_; }
 
-        bool IsElementFull() { return sb_->number_elements == sb_->hashtable_size; }
-
         void Lock() { mtx_.Lock(); }
         void Unlock() { mtx_.Unlock(); }
+
+        bool IsElementFull() const { return sb_->number_elements == sb_->hashtable_size; }
+        uint32_t GetMagic() const { return sb_->magic_number; }
+        uint32_t GetHTSize() const { return sb_->hashtable_size; }
+        uint32_t GetElementNum() const { return sb_->number_elements; }
+        uint32_t GetDeletedNum() const { return sb_->deleted_elements; }
+        uint32_t GetSegmentSize() const { return sb_->segment_size; }
+        uint32_t GetSegmentNum() const { return sb_->number_segments; }
+        uint32_t GetCurSegmentId() const { return sb_->current_segment; }
+        uint32_t GetSbSize() const { return sb_->db_sb_size; }
+        uint32_t GetIndexSize() const { return sb_->db_index_size; }
+        uint32_t GetDataRegionSize() const { return sb_->db_data_size; }
+        uint32_t GetDeviceSize() const { return sb_->device_size; }
+        void AddElement() { sb_->number_elements++; }
+        void DeleteElement() { sb_->number_elements--; }
+        void AddDeleted() { sb_->deleted_elements++; }
+        void DeleteDeleted() { sb_->deleted_elements--; }
+        void SetCurSegId(uint32_t id) {sb_->current_segment = id; }
 
         SuperBlockManager(BlockDevice* bdev);
         ~SuperBlockManager();

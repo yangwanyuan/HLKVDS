@@ -10,7 +10,7 @@
 namespace kvdb{
 
     KVSlice::KVSlice()
-        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false), header_(NULL), segId_(0), hasHeader_(false){}
+        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false), entry_(NULL), segId_(0){}
 
     KVSlice::~KVSlice()
     {
@@ -18,14 +18,14 @@ namespace kvdb{
         {
             delete digest_;
         }
-        if (header_)
+        if (entry_)
         {
-            delete header_;
+            delete entry_;
         }
     }
 
     KVSlice::KVSlice(const KVSlice& toBeCopied)
-        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false), header_(NULL), segId_(0), hasHeader_(false)
+        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false), entry_(NULL), segId_(0)
     {
         copy_helper(toBeCopied);
     }
@@ -44,13 +44,12 @@ namespace kvdb{
         data_ = toBeCopied.GetData();
         digest_ = new Kvdb_Digest(toBeCopied.GetDigest());
         isComputed_ = toBeCopied.IsDigestComputed();
-        header_ = new DataHeader(toBeCopied.GetDataHeader());
+        entry_ = new HashEntry(toBeCopied.GetHashEntry());
         segId_ = toBeCopied.segId_;
-        hasHeader_ = toBeCopied.hasHeader_;
     }
 
     KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len)
-        : key_(key), keyLength_(key_len), data_(data), dataLength_(data_len), digest_(NULL), isComputed_(false), header_(NULL), segId_(0), hasHeader_(false){}
+        : key_(key), keyLength_(key_len), data_(data), dataLength_(data_len), digest_(NULL), isComputed_(false), entry_(NULL), segId_(0){}
 
     void KVSlice::SetKeyValue(const char* key, int key_len, const char* data, int data_len)
     {
@@ -95,10 +94,9 @@ namespace kvdb{
         return r;
     }
 
-    void KVSlice::SetDataHeader(const DataHeader* data_header)
+    void KVSlice::SetHashEntry(const HashEntry *hash_entry)
     {
-        header_ = new DataHeader(*data_header); 
-        hasHeader_ = true;
+        entry_ = new HashEntry(*hash_entry);
     }
 
     void KVSlice::SetSegId(uint32_t seg_id)
@@ -175,8 +173,8 @@ namespace kvdb{
     SegmentSlice::SegmentSlice()
         :segId_(0), segMgr_(NULL), bdev_(NULL), segSize_(0),
         creTime_(KVTime()), headPos_(0), tailPos_(0), keyNum_(0),
-        key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
-        //key4KNum_(0), isCompleted_(false), segOndisk_(NULL), data_(NULL)
+        keyAlignedNum_(0), isCompleted_(false), segOndisk_(NULL)
+        //keyAlignedNum_(0), isCompleted_(false), segOndisk_(NULL), data_(NULL)
     {
         mtx_ = new Mutex;
         segOndisk_ = new SegmentOnDisk;
@@ -214,7 +212,7 @@ namespace kvdb{
         headPos_ = toBeCopied.headPos_;
         tailPos_ = toBeCopied.tailPos_;
         keyNum_ = toBeCopied.keyNum_;
-        key4KNum_ = toBeCopied.key4KNum_;
+        keyAlignedNum_ = toBeCopied.keyAlignedNum_;
         isCompleted_ = toBeCopied.isCompleted_;
         mtx_ = new Mutex;
         reqList_ = toBeCopied.reqList_;
@@ -225,9 +223,9 @@ namespace kvdb{
     SegmentSlice::SegmentSlice(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev)
         : segId_(seg_id), segMgr_(sm), bdev_(bdev),
         segSize_(segMgr_->GetSegmentSize()), creTime_(KVTime()),
-        headPos_(sizeof(SegmentOnDisk)), tailPos_(segSize_),
-        keyNum_(0), key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
-        //keyNum_(0), key4KNum_(0), isCompleted_(false), segOndisk_(NULL), data_(NULL)
+        headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
+        keyNum_(0), keyAlignedNum_(0), isCompleted_(false), segOndisk_(NULL)
+        //keyNum_(0), keyAlignedNum_(0), isCompleted_(false), segOndisk_(NULL), data_(NULL)
     {
         mtx_ = new Mutex;
         segOndisk_ = new SegmentOnDisk;
@@ -236,8 +234,8 @@ namespace kvdb{
     //SegmentSlice::SegmentSlice(SegmentManager* sm, BlockDevice* bdev)
     //    : segId_(0), segMgr_(sm), bdev_(bdev),
     //    segSize_(segMgr_->GetSegmentSize()), creTime_(KVTime()),
-    //    headPos_(sizeof(SegmentOnDisk)), tailPos_(segSize_),
-    //    keyNum_(0), key4KNum_(0), isCompleted_(false), segOndisk_(NULL)
+    //    headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
+    //    keyNum_(0), keyAlignedNum_(0), isCompleted_(false), segOndisk_(NULL)
     //{
     //    mtx_ = new Mutex;
     //    segOndisk_ = new SegmentOnDisk;
@@ -260,20 +258,20 @@ namespace kvdb{
 
     bool SegmentSlice::Put(Request* req)
     {
-        const KVSlice *slice = &req->GetSlice();
+        KVSlice *slice = &req->GetSlice();
         if (!isCanFit(req))
         {
             return false;
         }
-        if (slice->Is4KData())
+        if (slice->IsAlignedData())
         {
-            put4K(req);
+            putAligned(req);
         }
         else
         {
-            putNon4K(req);
+            putNonAligned(req);
         }
-        req->GetSlice().SetSegId(segId_);
+        slice->SetSegId(segId_);
         return true;
     }
 
@@ -282,40 +280,40 @@ namespace kvdb{
         //calculate iovec offset
         uint64_t front_offset = 0;
         segMgr_->ComputeSegOffsetFromId(segId_, front_offset);
-        uint64_t back_offset = (front_offset + segSize_) - (SIZE_4K * key4KNum_);
+        uint64_t back_offset = (front_offset + segSize_) - (ALIGNED_SIZE * keyAlignedNum_);
 
         //alloc iovec
         uint32_t iovec_num = keyNum_ * 2 + 1;
-        uint32_t front_iovec_num = iovec_num - key4KNum_;
-        uint32_t back_iovec_num = key4KNum_;
+        uint32_t front_iovec_num = iovec_num - keyAlignedNum_;
+        uint32_t back_iovec_num = keyAlignedNum_;
         ssize_t front_nwriten = 0;
         ssize_t back_nwriten = 0;
         uint32_t front_index = 0;
-        uint32_t back_index = key4KNum_ - 1;
+        uint32_t back_index = keyAlignedNum_ - 1;
 
         struct iovec *iov_front = new struct iovec[front_iovec_num];
         struct iovec *iov_back = new struct iovec[back_iovec_num];
 
         //aggregate SegmentOnDisk to iovec
         iov_front[front_index].iov_base = segOndisk_;
-        iov_front[front_index].iov_len = sizeof(SegmentOnDisk);
+        iov_front[front_index].iov_len = SegmentManager::SizeOfSegOnDisk();
         front_index++;
-        front_nwriten += sizeof(SegmentOnDisk);
+        front_nwriten += SegmentManager::SizeOfSegOnDisk();
 
         //aggregate iovec
         for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
         {
-            const KVSlice *slice = &(*iter)->GetSlice();
-            DataHeader *header = &slice->GetDataHeader();
+            KVSlice *slice = &(*iter)->GetSlice();
+            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
             char *data = (char *)slice->GetData();
             uint16_t data_len = slice->GetDataLen();
 
             iov_front[front_index].iov_base = header;
-            iov_front[front_index].iov_len = sizeof(DataHeader);
+            iov_front[front_index].iov_len = IndexManager::SizeOfDataHeader();
             front_index++;
-            front_nwriten += sizeof(DataHeader);
+            front_nwriten += IndexManager::SizeOfDataHeader();
 
-            if (slice->Is4KData())
+            if (slice->IsAlignedData())
             {
                 iov_back[back_index].iov_base = data;
                 iov_back[back_index].iov_len = data_len;
@@ -364,28 +362,28 @@ namespace kvdb{
 
         struct iovec *iov = new struct iovec[iovec_num];
         iov[index].iov_base = segOndisk_;
-        iov[index].iov_len = sizeof(SegmentOnDisk);
+        iov[index].iov_len = SegmentManager::SizeOfSegOnDisk();
         __DEBUG("Segment size %lu, index: %u, total: %u", iov[index].iov_len, index, iovec_num);
         index ++ ;
 
         //aggregate iovec
         for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
         {
-            const KVSlice *slice = &(*iter)->GetSlice();
-            DataHeader *header = &slice->GetDataHeader();
+            KVSlice *slice = &(*iter)->GetSlice();
+            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
             char *data = (char *)slice->GetData();
             uint16_t data_len = slice->GetDataLen();
 
             iov[index].iov_base = header;
-            iov[index].iov_len = sizeof(DataHeader);
+            iov[index].iov_len = IndexManager::SizeOfDataHeader();
             __DEBUG("Dataheader size %lu, index: %u", iov[index].iov_len, index);
             index++;
 
-            if (slice->Is4KData())
+            if (slice->IsAlignedData())
             {
                 iov[back_index].iov_base = data;
                 iov[back_index].iov_len = data_len;
-                __DEBUG("4K value size %lu, index: %u", iov[back_index].iov_len, back_index);
+                __DEBUG("Aligned value size %lu, index: %u", iov[back_index].iov_len, back_index);
                 back_index--;
             }
             else
@@ -489,50 +487,62 @@ namespace kvdb{
     bool SegmentSlice::isExpire() const
     {
         KVTime nowTime;
-        //double interval = nowTime - creTime_;
         int64_t interval = nowTime - creTime_;
         return (interval > EXPIRED_TIME);
     }
 
     bool SegmentSlice::isCanFit(Request* req) const
     {
-        const KVSlice *slice = &req->GetSlice();
+        KVSlice *slice = &req->GetSlice();
         uint32_t freeSize = tailPos_ - headPos_;
-        uint32_t needSize = slice->GetDataLen() + sizeof(DataHeader);
+        uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
         return freeSize > needSize;
     }
 
-    void SegmentSlice::put4K(Request* req)
+    void SegmentSlice::putAligned(Request* req)
     {
-        const KVSlice *slice = &req->GetSlice();
+        KVSlice *slice = &req->GetSlice();
 
-        uint32_t data_offset = tailPos_ - SIZE_4K;
-        uint32_t next_offset = headPos_ + sizeof(DataHeader);
+        uint32_t data_offset = tailPos_ - ALIGNED_SIZE;
+        uint32_t next_offset = headPos_ + IndexManager::SizeOfDataHeader();
 
         DataHeader data_header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
-        req->GetSlice().SetDataHeader(&data_header);
 
-        headPos_ += sizeof(DataHeader);
-        tailPos_ -= SIZE_4K;
+        uint64_t seg_offset = 0;
+        segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+        uint64_t header_offset = seg_offset + headPos_;
+
+        HashEntry hash_entry(data_header, header_offset, NULL);
+        slice->SetHashEntry(&hash_entry);
+
+        headPos_ += IndexManager::SizeOfDataHeader();
+        tailPos_ -= ALIGNED_SIZE;
         keyNum_++;
         reqList_.push_back(req);
-        key4KNum_++;
+        keyAlignedNum_++;
     }
 
-    void SegmentSlice::putNon4K(Request* req)
+    void SegmentSlice::putNonAligned(Request* req)
     {
-        const KVSlice *slice = &req->GetSlice();
+        KVSlice *slice = &req->GetSlice();
 
-        uint32_t data_offset = headPos_ + sizeof(DataHeader);
-        uint32_t next_offset = headPos_ + sizeof(DataHeader) + slice->GetDataLen();
+        uint32_t data_offset = headPos_ + IndexManager::SizeOfDataHeader();
+        uint32_t next_offset = headPos_ + IndexManager::SizeOfDataHeader() + slice->GetDataLen();
 
         DataHeader data_header(slice->GetDigest(), slice->GetDataLen(), data_offset, next_offset);
-        req->GetSlice().SetDataHeader(&data_header);
 
-        headPos_ += sizeof(DataHeader) + slice->GetDataLen();
+        uint64_t seg_offset = 0;
+        segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+        uint64_t header_offset = seg_offset + headPos_;
+
+        HashEntry hash_entry(data_header, header_offset, NULL);
+        slice->SetHashEntry(&hash_entry);
+
+        headPos_ += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
         keyNum_++;
         reqList_.push_back(req);
     }
+
 
     //void SegmentSlice::copyToData()
     //{
@@ -542,21 +552,21 @@ namespace kvdb{
     //    uint32_t offset_begin = 0;
     //    uint32_t offset_end = segSize_;
 
-    //    memcpy(data_, segOndisk_, sizeof(SegmentOnDisk));
-    //    offset_begin += sizeof(SegmentOnDisk);
+    //    memcpy(data_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+    //    offset_begin += SegmentManager::SizeOfSegOnDisk();
 
     //    //aggregate iovec
     //    for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
     //    {
-    //        const KVSlice *slice = &(*iter)->GetSlice();
+    //        KVSlice *slice = &(*iter)->GetSlice();
     //        DataHeader *header = &slice->GetDataHeader();
     //        char *data = (char *)slice->GetData();
     //        uint16_t data_len = slice->GetDataLen();
 
-    //        memcpy(&(data_[offset_begin]), header, sizeof(DataHeader));
-    //        offset_begin += sizeof(DataHeader);
+    //        memcpy(&(data_[offset_begin]), header, IndexManager::SizeOfDataHeader());
+    //        offset_begin += IndexManager::SizeOfDataHeader();
 
-    //        if (slice->Is4KData())
+    //        if (slice->IsAlignedData())
     //        {
     //            offset_end -= data_len;
     //            memcpy(&(data_[offset_end]), data, data_len);

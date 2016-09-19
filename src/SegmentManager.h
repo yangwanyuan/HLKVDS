@@ -48,15 +48,15 @@ namespace kvdb{
 
     class SegmentManager{
     public:
+        static inline size_t SizeOfSegOnDisk(){ return sizeof(SegmentOnDisk); }
+
         bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size);
         bool LoadSegmentTableFromDevice(uint64_t meta_size, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
 
         uint32_t GetNowSegId(){ return curSegId_; }
         uint32_t GetNumberOfSeg(){ return segNum_; }
-        uint64_t GetDataRegionSize(){ return segSize_ * segNum_; }
+        uint64_t GetDataRegionSize(){ return (uint64_t)segNum_ << segSizeBit_; }
         uint32_t GetSegmentSize(){ return segSize_; }
-        uint32_t GetSegmentHeadSize() { return sizeof(SegmentOnDisk); }
-        
 
         bool GetEmptySegId(uint32_t& seg_id);
         bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
@@ -71,24 +71,23 @@ namespace kvdb{
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
 
-        void Lock() { mtx_.Lock(); }
-        void Unlock() { mtx_.Unlock(); }
+        //void Lock() { mtx_.Lock(); }
+        //void Unlock() { mtx_.Unlock(); }
 
     private:
         vector<SegmentStat> segTable_;
         uint64_t startOffset_;
+        uint64_t endOffset_;
         uint32_t segSize_;
+        uint32_t segSizeBit_;
         uint32_t segNum_;
         uint32_t curSegId_;
         bool isFull_;
         
-
         BlockDevice* bdev_;
         Mutex mtx_;
 
         char* zeros_;
-
-
     };
 
 } //end namespace kvdb

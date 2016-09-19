@@ -12,7 +12,7 @@
 namespace kvdb{
     class KVTime{
     public:
-        static size_t GetSizeOnDisk(){ return sizeof(time_t); }
+        static inline size_t SizeOf(){ return sizeof(time_t); }
         static const char* ToChar(KVTime& _time);
         static time_t GetNow();
         static const char* GetNowChar();

@@ -19,6 +19,7 @@ namespace kvdb{
 
     class SegmentOnDisk;
     class DataHeader;
+    class DataHeaderOffset;
     class HashEntry;
     class IndexManager;
     class SegmentManager;
@@ -40,13 +41,13 @@ namespace kvdb{
         uint32_t GetKeyLen() const { return keyLength_; }
         uint16_t GetDataLen() const { return dataLength_; }
         bool IsDigestComputed() const { return isComputed_; }
-        bool Is4KData() const{ return GetDataLen() == SIZE_4K; }
-        DataHeader& GetDataHeader() const { return *header_; }
+        bool IsAlignedData() const{ return GetDataLen() == ALIGNED_SIZE; }
+        HashEntry& GetHashEntry() const { return *entry_; }
         uint32_t GetSegId() const { return segId_; }
 
         void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
         bool ComputeDigest();
-        void SetDataHeader(const DataHeader *data_header);
+        void SetHashEntry(const HashEntry *hash_entry);
         void SetSegId(uint32_t seg_id);
 
     private:
@@ -56,9 +57,8 @@ namespace kvdb{
         uint16_t dataLength_;
         Kvdb_Digest *digest_;
         bool isComputed_;
-        DataHeader *header_;
+        HashEntry *entry_;
         uint32_t segId_;
-        bool hasHeader_;
 
         void copy_helper(const KVSlice& toBeCopied);
 
@@ -99,7 +99,6 @@ namespace kvdb{
         SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
         SegmentSlice(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
-        //SegmentSlice(SegmentManager* sm, BlockDevice* bdev);
 
         bool IsCanWrite(Request* req) const;
         bool Put(Request* req);
@@ -113,16 +112,14 @@ namespace kvdb{
         bool IsCompleted() const { return isCompleted_;};
         bool IsExpired() const { return isExpire(); }
 
-        //void SetSegId(uint32_t id) { segId_ = id; }
-
         void Lock() const { mtx_->Lock(); }
         void Unlock() const { mtx_->Unlock(); }
 
     private:
         bool isExpire() const;
         bool isCanFit(Request* req) const;
-        void put4K(Request* req);
-        void putNon4K(Request* req);
+        void putAligned(Request* req);
+        void putNonAligned(Request* req);
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSegHead();
         void notifyAndClean(bool req_state);
@@ -141,7 +138,7 @@ namespace kvdb{
         uint32_t tailPos_;
 
         uint32_t keyNum_;
-        uint32_t key4KNum_;
+        uint32_t keyAlignedNum_;
         bool isCompleted_;
 
         Mutex *mtx_;

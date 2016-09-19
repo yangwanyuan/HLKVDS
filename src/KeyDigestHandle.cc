@@ -18,25 +18,25 @@ namespace kvdb{
 
     Kvdb_Digest::Kvdb_Digest()
     {
-        memset(value, 0, sizeof(Kvdb_Digest));
+        memset(value, 0, KeyDigestHandle::SizeOfDigest());
     }
 
     Kvdb_Digest::Kvdb_Digest(const Kvdb_Digest& toBeCopied)
     {
-        memcpy(value, toBeCopied.value, sizeof(Kvdb_Digest));
+        memcpy(value, toBeCopied.value, KeyDigestHandle::SizeOfDigest());
     }
 
     Kvdb_Digest::~Kvdb_Digest(){}
 
     Kvdb_Digest& Kvdb_Digest::operator=(const Kvdb_Digest& toBeCopied)
     {
-        memcpy(value, toBeCopied.value, sizeof(Kvdb_Digest));
+        memcpy(value, toBeCopied.value, KeyDigestHandle::SizeOfDigest());
         return *this;
     }
 
     bool Kvdb_Digest::operator==(const Kvdb_Digest& toBeCompare) const
     {
-        if (!memcmp(value, toBeCompare.value, sizeof(Kvdb_Digest)))
+        if (!memcmp(value, toBeCompare.value, KeyDigestHandle::SizeOfDigest()))
         {
             return true;
         }
@@ -45,11 +45,11 @@ namespace kvdb{
 
     void Kvdb_Digest::SetDigest(unsigned char* data, int len)
     {
-        if (len != sizeof(Kvdb_Digest))
+        if ((uint64_t)len != KeyDigestHandle::SizeOfDigest())
         {
             return;
         }
-        memcpy(value, data, sizeof(Kvdb_Digest));
+        memcpy(value, data, KeyDigestHandle::SizeOfDigest());
     }
 
     void KeyDigestHandle::ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
@@ -122,7 +122,7 @@ namespace kvdb{
     
     string KeyDigestHandle::Tostring(Kvdb_Digest *digest)
     {
-        int digest_size = sizeof(Kvdb_Digest);
+        int digest_size = KeyDigestHandle::SizeOfDigest();
         unsigned char *temp = digest->GetDigest();
 
         int str_len = 2 * digest_size + 1;
