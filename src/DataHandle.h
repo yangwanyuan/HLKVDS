@@ -106,7 +106,7 @@ namespace kvdb{
 
         bool IsCanWrite(Request* req) const;
         bool Put(Request* req);
-        void WriteSegToDevice();
+        bool WriteSegToDevice();
         uint64_t GetSegPhyOffset() const;
         uint32_t GetSegSize() const { return segSize_; }
         uint32_t GetSegId() const { return segId_; }
@@ -127,8 +127,8 @@ namespace kvdb{
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSegHead();
         void notifyAndClean(bool req_state);
-        void _writeToDeviceHugeHole();
-        void _writeToDevice();
+        bool _writeToDeviceHugeHole();
+        bool _writeToDevice();
         //void _writeDataToDevice();
         //void copyToData();
 

@@ -277,7 +277,7 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentSlice::_writeToDeviceHugeHole()
+    bool SegmentSlice::_writeToDeviceHugeHole()
     {
         //calculate iovec offset
         uint64_t front_offset = 0;
@@ -349,9 +349,11 @@ namespace kvdb{
         delete[] iov_back;
         notifyAndClean(wstat);
 
+        return wstat;
+
     }
 
-    void SegmentSlice::_writeToDevice()
+    bool SegmentSlice::_writeToDevice()
     {
         //calculate iovec offset
         uint64_t offset = 0;
@@ -415,6 +417,8 @@ namespace kvdb{
         delete[] iov;
         notifyAndClean(wstat);
 
+        return wstat;
+
     }
 
     //void SegmentSlice::_writeDataToDevice()
@@ -432,7 +436,7 @@ namespace kvdb{
     //    notifyAndClean(wstat);
     //}
 
-    void SegmentSlice::WriteSegToDevice()
+    bool SegmentSlice::WriteSegToDevice()
     {
         //if(data_)
         //{
@@ -448,11 +452,11 @@ namespace kvdb{
         uint32_t hole_size = tailPos_ - headPos_;
         if ( hole_size > (segSize_ >> 1))
         {
-            _writeToDeviceHugeHole();
+            return _writeToDeviceHugeHole();
         }
         else
         {
-            _writeToDevice();
+            return _writeToDevice();
         }
     }
 

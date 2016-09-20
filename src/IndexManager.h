@@ -123,7 +123,7 @@ namespace kvdb{
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
-        bool UpdateIndexFromInsert(KVSlice* slice, OpType op_type);
+        bool UpdateIndex(KVSlice* slice, OpType op_type);
         bool GetHashEntry(KVSlice *slice);
         bool IsKeyExist(const KVSlice *slice);
 

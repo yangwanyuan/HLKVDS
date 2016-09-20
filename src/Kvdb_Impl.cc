@@ -373,16 +373,11 @@ namespace kvdb {
 
         idxMgr_->Lock();
         res = idxMgr_->IsKeyExist(&slice);
-        //idxMgr_->Unlock();
-
         if (!res)
         {
             idxMgr_->Unlock();
             return res;
         }
-
-
-        //idxMgr_->Lock();
         idxMgr_->GetHashEntry(&slice);
         idxMgr_->Unlock();
 
@@ -430,7 +425,7 @@ namespace kvdb {
 
 
         idxMgr_->Lock();
-        idxMgr_->UpdateIndexFromInsert(slice, op_type);
+        idxMgr_->UpdateIndex(slice, op_type);
         idxMgr_->Unlock();
 
         __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
@@ -441,18 +436,13 @@ namespace kvdb {
 
     bool KvdbDS::readData(HashEntry* entry, string &data)
     {
-        uint16_t data_len = entry->GetDataSize();
-        if (data_len == 0)
-        {
-            return true;
-        }
-
         uint64_t data_offset = 0;
         if (!segMgr_->ComputeDataOffsetPhyFromEntry(entry, data_offset))
         {
             return false;
         }
 
+        uint16_t data_len = entry->GetDataSize();
         char *mdata = new char[data_len];
         if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t)data_len)
         {
@@ -471,13 +461,15 @@ namespace kvdb {
     bool KvdbDS::enqueReqs(Request *req)
     {
         SegmentSlice *seg;
-        findAndLockSeg(req, seg);
+        if (!findAndLockSeg(req, seg))
+        {
+            return false;
+        }
 
         seg->Put(req);
         //seg->Complete();
         __DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg->GetSegId());
         seg->Unlock();
-        //__DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg->GetSegId());
 
         return true;
     }
@@ -516,7 +508,7 @@ namespace kvdb {
             segMgr_->Unlock();
             return false;
         }
-        segMgr_->Update(seg_id);
+        segMgr_->SetSegUsed(seg_id);
         segMgr_->Unlock();
 
         seg = new SegmentSlice(seg_id, segMgr_, bdev_);
@@ -546,7 +538,12 @@ namespace kvdb {
                 {
 
                     seg->Unlock();
-                    seg->WriteSegToDevice();
+                    if (!seg->WriteSegToDevice())
+                    {
+                        segMgr_->Lock();
+                        segMgr_->SetSegFree(seg->GetSegId());
+                        segMgr_->Unlock();
+                    }
 
                     segQueMtx_.Lock();
                     segWriteQue_.pop_front();
@@ -555,11 +552,10 @@ namespace kvdb {
                     __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
 
                     //Update Superblock
-                    uint32_t seg_id = seg->GetSegId();
                     sbMgr_->Lock();
-                    sbMgr_->SetCurSegId(seg_id);
-                    sbMgr_->Unlock();
+                    sbMgr_->SetCurSegId(seg->GetSegId());
                     __DEBUG("Segment thread write seg, free size %u, seg id: %d, key num: %d", seg->GetFreeSize(), seg->GetSegId(), seg->GetKeyNum());
+                    sbMgr_->Unlock();
 
                     delete seg;
                 }

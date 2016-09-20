@@ -221,7 +221,7 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndexFromInsert(KVSlice* slice, OpType op_type)
+    bool IndexManager::UpdateIndex(KVSlice* slice, OpType op_type)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
 

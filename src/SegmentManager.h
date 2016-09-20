@@ -17,7 +17,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
 
-    enum SegUseStat{un_use, in_use};
+    enum struct SegUseStat{FREE, USED};
 
     class SegmentOnDisk{
     public:
@@ -42,7 +42,7 @@ namespace kvdb{
         int inuse_size;
 
     public:
-        SegmentStat() : state(un_use), inuse_size(0){}
+        SegmentStat() : state(SegUseStat::FREE), inuse_size(0){}
         ~SegmentStat() {}
     };
 
@@ -59,13 +59,33 @@ namespace kvdb{
         uint32_t GetSegmentSize(){ return segSize_; }
 
         bool GetEmptySegId(uint32_t& seg_id);
-        bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
-        bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id);
+
+        inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
+        {
+            if (seg_id >= segNum_)
+            {
+                return false;
+            }
+            offset = startOffset_ + ((uint64_t)seg_id << segSizeBit_);
+            return true;
+        }
+
+        inline bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id)
+        {
+            if (offset < startOffset_ || offset > endOffset_)
+            {
+                return false;
+            }
+            seg_id = (offset - startOffset_ ) >> segSizeBit_;
+            return true;
+        }
+
         bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
 
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
-        void Update(uint32_t seg_id);
+        void SetSegUsed(uint32_t seg_id);
+        void SetSegFree(uint32_t seg_id);
         char* GetZeros() const { return zeros_; }
 
         SegmentManager(BlockDevice* bdev);

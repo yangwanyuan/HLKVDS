@@ -106,11 +106,11 @@ namespace kvdb{
             SegmentStat seg_stat;
             if (seg_ondisk.number_keys != 0)
             {
-                seg_stat.state = in_use;
+                seg_stat.state = SegUseStat::USED;
             }
             else
             {
-                seg_stat.state = un_use;
+                seg_stat.state = SegUseStat::FREE;
             }
             segTable_.push_back(seg_stat);
         }
@@ -124,7 +124,7 @@ namespace kvdb{
     {
         //for first use !!
         //mtx_.Lock();
-        if (segTable_[curSegId_].state == un_use)
+        if (segTable_[curSegId_].state == SegUseStat::FREE)
         {
             seg_id = curSegId_;
             mtx_.Unlock();
@@ -135,7 +135,7 @@ namespace kvdb{
         
         while(seg_index != curSegId_)
         {
-            if (segTable_[seg_index].state == un_use)
+            if (segTable_[seg_index].state == SegUseStat::FREE)
             {
                 seg_id = seg_index;
                 //mtx_.Unlock();
@@ -149,27 +149,6 @@ namespace kvdb{
         }
         //mtx_.Unlock();
         return false;
-    }
-
-    bool SegmentManager::ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
-    {
-        if (seg_id >= segNum_)
-        {
-            return false;
-        }
-        //offset = startOffset_ + seg_id * segSize_;
-        offset = startOffset_ + ((uint64_t)seg_id << segSizeBit_); 
-        return true;
-    }
-
-    bool SegmentManager::ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id)
-    {
-        if (offset < startOffset_ || offset > endOffset_)
-        {
-            return false;
-        }
-        seg_id = (offset - startOffset_ ) >> segSizeBit_;
-        return true;
     }
 
     bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset)
@@ -198,11 +177,19 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentManager::Update(uint32_t seg_id)
+    void SegmentManager::SetSegUsed(uint32_t seg_id)
     {
         //mtx_.Lock();
         curSegId_ = seg_id;
-        segTable_[curSegId_].state = in_use;
+        segTable_[curSegId_].state = SegUseStat::USED;
+        //mtx_.Unlock();
+
+    }
+
+    void SegmentManager::SetSegFree(uint32_t seg_id)
+    {
+        //mtx_.Lock();
+        segTable_[seg_id].state = SegUseStat::FREE;
         //mtx_.Unlock();
 
     }
