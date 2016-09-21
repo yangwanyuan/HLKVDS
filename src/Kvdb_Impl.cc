@@ -151,7 +151,8 @@ namespace kvdb {
                "\t Total DB Meta Region Size : %ld Bytes\n"
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
-               "\t Total Device Size         : %ld Bytes",
+               "\t Total Device Size         : %ld Bytes\n"
+               "\t Current Segment ID        : %d",
                sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
                sbMgr_->GetDeletedNum(), sbMgr_->GetSegmentSize(),
                sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
@@ -159,7 +160,7 @@ namespace kvdb {
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize()),
                sbMgr_->GetDataRegionSize(),
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetDataRegionSize()),
-               sbMgr_->GetDeviceSize());
+               sbMgr_->GetDeviceSize(), sbMgr_->GetCurSegmentId());
 
         return true;
     }
@@ -218,9 +219,9 @@ namespace kvdb {
     void KvdbDS::stopThds()
     {
         segWriteT_stop_ = true;
-        segQueMtx_.Lock();
-        segQueCond_.Signal();
-        segQueMtx_.Unlock();
+        segWriteQueMtx_.Lock();
+        segWriteQueCond_.Signal();
+        segWriteQueMtx_.Unlock();
         segWriteT_.Join();
     }
 
@@ -235,8 +236,9 @@ namespace kvdb {
     }
 
     KvdbDS::KvdbDS(const string& filename) :
-        fileName_(filename), segQueMtx_(Mutex()), segQueCond_(Cond(segQueMtx_)),
-        segWriteT_(this), segWriteT_stop_(false)
+        fileName_(filename),
+        segWriteT_(this), segWriteT_stop_(false),
+        segWriteQueMtx_(Mutex()), segWriteQueCond_(Cond(segWriteQueMtx_))
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
@@ -477,11 +479,16 @@ namespace kvdb {
     bool KvdbDS::findAndLockSeg(Request *req, SegmentSlice*& seg)
     {
         bool found = false;
-        segQueMtx_.Lock();
+        segWriteQueMtx_.Lock();
         for (list<SegmentSlice*>::iterator iter = segWriteQue_.begin(); iter != segWriteQue_.end(); iter++)
         {
             seg = *iter;
             seg->Lock();
+            if (seg->IsCompleted())
+            {
+                seg->Unlock();
+                continue;
+            }
             if (seg->IsCanWrite(req))
             {
                 found = true;
@@ -493,7 +500,7 @@ namespace kvdb {
                 seg->Unlock();
             }
         }
-        segQueMtx_.Unlock();
+        segWriteQueMtx_.Unlock();
         if (found)
         {
             return true;
@@ -513,10 +520,10 @@ namespace kvdb {
 
         seg = new SegmentSlice(seg_id, segMgr_, bdev_);
         seg->Lock();
-        segQueMtx_.Lock();
+        segWriteQueMtx_.Lock();
         segWriteQue_.push_back(seg);
-        segQueCond_.Signal();
-        segQueMtx_.Unlock();
+        segWriteQueCond_.Signal();
+        segWriteQueMtx_.Unlock();
         return true;
 
     }
@@ -527,27 +534,28 @@ namespace kvdb {
         while (true)
         {
             while (!segWriteQue_.empty())
-            //segQueMtx_.Lock();
+            //segWriteQueMtx_.Lock();
             //if (!segWriteQue_.empty())
             {
-                segQueMtx_.Lock();
+                segWriteQueMtx_.Lock();
                 SegmentSlice *seg = segWriteQue_.front();
                 seg->Lock();
-                segQueMtx_.Unlock();
+                segWriteQueMtx_.Unlock();
                 if (seg->IsCompleted())
                 {
 
                     seg->Unlock();
                     if (!seg->WriteSegToDevice())
                     {
+                        //Free the segment if write failed
                         segMgr_->Lock();
                         segMgr_->SetSegFree(seg->GetSegId());
                         segMgr_->Unlock();
                     }
 
-                    segQueMtx_.Lock();
+                    segWriteQueMtx_.Lock();
                     segWriteQue_.pop_front();
-                    segQueMtx_.Unlock();
+                    segWriteQueMtx_.Unlock();
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
 
@@ -570,16 +578,16 @@ namespace kvdb {
                     seg->Unlock();
                 } 
             }
-            //segQueMtx_.Unlock();
+            //segWriteQueMtx_.Unlock();
             if (segWriteT_stop_)
             {
                 break;
             }
 
             //std::this_thread::yield();
-            segQueMtx_.Lock();
-            segQueCond_.Wait();
-            segQueMtx_.Unlock();
+            segWriteQueMtx_.Lock();
+            segWriteQueCond_.Wait();
+            segWriteQueMtx_.Unlock();
         }
         __DEBUG("Segment write thread stop!!");
     }

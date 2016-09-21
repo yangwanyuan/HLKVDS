@@ -29,7 +29,6 @@ namespace kvdb {
         bool Delete(const char* key, uint32_t key_len);
 
         virtual ~KvdbDS();
-        //enum OpType {INSERT, UPDATE, DELETE};
 
     private:
         KvdbDS(const string& filename);
@@ -55,9 +54,6 @@ namespace kvdb {
         SegmentManager* segMgr_;
         string fileName_;
 
-        Mutex segQueMtx_;
-        Cond segQueCond_;
-
     // Seg Write to device thread
     private:
         friend class SegWriteThd;
@@ -79,7 +75,11 @@ namespace kvdb {
         SegWriteThd segWriteT_;
         std::list<SegmentSlice*> segWriteQue_;
         std::atomic<bool> segWriteT_stop_;
+        Mutex segWriteQueMtx_;
+        Cond segWriteQueCond_;
+
         void SegWriteThdEntry();
+
 
     private:
         static KvdbDS *instance_;
