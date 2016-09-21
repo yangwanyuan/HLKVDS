@@ -19,9 +19,11 @@ namespace kvdb{
 
     class SegmentOnDisk;
     class DataHeader;
+    class DataHeaderOffset;
     class HashEntry;
     class IndexManager;
     class SegmentManager;
+
 
     class KVSlice{
     public:
@@ -40,13 +42,13 @@ namespace kvdb{
         uint32_t GetKeyLen() const { return keyLength_; }
         uint16_t GetDataLen() const { return dataLength_; }
         bool IsDigestComputed() const { return isComputed_; }
-        bool Is4KData() const{ return GetDataLen() == SIZE_4K; }
-        DataHeader& GetDataHeader() const { return *header_; }
+        bool IsAlignedData() const{ return GetDataLen() == ALIGNED_SIZE; }
+        HashEntry& GetHashEntry() const { return *entry_; }
         uint32_t GetSegId() const { return segId_; }
 
         void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
         bool ComputeDigest();
-        void SetDataHeader(const DataHeader *data_header);
+        void SetHashEntry(const HashEntry *hash_entry);
         void SetSegId(uint32_t seg_id);
 
     private:
@@ -56,20 +58,21 @@ namespace kvdb{
         uint16_t dataLength_;
         Kvdb_Digest *digest_;
         bool isComputed_;
-        DataHeader *header_;
+        HashEntry *entry_;
         uint32_t segId_;
-        bool hasHeader_;
 
         void copy_helper(const KVSlice& toBeCopied);
+
     };
 
     class Request{
     public:
+        //enum OpType {UNKOWN, INSERT, UPDATE, DELETE};
         Request();
         ~Request();
         Request(const Request& toBeCopied);
         Request& operator=(const Request& toBeCopied);
-        Request(KVSlice& slice);
+        Request(KVSlice& slice, OpType op_type);
 
         KVSlice& GetSlice() const { return *slice_; }
         int IsDone() const { return isDone_; }
@@ -77,6 +80,7 @@ namespace kvdb{
 
         void SetState(bool state);
         bool GetState() const { return writeStat_; }
+        OpType GetOpType() const { return opType_; }
 
         void Wait();
         void Signal();
@@ -85,6 +89,7 @@ namespace kvdb{
         int isDone_;
         bool writeStat_;
         KVSlice *slice_;
+        OpType opType_;
         Mutex *mtx_;
         Cond *cond_;
 
@@ -101,10 +106,12 @@ namespace kvdb{
 
         bool IsCanWrite(Request* req) const;
         bool Put(Request* req);
-        void WriteSegToDevice();
+        bool WriteSegToDevice();
         uint64_t GetSegPhyOffset() const;
         uint32_t GetSegSize() const { return segSize_; }
         uint32_t GetSegId() const { return segId_; }
+        uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
+        uint32_t GetKeyNum() const { return keyNum_; }
         void Complete();
         bool IsCompleted() const { return isCompleted_;};
         bool IsExpired() const { return isExpire(); }
@@ -115,11 +122,15 @@ namespace kvdb{
     private:
         bool isExpire() const;
         bool isCanFit(Request* req) const;
-        void put4K(Request* req);
-        void putNon4K(Request* req);
+        void putAligned(Request* req);
+        void putNonAligned(Request* req);
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSegHead();
         void notifyAndClean(bool req_state);
+        bool _writeToDeviceHugeHole();
+        bool _writeToDevice();
+        //void _writeDataToDevice();
+        //void copyToData();
 
         uint32_t segId_;
         SegmentManager* segMgr_;
@@ -131,7 +142,7 @@ namespace kvdb{
         uint32_t tailPos_;
 
         uint32_t keyNum_;
-        uint32_t key4KNum_;
+        uint32_t keyAlignedNum_;
         bool isCompleted_;
 
         Mutex *mtx_;
@@ -139,9 +150,9 @@ namespace kvdb{
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;
 
+        //char* data_;
     };
 
 } //end namespace kvdb
-
 
 #endif //#ifndef _KV_DB_DATAHANDLE_H_

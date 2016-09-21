@@ -39,13 +39,12 @@ namespace kvdb {
         void startThds();
         void stopThds();
 
-        enum OpType {INSERT, UPDATE, DELETE};
         bool insertKey(KVSlice& slice, OpType op_type);
-        void updateMeta(Request *req, OpType op_type);
+        void updateIndex(Request *req);
 
         bool readData(HashEntry* entry, string &data);
         bool enqueReqs(Request *req);
-        bool findAvailableSeg(Request *req, SegmentSlice*& seg_ptr);
+        bool findAndLockSeg(Request *req, SegmentSlice*& seg_ptr);
 
 
     private:
@@ -55,29 +54,32 @@ namespace kvdb {
         SegmentManager* segMgr_;
         string fileName_;
 
-        Mutex segQueMtx_;
-
+    // Seg Write to device thread
     private:
-        friend class SegThd;
-        class SegThd : public Thread
+        friend class SegWriteThd;
+        class SegWriteThd : public Thread
         {
         public:
-            SegThd(): db_(NULL){}
-            SegThd(KvdbDS* db): db_(db){}
-            virtual ~SegThd(){}
-            SegThd(SegThd& toBeCopied) = delete;
-            SegThd& operator=(SegThd& toBeCopied) = delete;
+            SegWriteThd(): db_(NULL){}
+            SegWriteThd(KvdbDS* db): db_(db){}
+            virtual ~SegWriteThd(){}
+            SegWriteThd(SegWriteThd& toBeCopied) = delete;
+            SegWriteThd& operator=(SegWriteThd& toBeCopied) = delete;
 
-            virtual void* Entry() { db_->SegThdEntry(); return 0; }
+            virtual void* Entry() { db_->SegWriteThdEntry(); return 0; }
 
         private:
             friend class KvdbDS;
             KvdbDS* db_;
         };
-        SegThd segThd_;
-        std::list<SegmentSlice*> segQue_;
-        std::atomic<bool> segThd_stop_;
-        void SegThdEntry();
+        SegWriteThd segWriteT_;
+        std::list<SegmentSlice*> segWriteQue_;
+        std::atomic<bool> segWriteT_stop_;
+        Mutex segWriteQueMtx_;
+        Cond segWriteQueCond_;
+
+        void SegWriteThdEntry();
+
 
     private:
         static KvdbDS *instance_;

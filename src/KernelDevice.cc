@@ -563,4 +563,4 @@ open_fail:
     {
         return preadv(bufFd_, iov, iovcnt, offset);
     }
-}//namespace kvdb
+}
