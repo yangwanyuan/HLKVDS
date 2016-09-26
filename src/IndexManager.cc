@@ -270,6 +270,7 @@ namespace kvdb{
                  {
                      entry = *iter;
                      slice->SetHashEntry(&entry);
+                     __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u", entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(), entry.GetNextHeadOffsetInSeg());
                      return true;
                  }
              }

@@ -21,7 +21,6 @@ namespace kvdb{
         time_t GetTime();
         void Update();
 
-
         KVTime();
         KVTime(const KVTime& toBeCopied);
         KVTime& operator=(const KVTime& toBeCopied);

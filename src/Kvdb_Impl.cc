@@ -96,6 +96,7 @@ namespace kvdb {
                db_index_size, db_meta_size, db_data_size, 
                db_size, device_size);
 
+        ds->seg_ = new SegmentSlice(ds->segMgr_, ds->bdev_);
         ds->startThds();
 
         return ds; 
@@ -139,6 +140,8 @@ namespace kvdb {
         {
             return false;
         }
+
+        seg_ = new SegmentSlice(segMgr_, bdev_);
 
         __INFO("\nReading meta information from file:\n"
                "\t hashtable_size            : %d\n"
@@ -214,6 +217,8 @@ namespace kvdb {
     {
         segWriteT_stop_ = false;
         segWriteT_.Start();
+        segTimeoutT_stop_ = false;
+        segTimeoutT_.Start();
     }
 
     void KvdbDS::stopThds()
@@ -223,6 +228,8 @@ namespace kvdb {
         segWriteQueCond_.Signal();
         segWriteQueMtx_.Unlock();
         segWriteT_.Join();
+        segTimeoutT_stop_ = true;
+        segTimeoutT_.Join();
     }
 
     KvdbDS::~KvdbDS()
@@ -232,13 +239,16 @@ namespace kvdb {
         delete sbMgr_;
         delete segMgr_;
         delete bdev_;
+        delete seg_;
 
     }
 
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
+        seg_(NULL), segMtx_(Mutex()),
         segWriteT_(this), segWriteT_stop_(false),
-        segWriteQueMtx_(Mutex()), segWriteQueCond_(Cond(segWriteQueMtx_))
+        segWriteQueMtx_(Mutex()), segWriteQueCond_(Cond(segWriteQueMtx_)),
+        segTimeoutT_(this), segTimeoutT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
@@ -391,6 +401,7 @@ namespace kvdb {
             return false;
         }
 
+        __DEBUG("get key = %s", key);
         res = readData(&entry, data);
         return res;
 
@@ -428,11 +439,11 @@ namespace kvdb {
 
         idxMgr_->Lock();
         idxMgr_->UpdateIndex(slice, op_type);
-        idxMgr_->Unlock();
-
         __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
                 slice->GetKeyStr().c_str(), slice->GetDataLen(),
                 slice->GetSegId(), slice->GetHashEntry().GetDataOffsetInSeg());
+        idxMgr_->Unlock();
+
     }
 
 
@@ -455,77 +466,30 @@ namespace kvdb {
         data.assign(mdata, data_len);
         delete[] mdata;
 
-        __DEBUG("get data offset %ld,!!!!!!!head_offset is %ld", data_offset, entry->GetHeaderOffsetPhy());
+        __DEBUG("get data offset %ld, head_offset is %ld", data_offset, entry->GetHeaderOffsetPhy());
 
         return true;
     }
 
     bool KvdbDS::enqueReqs(Request *req)
     {
-        SegmentSlice *seg;
-        if (!findAndLockSeg(req, seg))
+        while(!seg_->Put(req))
         {
-            return false;
+            segMtx_.Lock();
+            seg_->Complete();
+
+            SegmentSlice *temp = seg_;
+            seg_ = new SegmentSlice(segMgr_, bdev_);
+            segMtx_.Unlock();
+
+            segWriteQueMtx_.Lock();
+            segWriteQue_.push_back(temp);
+            segWriteQueCond_.Signal();
+            segWriteQueMtx_.Unlock();
         }
 
-        seg->Put(req);
-        //seg->Complete();
-        __DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg->GetSegId());
-        seg->Unlock();
-
+        //__DEBUG("Put request key = %s to seg_id:%u", req->GetSlice().GetKeyStr().c_str(), seg_->GetSegId());
         return true;
-    }
-
-    bool KvdbDS::findAndLockSeg(Request *req, SegmentSlice*& seg)
-    {
-        bool found = false;
-        segWriteQueMtx_.Lock();
-        for (list<SegmentSlice*>::iterator iter = segWriteQue_.begin(); iter != segWriteQue_.end(); iter++)
-        {
-            seg = *iter;
-            seg->Lock();
-            if (seg->IsCompleted())
-            {
-                seg->Unlock();
-                continue;
-            }
-            if (seg->IsCanWrite(req))
-            {
-                found = true;
-                break;
-            }
-            else
-            {
-                seg->Complete();
-                seg->Unlock();
-            }
-        }
-        segWriteQueMtx_.Unlock();
-        if (found)
-        {
-            return true;
-        }
-
-        uint32_t seg_id = 0;
-        segMgr_->Lock();
-        bool res = segMgr_->GetEmptySegId(seg_id);
-        if (!res)
-        {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            segMgr_->Unlock();
-            return false;
-        }
-        segMgr_->SetSegUsed(seg_id);
-        segMgr_->Unlock();
-
-        seg = new SegmentSlice(seg_id, segMgr_, bdev_);
-        seg->Lock();
-        segWriteQueMtx_.Lock();
-        segWriteQue_.push_back(seg);
-        segWriteQueCond_.Signal();
-        segWriteQueMtx_.Unlock();
-        return true;
-
     }
 
     void KvdbDS::SegWriteThdEntry()
@@ -534,49 +498,44 @@ namespace kvdb {
         while (true)
         {
             while (!segWriteQue_.empty())
-            //segWriteQueMtx_.Lock();
-            //if (!segWriteQue_.empty())
             {
                 segWriteQueMtx_.Lock();
                 SegmentSlice *seg = segWriteQue_.front();
-                seg->Lock();
+                segWriteQue_.pop_front();
                 segWriteQueMtx_.Unlock();
-                if (seg->IsCompleted())
+
+                uint32_t seg_id = 0;
+                segMgr_->Lock();
+                bool res = segMgr_->GetEmptySegId(seg_id);
+                if (!res)
                 {
-
-                    seg->Unlock();
-                    if (!seg->WriteSegToDevice())
-                    {
-                        //Free the segment if write failed
-                        segMgr_->Lock();
-                        segMgr_->SetSegFree(seg->GetSegId());
-                        segMgr_->Unlock();
-                    }
-
-                    segWriteQueMtx_.Lock();
-                    segWriteQue_.pop_front();
-                    segWriteQueMtx_.Unlock();
-
-                    __DEBUG("Segment thread write seg to device, seg_id:%d", seg->GetSegId());
-
-                    //Update Superblock
-                    sbMgr_->Lock();
-                    sbMgr_->SetCurSegId(seg->GetSegId());
-                    __DEBUG("Segment thread write seg, free size %u, seg id: %d, key num: %d", seg->GetFreeSize(), seg->GetSegId(), seg->GetKeyNum());
-                    sbMgr_->Unlock();
-
-                    delete seg;
+                    __ERROR("Cann't get a new Empty Segment.\n");
+                    seg->NotifyFailed();
+                    segMgr_->Unlock();
                 }
                 else
                 {
-                    if (seg->IsExpired())
+                    segMgr_->SetSegUsed(seg_id);
+                    segMgr_->Unlock();
+
+                    if (!seg->WriteSegToDevice(seg_id))
                     {
-                        seg->Complete();
-                        __DEBUG("Segment thread: seg expired,complete it, seg_id:%d", seg->GetSegId());
+                        //Free the segment if write failed
+                        segMgr_->Lock();
+                        segMgr_->SetSegFree(seg_id);
+                        segMgr_->Unlock();
                     }
 
-                    seg->Unlock();
-                } 
+                    __DEBUG("Segment thread write seg to device, seg_id:%d", seg_id);
+
+                    //Update Superblock
+                    sbMgr_->Lock();
+                    sbMgr_->SetCurSegId(seg_id);
+                    sbMgr_->Unlock();
+                }
+
+
+                delete seg;
             }
             //segWriteQueMtx_.Unlock();
             if (segWriteT_stop_)
@@ -590,6 +549,34 @@ namespace kvdb {
             segWriteQueMtx_.Unlock();
         }
         __DEBUG("Segment write thread stop!!");
+    }
+
+
+    void KvdbDS::SegTimeoutThdEntry()
+    {
+        while (true)
+        {
+            segMtx_.Lock();
+            if (seg_->CompleteIfExpired())
+            {
+                SegmentSlice *temp = seg_;
+                segWriteQueMtx_.Lock();
+                segWriteQue_.push_back(temp);
+                segWriteQueCond_.Signal();
+                segWriteQueMtx_.Unlock();
+
+                seg_ = new SegmentSlice(segMgr_, bdev_);
+            }
+            segMtx_.Unlock();
+
+            if(segTimeoutT_stop_)
+            {
+                break;
+            }
+
+            //sleep(0.001);
+            std::this_thread::yield();
+        }
     }
 
 }

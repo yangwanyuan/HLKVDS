@@ -54,6 +54,9 @@ namespace kvdb {
         SegmentManager* segMgr_;
         string fileName_;
 
+        SegmentSlice *seg_;
+        Mutex segMtx_;
+
     // Seg Write to device thread
     private:
         friend class SegWriteThd;
@@ -80,6 +83,28 @@ namespace kvdb {
 
         void SegWriteThdEntry();
 
+    private:
+        friend class SegTimeoutThd;
+        class SegTimeoutThd : public Thread
+        {
+        public:
+            SegTimeoutThd(): db_(NULL){}
+            SegTimeoutThd(KvdbDS* db): db_(db){}
+            virtual ~SegTimeoutThd(){}
+            SegTimeoutThd(SegTimeoutThd& toBeCopied) = delete;
+            SegTimeoutThd& operator=(SegTimeoutThd& toBeCopied) = delete;
+
+            virtual void* Entry() { db_->SegTimeoutThdEntry(); return 0; }
+
+        private:
+            friend class KvdbDS;
+            KvdbDS* db_;
+        };
+
+        SegTimeoutThd segTimeoutT_;
+        std::atomic<bool> segTimeoutT_stop_;
+
+        void SegTimeoutThdEntry();
 
     private:
         static KvdbDS *instance_;

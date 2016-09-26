@@ -67,7 +67,6 @@ namespace kvdb{
 
     class Request{
     public:
-        //enum OpType {UNKOWN, INSERT, UPDATE, DELETE};
         Request();
         ~Request();
         Request(const Request& toBeCopied);
@@ -102,41 +101,31 @@ namespace kvdb{
         SegmentSlice(const SegmentSlice& toBeCopied);
         SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
-        SegmentSlice(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
+        SegmentSlice(SegmentManager* sm, BlockDevice* bdev);
 
-        bool IsCanWrite(Request* req) const;
         bool Put(Request* req);
-        bool WriteSegToDevice();
-        uint64_t GetSegPhyOffset() const;
-        uint32_t GetSegSize() const { return segSize_; }
-        uint32_t GetSegId() const { return segId_; }
-        uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
-        uint32_t GetKeyNum() const { return keyNum_; }
+        bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
-        bool IsCompleted() const { return isCompleted_;};
-        bool IsExpired() const { return isExpire(); }
-
-        void Lock() const { mtx_->Lock(); }
-        void Unlock() const { mtx_->Unlock(); }
+        bool CompleteIfExpired();
+        void NotifyFailed();
 
     private:
-        bool isExpire() const;
+        bool isExpire();
         bool isCanFit(Request* req) const;
-        void putAligned(Request* req);
-        void putNonAligned(Request* req);
         void copyHelper(const SegmentSlice& toBeCopied);
+        void fillSlice();
         void fillSegHead();
         void notifyAndClean(bool req_state);
         bool _writeToDeviceHugeHole();
         bool _writeToDevice();
-        //void _writeDataToDevice();
+        //bool _writeDataToDevice();
         //void copyToData();
 
         uint32_t segId_;
         SegmentManager* segMgr_;
         BlockDevice* bdev_;
         uint32_t segSize_;
-        KVTime creTime_;
+        KVTime startTime_;
 
         uint32_t headPos_;
         uint32_t tailPos_;
@@ -144,6 +133,7 @@ namespace kvdb{
         uint32_t keyNum_;
         uint32_t keyAlignedNum_;
         bool isCompleted_;
+        bool hasReq_;
 
         Mutex *mtx_;
 

@@ -38,7 +38,7 @@ namespace kvdb{
     {
         gettimeofday(&tm_, NULL);
     }
-    
+
 
     KVTime::KVTime()
     {
