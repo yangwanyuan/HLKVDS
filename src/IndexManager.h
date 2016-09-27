@@ -123,12 +123,9 @@ namespace kvdb{
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
-        bool UpdateIndex(KVSlice* slice, OpType op_type);
+        bool UpdateIndex(KVSlice* slice, OpType &op_type);
         bool GetHashEntry(KVSlice *slice);
-        bool IsKeyExist(const KVSlice *slice);
-
-        void Lock() { mtx_.Lock(); }
-        void Unlock() { mtx_.Unlock(); }
+        //bool IsKeyExist(const KVSlice *slice);
 
         uint32_t GetHashTableSize() const { return htSize_; }
 
@@ -154,6 +151,7 @@ namespace kvdb{
 
         LinkedList<HashEntry>** hashtable_;  
         uint32_t htSize_;
+        uint32_t used_;
         BlockDevice* bdev_;
 
         KVTime* lastTime_;

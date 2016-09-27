@@ -120,13 +120,15 @@ namespace kvdb{
         return true;
     }
 
-    bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
+    //bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
+    bool SegmentManager::AllocSeg(uint32_t& seg_id)
     {
         //for first use !!
-        //mtx_.Lock();
+        mtx_.Lock();
         if (segTable_[curSegId_].state == SegUseStat::FREE)
         {
             seg_id = curSegId_;
+            segTable_[curSegId_].state = SegUseStat::USED;
             mtx_.Unlock();
             return true;
         }
@@ -138,7 +140,11 @@ namespace kvdb{
             if (segTable_[seg_index].state == SegUseStat::FREE)
             {
                 seg_id = seg_index;
-                //mtx_.Unlock();
+                // set seg used
+                curSegId_ = seg_id;
+                segTable_[curSegId_].state = SegUseStat::USED;
+
+                mtx_.Unlock();
                 return true;
             }
             seg_index++;
@@ -147,7 +153,7 @@ namespace kvdb{
                 seg_index = 0;
             }
         }
-        //mtx_.Unlock();
+        mtx_.Unlock();
         return false;
     }
 
@@ -177,20 +183,11 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentManager::SetSegUsed(uint32_t seg_id)
+    void SegmentManager::FreeSeg(uint32_t seg_id)
     {
-        //mtx_.Lock();
-        curSegId_ = seg_id;
-        segTable_[curSegId_].state = SegUseStat::USED;
-        //mtx_.Unlock();
-
-    }
-
-    void SegmentManager::SetSegFree(uint32_t seg_id)
-    {
-        //mtx_.Lock();
+        mtx_.Lock();
         segTable_[seg_id].state = SegUseStat::FREE;
-        //mtx_.Unlock();
+        mtx_.Unlock();
 
     }
 

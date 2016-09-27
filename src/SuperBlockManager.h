@@ -72,9 +72,6 @@ namespace kvdb{
         void SetSuperBlock(DBSuperBlock& sb);
         const DBSuperBlock& GetSuperBlock() const { return *sb_; }
 
-        void Lock() { mtx_.Lock(); }
-        void Unlock() { mtx_.Unlock(); }
-
         bool IsElementFull() const { return sb_->number_elements == sb_->hashtable_size; }
         uint32_t GetMagic() const { return sb_->magic_number; }
         uint32_t GetHTSize() const { return sb_->hashtable_size; }
@@ -87,11 +84,12 @@ namespace kvdb{
         uint64_t GetIndexSize() const { return sb_->db_index_size; }
         uint64_t GetDataRegionSize() const { return sb_->db_data_size; }
         uint64_t GetDeviceSize() const { return sb_->device_size; }
-        void AddElement() { sb_->number_elements++; }
-        void DeleteElement() { sb_->number_elements--; }
-        void AddDeleted() { sb_->deleted_elements++; }
-        void DeleteDeleted() { sb_->deleted_elements--; }
-        void SetCurSegId(uint32_t id) {sb_->current_segment = id; }
+
+        void AddElement();
+        void DeleteElement();
+        void AddDeleted();
+        void DeleteDeleted();
+        void SetCurSegId(uint32_t id);
 
         SuperBlockManager(BlockDevice* bdev);
         ~SuperBlockManager();
@@ -100,7 +98,7 @@ namespace kvdb{
         BlockDevice* bdev_;
         DBSuperBlock* sb_;
 
-        Mutex mtx_;
+        mutable Mutex mtx_;
 
     };
 }// namespace kvdb

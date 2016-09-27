@@ -39,11 +39,11 @@ namespace kvdb {
         void startThds();
         void stopThds();
 
-        bool insertKey(KVSlice& slice, OpType op_type);
-        void updateIndex(Request *req);
+        bool insertKey(KVSlice& slice);
+        bool updateMeta(Request *req);
 
         bool readData(HashEntry* entry, string &data);
-        bool enqueReqs(Request *req);
+        void enqueReqs(Request *req);
         bool findAndLockSeg(Request *req, SegmentSlice*& seg_ptr);
 
 

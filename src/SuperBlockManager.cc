@@ -71,4 +71,39 @@ namespace kvdb{
         delete sb_;
     }
 
+    void SuperBlockManager::AddElement()
+    {
+        mtx_.Lock();
+        sb_->number_elements++;
+        mtx_.Unlock();
+    }
+
+    void SuperBlockManager::DeleteElement()
+    {
+        mtx_.Lock();
+        sb_->number_elements--;
+        mtx_.Unlock();
+    }
+
+    void SuperBlockManager::AddDeleted()
+    {
+        mtx_.Lock();
+        sb_->deleted_elements++;
+        mtx_.Unlock();
+    }
+
+    void SuperBlockManager::DeleteDeleted()
+    {
+        mtx_.Lock();
+        sb_->deleted_elements--;
+        mtx_.Unlock();
+    }
+
+    void SuperBlockManager::SetCurSegId(uint32_t id)
+    {
+        mtx_.Lock();
+        sb_->current_segment = id;
+        mtx_.Unlock();
+    }
+
 } // namespace kvdb

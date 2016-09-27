@@ -142,6 +142,7 @@ namespace kvdb{
     bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
     {
         htSize_ = computeHashSizeForCreateDB(numObjects);
+        used_ = 0;
         
         if (!initHashTable(htSize_))
         {
@@ -221,33 +222,59 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndex(KVSlice* slice, OpType op_type)
+    bool IndexManager::UpdateIndex(KVSlice* slice, OpType &op_type)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
 
         HashEntry entry = slice->GetHashEntry();
+        const char* data = slice->GetData();
+
+        mtx_.Lock();
 
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
-        //Lock();
-        switch(op_type)
+        bool is_exist = entry_list->search(entry);
+        if (!is_exist)
         {
-            case OpType::INSERT:
+            if (data)
+            {
+                //It's a insert operation
+                op_type = OpType::INSERT;
+                if (used_ == htSize_)
+                {
+                    mtx_.Unlock();
+                    __DEBUG("UpdateIndex Failed, because the hashtable is full!");
+                    return false;
+                }
                 entry_list->insert(entry);
-                break;
-            case OpType::UPDATE:
-                entry_list->update(entry);
-                break;
-            case OpType::DELETE:
-                entry_list->remove(entry);
-                break;
-            default:
-                break;
+                used_++;
+            }
+            else
+            {
+                //It's a invalid operation
+                op_type = OpType::UNKOWN;
+            }
         }
-        //Unlock();
-        return true; 
+        else
+        {
+            if (data)
+            {
+                //It's a update operation
+                op_type = OpType::UPDATE;
+                entry_list->update(entry);
+            }
+            else
+            {
+                //It's a delete operation
+                op_type = OpType::DELETE;
+                entry_list->remove(entry);
+                used_--;
+            }
+        }
+        mtx_.Unlock();
+        return true;
     }
 
     bool IndexManager::GetHashEntry(KVSlice *slice)
@@ -260,6 +287,7 @@ namespace kvdb{
         HashEntry entry;
         entry.SetKeyDigest(*digest);
         
+        mtx_.Lock();
         if (entry_list->search(entry))
         {
              vector<HashEntry> tmp_vec = entry_list->get();
@@ -271,29 +299,31 @@ namespace kvdb{
                      entry = *iter;
                      slice->SetHashEntry(&entry);
                      __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u", entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(), entry.GetNextHeadOffsetInSeg());
+                     mtx_.Unlock();
                      return true;
                  }
              }
         }
+        mtx_.Unlock();
         return false;
     }
 
-    bool IndexManager::IsKeyExist(const KVSlice* slice)
-    {
-        const Kvdb_Digest* digest = &slice->GetDigest();
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
-        createListIfNotExist(hash_index);
-        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+    //bool IndexManager::IsKeyExist(const KVSlice* slice)
+    //{
+    //    const Kvdb_Digest* digest = &slice->GetDigest();
+    //    uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
+    //    createListIfNotExist(hash_index);
+    //    LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
-        HashEntry entry;
-        entry.SetKeyDigest(*digest);
+    //    HashEntry entry;
+    //    entry.SetKeyDigest(*digest);
 
-        if(entry_list->search(entry))
-        {
-            return true;
-        }
-        return false;
-    }
+    //    if(entry_list->search(entry))
+    //    {
+    //        return true;
+    //    }
+    //    return false;
+    //}
 
     uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
     {
@@ -304,7 +334,7 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev):
-        hashtable_(NULL), htSize_(0), bdev_(bdev), mtx_(Mutex())
+        hashtable_(NULL), htSize_(0), used_(0), bdev_(bdev), mtx_(Mutex())
     {
         lastTime_ = new KVTime();
         return ;
@@ -471,12 +501,13 @@ namespace kvdb{
                 __DEBUG("read hashtable[%d]=%d", i, entry_num);
             }
         }
+        used_ = entry_index;
         return true;
     }
 
     bool IndexManager::persistHashTable(uint64_t offset)
     {
-        uint64_t entry_total = 0;
+        uint32_t entry_total = 0;
 
         //write hashtable to device
         uint64_t table_length = sizeof(int) * htSize_;
