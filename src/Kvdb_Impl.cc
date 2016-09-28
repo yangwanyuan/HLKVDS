@@ -216,11 +216,9 @@ namespace kvdb {
     void KvdbDS::startThds()
     {
         std::lock_guard<std::mutex> lck_que(segWriteQueMtx_);
-        //segWriteT_stop_ = false;
         segWriteT_stop_.store(false);
         segWriteT_.Start();
 
-        //segTimeoutT_stop_ = false;
         segTimeoutT_stop_.store(false);
         segTimeoutT_.Start();
     }
@@ -270,7 +268,13 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, data, length);
-        slice.ComputeDigest();
+        res = slice.ComputeDigest();
+
+        if (!res)
+        {
+            __DEBUG("Compute key Digest failed!");
+            return res;
+        }
 
         res = insertKey(slice);
 
@@ -304,24 +308,21 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, NULL, 0);
-        slice.ComputeDigest();
+        res =  slice.ComputeDigest();
+        if (!res)
+        {
+            __DEBUG("Compute key Digest failed!");
+            return res;
+        }
 
         res = idxMgr_->GetHashEntry(&slice);
         if (!res)
         {
-            return false;
+            //The key is not exist
+            return res;
         }
 
-        HashEntry entry;
-        entry = slice.GetHashEntry();
-
-        if (entry.GetDataSize() == 0 )
-        {
-            return false;
-        }
-
-        __DEBUG("get key = %s", key);
-        res = readData(&entry, data);
+        res = readData(slice, data);
         return res;
 
     }
@@ -333,16 +334,16 @@ namespace kvdb {
         enqueReqs(req);
 
         req->Wait();
-        bool result = req->GetState();
+        bool res = req->GetState();
 
-        if (result)
+        if (res)
         {
             //updateIndex(req);
-            result = updateMeta(req);
+            res = updateMeta(req);
         }
 
         delete req;
-        return result;
+        return res;
     }
 
     bool KvdbDS::updateMeta(Request *req)
@@ -378,8 +379,11 @@ namespace kvdb {
     }
 
 
-    bool KvdbDS::readData(HashEntry* entry, string &data)
+    bool KvdbDS::readData(KVSlice &slice, string &data)
     {
+        HashEntry *entry;
+        entry = &slice.GetHashEntry();
+
         uint64_t data_offset = 0;
         if (!segMgr_->ComputeDataOffsetPhyFromEntry(entry, data_offset))
         {
@@ -397,30 +401,34 @@ namespace kvdb {
         data.assign(mdata, data_len);
         delete[] mdata;
 
-        __DEBUG("get data offset %ld, head_offset is %ld", data_offset, entry->GetHeaderOffsetPhy());
+        __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffsetPhy());
 
         return true;
     }
 
     void KvdbDS::enqueReqs(Request *req)
     {
+        std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
+        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
         while(!seg_->Put(req))
         {
-            std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
-            std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
-
             std::lock(lck, lck_que);
+            if (!seg_->Put(req))
+            {
+                seg_->Complete();
 
-            seg_->Complete();
+                SegmentSlice *temp = seg_;
+                seg_ = new SegmentSlice(segMgr_, bdev_);
 
-            SegmentSlice *temp = seg_;
-            seg_ = new SegmentSlice(segMgr_, bdev_);
-
-            segWriteQue_.push_back(temp);
-            segWriteQueCv_.notify_all();
-
-            //lck.unlock();
-            //lck_que.unlock();
+                segWriteQue_.push_back(temp);
+                segWriteQueCv_.notify_all();
+            }
+            else
+            {
+                break;
+            }
+            lck.unlock();
+            lck_que.unlock();
         }
     }
 
@@ -503,7 +511,7 @@ namespace kvdb {
                 break;
             }
 
-            //sleep(0.001);
+            //sleep(0.0001);
             std::this_thread::yield();
         }
     }

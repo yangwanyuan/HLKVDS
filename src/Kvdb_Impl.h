@@ -44,7 +44,7 @@ namespace kvdb {
         bool insertKey(KVSlice& slice);
         bool updateMeta(Request *req);
 
-        bool readData(HashEntry* entry, string &data);
+        bool readData(KVSlice& slice, string &data);
         void enqueReqs(Request *req);
         bool findAndLockSeg(Request *req, SegmentSlice*& seg_ptr);
 
