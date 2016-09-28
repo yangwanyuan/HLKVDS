@@ -1,6 +1,8 @@
 #ifndef _KV_DB_SUPERBLOCK_H_
 #define _KV_DB_SUPERBLOCK_H_
 
+#include <mutex>
+
 #include "Db_Structure.h"
 #include "BlockDevice.h"
 #include "Utils.h"
@@ -98,7 +100,7 @@ namespace kvdb{
         BlockDevice* bdev_;
         DBSuperBlock* sb_;
 
-        mutable Mutex mtx_;
+        mutable std::mutex mtx_;
 
     };
 }// namespace kvdb

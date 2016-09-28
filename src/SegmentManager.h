@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <mutex>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -101,7 +102,7 @@ namespace kvdb{
         bool isFull_;
         
         BlockDevice* bdev_;
-        Mutex mtx_;
+        mutable std::mutex mtx_;
 
         char* zeros_;
     };

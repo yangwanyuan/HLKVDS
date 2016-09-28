@@ -120,16 +120,14 @@ namespace kvdb{
         return true;
     }
 
-    //bool SegmentManager::GetEmptySegId(uint32_t& seg_id)
     bool SegmentManager::AllocSeg(uint32_t& seg_id)
     {
         //for first use !!
-        mtx_.Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         if (segTable_[curSegId_].state == SegUseStat::FREE)
         {
             seg_id = curSegId_;
             segTable_[curSegId_].state = SegUseStat::USED;
-            mtx_.Unlock();
             return true;
         }
 
@@ -144,7 +142,6 @@ namespace kvdb{
                 curSegId_ = seg_id;
                 segTable_[curSegId_].state = SegUseStat::USED;
 
-                mtx_.Unlock();
                 return true;
             }
             seg_index++;
@@ -153,7 +150,6 @@ namespace kvdb{
                 seg_index = 0;
             }
         }
-        mtx_.Unlock();
         return false;
     }
 
@@ -185,14 +181,13 @@ namespace kvdb{
 
     void SegmentManager::FreeSeg(uint32_t seg_id)
     {
-        mtx_.Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].state = SegUseStat::FREE;
-        mtx_.Unlock();
 
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        startOffset_(0), endOffset_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev), mtx_(Mutex()) {}
+        startOffset_(0), endOffset_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev){}
 
     SegmentManager::~SegmentManager()
     {

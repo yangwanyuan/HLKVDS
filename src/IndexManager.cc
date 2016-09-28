@@ -229,7 +229,7 @@ namespace kvdb{
         HashEntry entry = slice->GetHashEntry();
         const char* data = slice->GetData();
 
-        mtx_.Lock();
+        std::lock_guard<std::mutex> l(mtx_);
 
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
@@ -244,7 +244,6 @@ namespace kvdb{
                 op_type = OpType::INSERT;
                 if (used_ == htSize_)
                 {
-                    mtx_.Unlock();
                     __DEBUG("UpdateIndex Failed, because the hashtable is full!");
                     return false;
                 }
@@ -273,7 +272,6 @@ namespace kvdb{
                 used_--;
             }
         }
-        mtx_.Unlock();
         return true;
     }
 
@@ -287,7 +285,7 @@ namespace kvdb{
         HashEntry entry;
         entry.SetKeyDigest(*digest);
         
-        mtx_.Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         if (entry_list->search(entry))
         {
              vector<HashEntry> tmp_vec = entry_list->get();
@@ -299,31 +297,12 @@ namespace kvdb{
                      entry = *iter;
                      slice->SetHashEntry(&entry);
                      __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u", entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(), entry.GetNextHeadOffsetInSeg());
-                     mtx_.Unlock();
                      return true;
                  }
              }
         }
-        mtx_.Unlock();
         return false;
     }
-
-    //bool IndexManager::IsKeyExist(const KVSlice* slice)
-    //{
-    //    const Kvdb_Digest* digest = &slice->GetDigest();
-    //    uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
-    //    createListIfNotExist(hash_index);
-    //    LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
-
-    //    HashEntry entry;
-    //    entry.SetKeyDigest(*digest);
-
-    //    if(entry_list->search(entry))
-    //    {
-    //        return true;
-    //    }
-    //    return false;
-    //}
 
     uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
     {
@@ -334,7 +313,7 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev):
-        hashtable_(NULL), htSize_(0), used_(0), bdev_(bdev), mtx_(Mutex())
+        hashtable_(NULL), htSize_(0), used_(0), bdev_(bdev)
     {
         lastTime_ = new KVTime();
         return ;

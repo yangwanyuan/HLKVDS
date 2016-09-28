@@ -215,20 +215,25 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        segWriteT_stop_ = false;
+        std::lock_guard<std::mutex> lck_que(segWriteQueMtx_);
+        //segWriteT_stop_ = false;
+        segWriteT_stop_.store(false);
         segWriteT_.Start();
-        segTimeoutT_stop_ = false;
+
+        //segTimeoutT_stop_ = false;
+        segTimeoutT_stop_.store(false);
         segTimeoutT_.Start();
     }
 
     void KvdbDS::stopThds()
     {
-        segWriteT_stop_ = true;
-        segWriteQueMtx_.Lock();
-        segWriteQueCond_.Signal();
-        segWriteQueMtx_.Unlock();
+        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_);
+        segWriteT_stop_.store(true);
+        segWriteQueCv_.notify_all();
+        lck_que.unlock();
         segWriteT_.Join();
-        segTimeoutT_stop_ = true;
+
+        segTimeoutT_stop_.store(true);
         segTimeoutT_.Join();
     }
 
@@ -245,9 +250,8 @@ namespace kvdb {
 
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
-        seg_(NULL), segMtx_(Mutex()),
+        seg_(NULL),
         segWriteT_(this), segWriteT_stop_(false),
-        segWriteQueMtx_(Mutex()), segWriteQueCond_(Cond(segWriteQueMtx_)),
         segTimeoutT_(this), segTimeoutT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
@@ -402,31 +406,38 @@ namespace kvdb {
     {
         while(!seg_->Put(req))
         {
-            segMtx_.Lock();
+            std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
+            std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
+
+            std::lock(lck, lck_que);
+
             seg_->Complete();
 
             SegmentSlice *temp = seg_;
             seg_ = new SegmentSlice(segMgr_, bdev_);
-            segMtx_.Unlock();
 
-            segWriteQueMtx_.Lock();
             segWriteQue_.push_back(temp);
-            segWriteQueCond_.Signal();
-            segWriteQueMtx_.Unlock();
+            segWriteQueCv_.notify_all();
+
+            //lck.unlock();
+            //lck_que.unlock();
         }
     }
 
     void KvdbDS::SegWriteThdEntry()
     {
         __DEBUG("Segment write thread start!!");
+
+        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
         while (true)
         {
             while (!segWriteQue_.empty())
             {
-                segWriteQueMtx_.Lock();
+
+                lck_que.lock();
                 SegmentSlice *seg = segWriteQue_.front();
                 segWriteQue_.pop_front();
-                segWriteQueMtx_.Unlock();
+                lck_que.unlock();
 
                 uint32_t seg_id = 0;
                 bool res = segMgr_->AllocSeg(seg_id);
@@ -453,15 +464,15 @@ namespace kvdb {
 
                 delete seg;
             }
-            //segWriteQueMtx_.Unlock();
-            if (segWriteT_stop_)
+
+            if (segWriteT_stop_.load())
             {
                 break;
             }
 
-            segWriteQueMtx_.Lock();
-            segWriteQueCond_.Wait();
-            segWriteQueMtx_.Unlock();
+            lck_que.lock();
+            segWriteQueCv_.wait(lck_que);
+            lck_que.unlock();
         }
         __DEBUG("Segment write thread stop!!");
     }
@@ -469,22 +480,25 @@ namespace kvdb {
 
     void KvdbDS::SegTimeoutThdEntry()
     {
+        std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
+        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
         while (true)
         {
-            segMtx_.Lock();
             if (seg_->CompleteIfExpired())
             {
+                std::lock(lck, lck_que);
+
                 SegmentSlice *temp = seg_;
-                segWriteQueMtx_.Lock();
                 segWriteQue_.push_back(temp);
-                segWriteQueCond_.Signal();
-                segWriteQueMtx_.Unlock();
+                segWriteQueCv_.notify_all();
 
                 seg_ = new SegmentSlice(segMgr_, bdev_);
-            }
-            segMtx_.Unlock();
 
-            if(segTimeoutT_stop_)
+                lck.unlock();
+                lck_que.unlock();
+            }
+
+            if(segTimeoutT_stop_.load())
             {
                 break;
             }

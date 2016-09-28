@@ -4,6 +4,8 @@
 
 #include <list>
 #include <atomic>
+#include <mutex>
+#include <condition_variable>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -55,7 +57,7 @@ namespace kvdb {
         string fileName_;
 
         SegmentSlice *seg_;
-        Mutex segMtx_;
+        std::mutex segMtx_;
 
     // Seg Write to device thread
     private:
@@ -78,8 +80,8 @@ namespace kvdb {
         SegWriteThd segWriteT_;
         std::list<SegmentSlice*> segWriteQue_;
         std::atomic<bool> segWriteT_stop_;
-        Mutex segWriteQueMtx_;
-        Cond segWriteQueCond_;
+        std::mutex segWriteQueMtx_;
+        std::condition_variable segWriteQueCv_;
 
         void SegWriteThdEntry();
 

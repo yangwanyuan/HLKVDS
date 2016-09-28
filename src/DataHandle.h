@@ -5,6 +5,8 @@
 #include <sys/types.h>
 
 #include <list>
+#include <mutex>
+#include <condition_variable>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -87,8 +89,8 @@ namespace kvdb{
         int isDone_;
         bool writeStat_;
         KVSlice *slice_;
-        Mutex *mtx_;
-        Cond *cond_;
+        mutable std::mutex mtx_;
+        std::condition_variable cv_;
 
     };
 
@@ -133,7 +135,7 @@ namespace kvdb{
         bool isCompleted_;
         bool hasReq_;
 
-        Mutex *mtx_;
+        std::mutex mtx_;
 
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;

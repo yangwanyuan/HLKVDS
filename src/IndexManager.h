@@ -3,6 +3,7 @@
 
 #include <string>
 #include <sys/time.h>
+#include <mutex>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -155,7 +156,7 @@ namespace kvdb{
         BlockDevice* bdev_;
 
         KVTime* lastTime_;
-        Mutex mtx_;
+        mutable std::mutex mtx_;
 
     };
 

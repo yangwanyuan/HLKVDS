@@ -104,70 +104,50 @@ namespace kvdb{
         segId_ = seg_id;
     }
 
-    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL)
-    {
-        mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
-    }
+    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL){}
 
-    Request::~Request()
-    {
-        delete cond_;
-        delete mtx_;
-    }
+    Request::~Request(){}
 
     Request::Request(const Request& toBeCopied)
         : isDone_(toBeCopied.isDone_),
             writeStat_(toBeCopied.writeStat_),
-            slice_(toBeCopied.slice_)
-    {
-        mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
-    }
+            slice_(toBeCopied.slice_){}
 
     Request& Request::operator=(const Request& toBeCopied)
     {
         isDone_ = toBeCopied.isDone_;
         writeStat_ = toBeCopied.writeStat_;
         slice_ = toBeCopied.slice_;
-        mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
         return *this;
     }
 
     Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice)
     {
-        mtx_ = new Mutex;
-        cond_ = new Cond(*mtx_);
     }
 
 
     void Request::Done()
     {
-        mtx_->Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         isDone_ = 1;
-        mtx_->Unlock();
     }
 
     void Request::SetState(bool state)
     {
-        mtx_->Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         writeStat_ = state;
-        mtx_->Unlock();
     }
 
     void Request::Wait()
     {
-        mtx_->Lock();
-        cond_->Wait();
-        mtx_->Unlock();
+        std::unique_lock<std::mutex> l(mtx_);
+        cv_.wait(l);
     }
 
     void Request::Signal()
     {
-        mtx_->Lock();
-        cond_->Signal();
-        mtx_->Unlock();
+        std::unique_lock<std::mutex> l(mtx_);
+        cv_.notify_all();
     }
 
     SegmentSlice::SegmentSlice()
@@ -177,14 +157,12 @@ namespace kvdb{
         isCompleted_(false), hasReq_(false), segOndisk_(NULL)
         //isCompleted_(false), hasReq_(false), segOndisk_(NULL), data_(NULL)
     {
-        mtx_ = new Mutex;
         segOndisk_ = new SegmentOnDisk;
     }
 
     SegmentSlice::~SegmentSlice()
 
     {
-        delete mtx_;
         delete segOndisk_;
         //if(data_)
         //{
@@ -216,7 +194,6 @@ namespace kvdb{
         keyAlignedNum_ = toBeCopied.keyAlignedNum_;
         isCompleted_ = toBeCopied.isCompleted_;
         hasReq_ = toBeCopied.hasReq_;
-        mtx_ = new Mutex;
         reqList_ = toBeCopied.reqList_;
         segOndisk_ = new SegmentOnDisk(*toBeCopied.segOndisk_);
         //data_ = toBeCopied.data_;
@@ -229,17 +206,15 @@ namespace kvdb{
         keyNum_(0), keyAlignedNum_(0), isCompleted_(false), hasReq_(false),
         segOndisk_(NULL)
     {
-        mtx_ = new Mutex;
         segOndisk_ = new SegmentOnDisk;
         //data_ = new char[segSize_];
     }
 
     bool SegmentSlice::Put(Request* req)
     {
-        mtx_->Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         if(isCompleted_)
         {
-            mtx_->Unlock();
             return false;
         }
         KVSlice *slice = &req->GetSlice();
@@ -247,7 +222,6 @@ namespace kvdb{
         uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
         if (freeSize < needSize)
         {
-            mtx_->Unlock();
             return false;
         }
 
@@ -271,7 +245,6 @@ namespace kvdb{
         reqList_.push_back(req);
 
         __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
-        mtx_->Unlock();
         return true;
     }
 
@@ -521,35 +494,30 @@ namespace kvdb{
 
     void SegmentSlice::Complete()
     {
-        mtx_->Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         if (isCompleted_)
         {
-            mtx_->Unlock();
             return;
         }
 
         fillSegHead();
         isCompleted_ = true;
-        mtx_->Unlock();
     }
 
     bool SegmentSlice::CompleteIfExpired()
     {
-        mtx_->Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         if (isCompleted_)
         {
-            mtx_->Unlock();
             return true;
         }
         if (!isExpire())
         {
-            mtx_->Unlock();
             return false;
         }
 
         fillSegHead();
         isCompleted_ = true;
-        mtx_->Unlock();
         return true;
     }
 
