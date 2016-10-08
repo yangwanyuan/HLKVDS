@@ -512,7 +512,8 @@ namespace kvdb {
             }
 
             //sleep(0.0001);
-            std::this_thread::yield();
+            usleep(EXPIRED_TIME);
+            //std::this_thread::yield();
         }
     }
 
