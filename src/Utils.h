@@ -19,6 +19,7 @@ namespace kvdb{
 
         void SetTime(time_t _time);
         time_t GetTime();
+        timeval GetTimeval();
         void Update();
 
         KVTime();
@@ -26,6 +27,7 @@ namespace kvdb{
         KVTime& operator=(const KVTime& toBeCopied);
         bool operator>(const KVTime& toBeCopied);
         bool operator<(const KVTime& toBeCopied);
+        bool operator==(const KVTime& toBeCopied);
         int64_t operator-(const KVTime& toBeCopied);
         ~KVTime();
 

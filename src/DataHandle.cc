@@ -152,10 +152,9 @@ namespace kvdb{
 
     SegmentSlice::SegmentSlice()
         :segId_(0), segMgr_(NULL), bdev_(NULL), segSize_(0),
-        startTime_(KVTime()),
+        persistTime_(KVTime()), startTime_(KVTime()),
         headPos_(0), tailPos_(0), keyNum_(0), keyAlignedNum_(0),
         isCompleted_(false), hasReq_(false), segOndisk_(NULL)
-        //isCompleted_(false), hasReq_(false), segOndisk_(NULL), data_(NULL)
     {
         segOndisk_ = new SegmentOnDisk;
     }
@@ -187,6 +186,7 @@ namespace kvdb{
         segMgr_ = toBeCopied.segMgr_;
         bdev_ = toBeCopied.bdev_;
         segSize_ = toBeCopied.segSize_;
+        persistTime_ = toBeCopied.persistTime_;
         startTime_ = toBeCopied.startTime_;
         headPos_ = toBeCopied.headPos_;
         tailPos_ = toBeCopied.tailPos_;
@@ -201,7 +201,8 @@ namespace kvdb{
 
     SegmentSlice::SegmentSlice(SegmentManager* sm, BlockDevice* bdev)
         : segId_(0), segMgr_(sm), bdev_(bdev),
-        segSize_(segMgr_->GetSegmentSize()), startTime_(KVTime()),
+        segSize_(segMgr_->GetSegmentSize()), persistTime_(KVTime()),
+        startTime_(KVTime()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), isCompleted_(false), hasReq_(false),
         segOndisk_(NULL)
@@ -435,6 +436,7 @@ namespace kvdb{
         uint32_t tail_pos = segSize_;
         for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
         {
+
             KVSlice *slice = &(*iter)->GetSlice();
             if (slice->IsAlignedData())
             {
@@ -481,6 +483,16 @@ namespace kvdb{
 
     void SegmentSlice::notifyAndClean(bool req_state)
     {
+        int32_t keyNo = 0;
+        persistTime_.Update();
+        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
+        {
+            keyNo ++;
+            KVSlice *slice = &(*iter)->GetSlice();
+            HashEntry *entry = &slice->GetHashEntry();
+            entry->SetLogicStamp(persistTime_, keyNo);
+        }
+
         while (!reqList_.empty())
         {
             Request *req = reqList_.front();

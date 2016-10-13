@@ -11,6 +11,7 @@
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
 #include "DataHandle.h"
+#include "SuperBlockManager.h"
 
 using namespace std;
 
@@ -86,13 +87,33 @@ namespace kvdb{
 
     class HashEntry
     {
-    private:
-        HashEntryOnDisk *entryPtr_;
-        void* cachePtr_;
-
     public:
+        class LogicStamp
+        {
+        private:
+            KVTime segTime_;
+            int32_t keyNo_;
+        public:
+            LogicStamp() : segTime_(KVTime()), keyNo_(0){}
+            LogicStamp(KVTime seg_time, int32_t key_no) : segTime_(seg_time), keyNo_(key_no){}
+            LogicStamp(const LogicStamp& toBeCopied)
+            {
+                segTime_ = toBeCopied.segTime_;
+                keyNo_ = toBeCopied.keyNo_;
+            }
+            ~LogicStamp(){}
+            LogicStamp& operator=(const LogicStamp& toBeCopied)
+            {
+                segTime_ = toBeCopied.segTime_;
+                keyNo_ = toBeCopied.keyNo_;
+                return *this;
+            }
+
+            KVTime& GetSegTime() { return segTime_; }
+            int32_t GetKeyNo() { return keyNo_; }
+        };
         HashEntry();
-        HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr);
+        HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr);
         HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr);
         HashEntry(const HashEntry&);
         ~HashEntry();
@@ -106,10 +127,17 @@ namespace kvdb{
         void* GetReadCachePtr() const { return cachePtr_; }
         Kvdb_Digest GetKeyDigest() const { return entryPtr_->GetKeyDigest(); }
         HashEntryOnDisk& GetEntryOnDisk() { return *entryPtr_; }
+        LogicStamp* GetLogicStamp() {return stampPtr_; }
 
         void SetKeyDigest(const Kvdb_Digest& digest);
+        void SetLogicStamp(KVTime seg_time, int32_t seg_key_no);
 
-    } __attribute__((__packed__));
+    private:
+        HashEntryOnDisk *entryPtr_;
+        LogicStamp *stampPtr_;
+        void* cachePtr_;
+
+    }; //__attribute__((__packed__));
 
     
 
@@ -124,13 +152,14 @@ namespace kvdb{
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
-        bool UpdateIndex(KVSlice* slice, OpType &op_type);
+        //bool UpdateIndex(KVSlice* slice, OpType &op_type);
+        bool UpdateIndex(KVSlice* slice);
         bool GetHashEntry(KVSlice *slice);
         //bool IsKeyExist(const KVSlice *slice);
 
         uint32_t GetHashTableSize() const { return htSize_; }
 
-        IndexManager(BlockDevice* bdev);
+        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_);
         ~IndexManager();
 
     private:
@@ -154,9 +183,37 @@ namespace kvdb{
         uint32_t htSize_;
         uint32_t used_;
         BlockDevice* bdev_;
+        SuperBlockManager* sbMgr_;
 
         KVTime* lastTime_;
         mutable std::mutex mtx_;
+
+    //private:
+    //    friend class EntryGCThd;
+    //    class EntryGCThd : public Thread
+    //    {
+    //    public:
+    //        EntryGCThd(): db_(NULL){}
+    //        EntryGCThd(IndexManager* idxMgr): idxMgr_(idxMgr){}
+    //        virtual ~EntryGCThd(){}
+    //        EntryGCThd(EntryGCThd& toBeCopied) = delete;
+    //        EntryGCThd& operator=(EntryGCThd& toBeCopied) = delete;
+
+    //        virtual void* Entry() { idxMgr_->EntryGCThdEntry(); return 0; }
+
+    //    private:
+    //        friend class IndexManager;
+    //        IndexManager* idxMgr_;
+    //    };
+    //    EntryGCThd EntryGCT_;
+    //    std::list<HashEntry> EntryGCQue_;
+    //    std::atomic<bool> EntryGCT_stop_;
+    //    std::mutex EntryGCQueMtx_;
+
+    //    void EntryGCThdEntry();
+
+    //    void removeEntry();
+
 
     };
 

@@ -255,7 +255,7 @@ namespace kvdb {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
-        idxMgr_ = new IndexManager(bdev_);
+        idxMgr_ = new IndexManager(bdev_, sbMgr_);
     }
 
 
@@ -285,18 +285,6 @@ namespace kvdb {
     bool KvdbDS::Delete(const char* key, uint32_t key_len)
     {
         return Insert(key, key_len, NULL, 0);
-        //bool res = false;
-        //if (key == NULL)
-        //{
-        //    return res;
-        //}
-
-        //KVSlice slice(key, key_len, NULL, 0);
-        //slice.ComputeDigest();
-
-        //res = insertKey(slice);
-
-        //return res;
     }
 
     bool KvdbDS::Get(const char* key, uint32_t key_len, string &data) 
@@ -338,7 +326,6 @@ namespace kvdb {
 
         if (res)
         {
-            //updateIndex(req);
             res = updateMeta(req);
         }
 
@@ -350,8 +337,7 @@ namespace kvdb {
     {
         KVSlice *slice = &req->GetSlice();
 
-        OpType op_type;
-        bool res = idxMgr_->UpdateIndex(slice, op_type);
+        bool res = idxMgr_->UpdateIndex(slice);
         if (!res)
         {
             return false;
@@ -361,20 +347,6 @@ namespace kvdb {
                 slice->GetKeyStr().c_str(), slice->GetDataLen(),
                 slice->GetSegId(), slice->GetHashEntry().GetDataOffsetInSeg());
 
-        switch(op_type)
-        {
-            case OpType::INSERT:
-                sbMgr_->AddElement();
-                break;
-            case OpType::UPDATE:
-                break;
-            case OpType::DELETE:
-                sbMgr_->AddDeleted();
-                sbMgr_->DeleteElement();
-                break;
-            default:
-                break;
-        }
         return true;
     }
 
@@ -511,9 +483,7 @@ namespace kvdb {
                 break;
             }
 
-            //sleep(0.0001);
             usleep(EXPIRED_TIME);
-            //std::this_thread::yield();
         }
     }
 

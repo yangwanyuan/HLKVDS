@@ -125,6 +125,7 @@ namespace kvdb{
         SegmentManager* segMgr_;
         BlockDevice* bdev_;
         uint32_t segSize_;
+        KVTime persistTime_;
         KVTime startTime_;
 
         uint32_t headPos_;
