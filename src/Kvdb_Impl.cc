@@ -215,24 +215,35 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        std::lock_guard<std::mutex> lck_que(segWriteQueMtx_);
+        std::lock_guard<std::mutex> lck_wq(segWriteQueMtx_);
         segWriteT_stop_.store(false);
         segWriteT_.Start();
 
         segTimeoutT_stop_.store(false);
         segTimeoutT_.Start();
+
+        std::lock_guard<std::mutex> lck_rq(segReaperQueMtx_);
+        segReaperT_stop_.store(false);
+        segReaperT_.Start();
+
     }
 
     void KvdbDS::stopThds()
     {
-        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_);
+        std::unique_lock<std::mutex> lck_wq(segWriteQueMtx_);
         segWriteT_stop_.store(true);
         segWriteQueCv_.notify_all();
-        lck_que.unlock();
+        lck_wq.unlock();
         segWriteT_.Join();
 
         segTimeoutT_stop_.store(true);
         segTimeoutT_.Join();
+
+        std::unique_lock<std::mutex> lck_rq(segReaperQueMtx_);
+        segReaperT_stop_.store(true);
+        segReaperQueCv_.notify_all();
+        lck_rq.unlock();
+        segReaperT_.Join();
     }
 
     KvdbDS::~KvdbDS()
@@ -250,7 +261,8 @@ namespace kvdb {
         fileName_(filename),
         seg_(NULL),
         segWriteT_(this), segWriteT_stop_(false),
-        segTimeoutT_(this), segTimeoutT_stop_(false)
+        segTimeoutT_(this), segTimeoutT_stop_(false),
+        segReaperT_(this), segReaperT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
@@ -343,9 +355,14 @@ namespace kvdb {
             return false;
         }
 
-        __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
-                slice->GetKeyStr().c_str(), slice->GetDataLen(),
-                slice->GetSegId(), slice->GetHashEntry().GetDataOffsetInSeg());
+        SegmentSlice *seg = req->GetSeg();
+        seg->ReqCommited();
+        if (seg->CheckAllCommited())
+        {
+            std::lock_guard<std::mutex> lck_que(segReaperQueMtx_);
+            segReaperQue_.push_back(seg);
+            segReaperQueCv_.notify_all();
+        }
 
         return true;
     }
@@ -440,9 +457,7 @@ namespace kvdb {
                     //Update Superblock
                     sbMgr_->SetCurSegId(seg_id);
                 }
-
-
-                delete seg;
+                //delete seg;
             }
 
             if (segWriteT_stop_.load())
@@ -460,6 +475,7 @@ namespace kvdb {
 
     void KvdbDS::SegTimeoutThdEntry()
     {
+        __DEBUG("Segment Timeout thread start!!");
         std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
         std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
         while (true)
@@ -485,6 +501,43 @@ namespace kvdb {
 
             usleep(EXPIRED_TIME);
         }
+        __DEBUG("Segment Timeout thread stop!!");
+    }
+
+    void KvdbDS::SegReaperThdEntry()
+    {
+        __DEBUG("Segment reaper thread start!!");
+
+        std::unique_lock<std::mutex> lck_que(segReaperQueMtx_, std::defer_lock);
+        while (true)
+        {
+            while (!segReaperQue_.empty())
+            {
+
+                lck_que.lock();
+                SegmentSlice *seg = segReaperQue_.front();
+                segReaperQue_.pop_front();
+                lck_que.unlock();
+
+                list<HashEntry>& del_list = seg->GetDelReqsList();
+                for(list<HashEntry>::iterator iter=del_list.begin(); iter != del_list.end(); iter++)
+                {
+                    idxMgr_->RemoveEntry(*iter);
+                }
+                __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+                delete seg;
+            }
+
+            if (segWriteT_stop_.load())
+            {
+                break;
+            }
+
+            lck_que.lock();
+            segReaperQueCv_.wait(lck_que);
+            lck_que.unlock();
+        }
+        __DEBUG("Segment write thread stop!!");
     }
 
 }

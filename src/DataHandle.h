@@ -7,6 +7,7 @@
 #include <list>
 #include <mutex>
 #include <condition_variable>
+#include <atomic>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -25,6 +26,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
     class SegmentManager;
+    class SegmentSlice;
 
 
     class KVSlice{
@@ -82,6 +84,9 @@ namespace kvdb{
         void SetState(bool state);
         bool GetState() const { return writeStat_; }
 
+        void SetSeg(SegmentSlice *seg) { segPtr_ = seg; }
+        SegmentSlice* GetSeg() { return segPtr_; }
+
         void Wait();
         void Signal();
 
@@ -92,6 +97,7 @@ namespace kvdb{
         mutable std::mutex mtx_;
         std::condition_variable cv_;
 
+        SegmentSlice *segPtr_;
     };
 
     class SegmentSlice{
@@ -108,6 +114,12 @@ namespace kvdb{
         void Complete();
         bool CompleteIfExpired();
         void NotifyFailed();
+
+        void ReqCommited() { reqCommited--; }
+        bool CheckAllCommited() { return reqCommited.load() == 0; }
+        std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
+
+        uint32_t GetSegId() const { return segId_; }
 
     private:
         bool isExpire();
@@ -131,15 +143,19 @@ namespace kvdb{
         uint32_t headPos_;
         uint32_t tailPos_;
 
-        uint32_t keyNum_;
-        uint32_t keyAlignedNum_;
+        int32_t keyNum_;
+        int32_t keyAlignedNum_;
         bool isCompleted_;
         bool hasReq_;
+
+        std::atomic<int32_t> reqCommited;
 
         std::mutex mtx_;
 
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;
+
+        std::list<HashEntry> delReqList_;
 
         //char* data_;
     };

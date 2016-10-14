@@ -104,27 +104,24 @@ namespace kvdb{
         segId_ = seg_id;
     }
 
-    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL){}
+    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL), segPtr_(NULL){}
 
     Request::~Request(){}
 
-    Request::Request(const Request& toBeCopied)
-        : isDone_(toBeCopied.isDone_),
-            writeStat_(toBeCopied.writeStat_),
-            slice_(toBeCopied.slice_){}
+    Request::Request(const Request& toBeCopied) :
+        isDone_(toBeCopied.isDone_), writeStat_(toBeCopied.writeStat_),
+        slice_(toBeCopied.slice_), segPtr_(toBeCopied.segPtr_){}
 
     Request& Request::operator=(const Request& toBeCopied)
     {
         isDone_ = toBeCopied.isDone_;
         writeStat_ = toBeCopied.writeStat_;
         slice_ = toBeCopied.slice_;
+        segPtr_ = toBeCopied.segPtr_;
         return *this;
     }
 
-    Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice)
-    {
-    }
-
+    Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice), segPtr_(NULL){}
 
     void Request::Done()
     {
@@ -244,6 +241,7 @@ namespace kvdb{
         }
         keyNum_++;
         reqList_.push_back(req);
+        req->SetSeg(this);
 
         __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
         return true;
@@ -483,6 +481,9 @@ namespace kvdb{
 
     void SegmentSlice::notifyAndClean(bool req_state)
     {
+        //Set logic timestamp to hashentry
+        reqCommited.store(keyNum_);
+
         int32_t keyNo = 0;
         persistTime_.Update();
         for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
@@ -491,8 +492,14 @@ namespace kvdb{
             KVSlice *slice = &(*iter)->GetSlice();
             HashEntry *entry = &slice->GetHashEntry();
             entry->SetLogicStamp(persistTime_, keyNo);
+
+            if (!slice->GetData())
+            {
+                delReqList_.push_back(*entry);
+            }
         }
 
+        //notify and clean req.
         while (!reqList_.empty())
         {
             Request *req = reqList_.front();

@@ -111,8 +111,34 @@ namespace kvdb {
     private:
         static KvdbDS *instance_;
 
-    };
 
+    // Seg Reaper thread
+    private:
+        friend class SegReaperThd;
+        class SegReaperThd : public Thread
+        {
+        public:
+            SegReaperThd(): db_(NULL){}
+            SegReaperThd(KvdbDS* db): db_(db){}
+            virtual ~SegReaperThd(){}
+            SegReaperThd(SegReaperThd& toBeCopied) = delete;
+            SegReaperThd& operator=(SegReaperThd& toBeCopied) = delete;
+
+            virtual void* Entry() { db_->SegReaperThdEntry(); return 0; }
+
+        private:
+            friend class KvdbDS;
+            KvdbDS* db_;
+        };
+        SegReaperThd segReaperT_;
+        std::list<SegmentSlice*> segReaperQue_;
+        std::atomic<bool> segReaperT_stop_;
+        std::mutex segReaperQueMtx_;
+        std::condition_variable segReaperQueCv_;
+
+        void SegReaperThdEntry();
+
+    };
 }  // namespace kvdb
 
 #endif  // #ifndef _KV_DB_KVDB_IMPL_H_

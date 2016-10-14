@@ -14,7 +14,7 @@
 
 #define SEG_POOL_SIZE 5
 
-//#define DEBUG
+#define DEBUG
 #define INFO
 #define WARN
 #define ERROR

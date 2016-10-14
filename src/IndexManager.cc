@@ -270,42 +270,52 @@ namespace kvdb{
             HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
             KVTime &t = lts->GetSegTime();
             KVTime &t_inMem = lts_inMem->GetSegTime();
+
             if ( t < t_inMem )
             {
+                __DEBUG("Ignore the UpdateIndex request, because request is expired!");
                 return true;
             }
-            else if( t == t_inMem )
+            else if( t == t_inMem && (lts->GetKeyNo() < lts_inMem->GetKeyNo()) )
             {
-                if (lts->GetKeyNo() < lts_inMem->GetKeyNo())
-                {
-                    return true;
-                }
+                __DEBUG("Ignore the UpdateIndex request, because request is expired!");
+                return true;
             }
 
             //this operation is need to do
             entry_list->put(entry);
-            if (!data)
-            {
-                ;
-                //it's a delete operation
-                //TODO set a timer to remove;
-            }
         }
+
+
+        __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
+                slice->GetKeyStr().c_str(), slice->GetDataLen(),
+                slice->GetSegId(), slice->GetHashEntry().GetDataOffsetInSeg());
+
         return true;
     }
 
-    //void removeEntry(HashEntry entry)
-    //{
-    //    Hashentry entry_inMem = entry_list->GetRef(entry);
-    //    KVTime ts_entry_inMem = entry_inMem.GetTimeStamp();
-    //    KVTime now = KVTime();
-    //    if (now - ts_entry_inMem > 1000)
-    //    {
-    //        entry_list->remove(entry);
-    //        used_--;
-    //        sbMgr_->DeleteElement();
-    //    }
-    //}
+    void IndexManager::RemoveEntry(HashEntry entry)
+    {
+        Kvdb_Digest digest = entry.GetKeyDigest();
+
+        uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+
+        std::lock_guard<std::mutex> l(mtx_);
+
+        HashEntry *entry_inMem = entry_list->getRef(entry);
+        HashEntry::LogicStamp *lts = entry.GetLogicStamp();
+        HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
+        KVTime &t = lts->GetSegTime();
+        KVTime &t_inMem = lts_inMem->GetSegTime();
+        if (t_inMem == t && entry_inMem->GetDataSize() == 0 )
+        {
+            entry_list->remove(entry);
+            used_--;
+            sbMgr_->DeleteElement();
+            __DEBUG("Remove the index entry!");
+        }
+    }
 
     bool IndexManager::GetHashEntry(KVSlice *slice)
     {

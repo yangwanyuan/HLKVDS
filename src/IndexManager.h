@@ -15,6 +15,8 @@
 
 using namespace std;
 
+class SegmentSlice;
+
 namespace kvdb{
     class KVSlice;
     //struct OpType;
@@ -152,10 +154,9 @@ namespace kvdb{
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice(uint64_t offset);
 
-        //bool UpdateIndex(KVSlice* slice, OpType &op_type);
         bool UpdateIndex(KVSlice* slice);
         bool GetHashEntry(KVSlice *slice);
-        //bool IsKeyExist(const KVSlice *slice);
+        void RemoveEntry(HashEntry entry);
 
         uint32_t GetHashTableSize() const { return htSize_; }
 
@@ -187,33 +188,6 @@ namespace kvdb{
 
         KVTime* lastTime_;
         mutable std::mutex mtx_;
-
-    //private:
-    //    friend class EntryGCThd;
-    //    class EntryGCThd : public Thread
-    //    {
-    //    public:
-    //        EntryGCThd(): db_(NULL){}
-    //        EntryGCThd(IndexManager* idxMgr): idxMgr_(idxMgr){}
-    //        virtual ~EntryGCThd(){}
-    //        EntryGCThd(EntryGCThd& toBeCopied) = delete;
-    //        EntryGCThd& operator=(EntryGCThd& toBeCopied) = delete;
-
-    //        virtual void* Entry() { idxMgr_->EntryGCThdEntry(); return 0; }
-
-    //    private:
-    //        friend class IndexManager;
-    //        IndexManager* idxMgr_;
-    //    };
-    //    EntryGCThd EntryGCT_;
-    //    std::list<HashEntry> EntryGCQue_;
-    //    std::atomic<bool> EntryGCT_stop_;
-    //    std::mutex EntryGCQueMtx_;
-
-    //    void EntryGCThdEntry();
-
-    //    void removeEntry();
-
 
     };
 
