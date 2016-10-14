@@ -159,6 +159,7 @@ namespace kvdb{
     SegmentSlice::~SegmentSlice()
 
     {
+        delReqList_.clear();
         delete segOndisk_;
         //if(data_)
         //{
