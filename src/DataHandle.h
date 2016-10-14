@@ -5,6 +5,9 @@
 #include <sys/types.h>
 
 #include <list>
+#include <mutex>
+#include <condition_variable>
+#include <atomic>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -23,6 +26,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
     class SegmentManager;
+    class SegmentSlice;
 
 
     class KVSlice{
@@ -67,12 +71,11 @@ namespace kvdb{
 
     class Request{
     public:
-        //enum OpType {UNKOWN, INSERT, UPDATE, DELETE};
         Request();
         ~Request();
         Request(const Request& toBeCopied);
         Request& operator=(const Request& toBeCopied);
-        Request(KVSlice& slice, OpType op_type);
+        Request(KVSlice& slice);
 
         KVSlice& GetSlice() const { return *slice_; }
         int IsDone() const { return isDone_; }
@@ -80,7 +83,9 @@ namespace kvdb{
 
         void SetState(bool state);
         bool GetState() const { return writeStat_; }
-        OpType GetOpType() const { return opType_; }
+
+        void SetSeg(SegmentSlice *seg) { segPtr_ = seg; }
+        SegmentSlice* GetSeg() { return segPtr_; }
 
         void Wait();
         void Signal();
@@ -89,10 +94,10 @@ namespace kvdb{
         int isDone_;
         bool writeStat_;
         KVSlice *slice_;
-        OpType opType_;
-        Mutex *mtx_;
-        Cond *cond_;
+        mutable std::mutex mtx_;
+        std::condition_variable cv_;
 
+        SegmentSlice *segPtr_;
     };
 
     class SegmentSlice{
@@ -102,53 +107,55 @@ namespace kvdb{
         SegmentSlice(const SegmentSlice& toBeCopied);
         SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
-        SegmentSlice(uint32_t seg_id, SegmentManager* sm, BlockDevice* bdev);
+        SegmentSlice(SegmentManager* sm, BlockDevice* bdev);
 
-        bool IsCanWrite(Request* req) const;
         bool Put(Request* req);
-        bool WriteSegToDevice();
-        uint64_t GetSegPhyOffset() const;
-        uint32_t GetSegSize() const { return segSize_; }
-        uint32_t GetSegId() const { return segId_; }
-        uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
-        uint32_t GetKeyNum() const { return keyNum_; }
+        bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
-        bool IsCompleted() const { return isCompleted_;};
-        bool IsExpired() const { return isExpire(); }
+        bool CompleteIfExpired();
+        void NotifyFailed();
 
-        void Lock() const { mtx_->Lock(); }
-        void Unlock() const { mtx_->Unlock(); }
+        void ReqCommited() { reqCommited--; }
+        bool CheckAllCommited() { return reqCommited.load() == 0; }
+        std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
+
+        uint32_t GetSegId() const { return segId_; }
 
     private:
-        bool isExpire() const;
+        bool isExpire();
         bool isCanFit(Request* req) const;
-        void putAligned(Request* req);
-        void putNonAligned(Request* req);
         void copyHelper(const SegmentSlice& toBeCopied);
+        void fillSlice();
         void fillSegHead();
         void notifyAndClean(bool req_state);
         bool _writeToDeviceHugeHole();
         bool _writeToDevice();
-        //void _writeDataToDevice();
+        //bool _writeDataToDevice();
         //void copyToData();
 
         uint32_t segId_;
         SegmentManager* segMgr_;
         BlockDevice* bdev_;
         uint32_t segSize_;
-        KVTime creTime_;
+        KVTime persistTime_;
+        KVTime startTime_;
 
         uint32_t headPos_;
         uint32_t tailPos_;
 
-        uint32_t keyNum_;
-        uint32_t keyAlignedNum_;
+        int32_t keyNum_;
+        int32_t keyAlignedNum_;
         bool isCompleted_;
+        bool hasReq_;
 
-        Mutex *mtx_;
+        std::atomic<int32_t> reqCommited;
+
+        std::mutex mtx_;
 
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;
+
+        std::list<HashEntry> delReqList_;
 
         //char* data_;
     };

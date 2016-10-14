@@ -41,7 +41,7 @@ namespace kvdb{
     
     void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb)
     {
-        //mtx_.Lock();
+        std::lock_guard<std::mutex> l(mtx_);
         sb_->hashtable_size        = sb.hashtable_size;
         sb_->number_elements       = sb.number_elements;
         sb_->deleted_elements      = sb.deleted_elements;
@@ -52,7 +52,6 @@ namespace kvdb{
         sb_->db_index_size         = sb.db_index_size;
         sb_->db_data_size          = sb.db_data_size;
         sb_->device_size           = sb.device_size;
-        //mtx_.Unlock();
     }
 
 
@@ -64,11 +63,41 @@ namespace kvdb{
 
 
     SuperBlockManager::SuperBlockManager(BlockDevice* bdev):
-        bdev_(bdev), sb_(NULL), mtx_(Mutex()){}
+        bdev_(bdev), sb_(NULL){}
 
     SuperBlockManager::~SuperBlockManager()
     {
         delete sb_;
+    }
+
+    void SuperBlockManager::AddElement()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        sb_->number_elements++;
+    }
+
+    void SuperBlockManager::DeleteElement()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        sb_->number_elements--;
+    }
+
+    void SuperBlockManager::AddDeleted()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        sb_->deleted_elements++;
+    }
+
+    void SuperBlockManager::DeleteDeleted()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        sb_->deleted_elements--;
+    }
+
+    void SuperBlockManager::SetCurSegId(uint32_t id)
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        sb_->current_segment = id;
     }
 
 } // namespace kvdb

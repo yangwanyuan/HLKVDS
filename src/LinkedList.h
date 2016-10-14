@@ -25,10 +25,13 @@ namespace kvdb{
         LinkedList(const LinkedList<T> &);
         ~LinkedList();
         LinkedList& operator=(const LinkedList<T> &);
-        bool insert(T toBeInserted);
-        bool remove(T toBeRemoved);
+
         bool search(T toBeSearched);
-        bool update(T toBeUpdated);
+        //if put T is existed, return false
+        bool put(T toBePuted);
+        bool remove(T toBeRemoved);
+
+        T* getRef(T toBeGeted);
         vector<T> get();
         int get_size() { return size_; }
 
@@ -105,32 +108,53 @@ namespace kvdb{
     }
 
     template <typename T>
-    bool LinkedList<T>::insert(T toBeInserted)
+    bool LinkedList<T>::search(T toBeSearched)
     {
-        bool flag = false;
+        Node<T>* tempNode = head_;
 
-        Node<T>* newNode = new Node<T>(toBeInserted, NULL);
+        while (tempNode != NULL)
+        {
+            if (tempNode->data == toBeSearched)
+            {
+                return true;
+            }
+            tempNode = tempNode->next;
+        }
+        return false;
+    }
+
+    template <typename T>
+    bool LinkedList<T>::put(T toBePuted)
+    {
+        bool is_new = true;
+
+        Node<T>* newNode = new Node<T>(toBePuted, NULL);
         if (head_ == NULL)
         {
             head_ = newNode;
+            size_++;
         }
         else
         {
             Node<T>* tempNode = head_;
             while (tempNode->next != NULL)
             {
-                if (tempNode->data == toBeInserted)
+                if (tempNode->data == toBePuted)
                 {
+                    tempNode->data = toBePuted;
+                    is_new = false;
                     delete newNode;
                     break;
                 }
                 tempNode = tempNode->next;
             }
-            tempNode->next = newNode;
-            flag = true;
+            if(is_new)
+            {
+                tempNode->next = newNode;
+                size_++;
+            }
         }
-        size_++;
-        return flag;
+        return is_new;
     }
 
     template <typename T>
@@ -168,40 +192,22 @@ namespace kvdb{
     }
 
     template <typename T>
-    bool LinkedList<T>::search(T toBeSearched) 
+    T* LinkedList<T>::getRef(T toBeGeted)
     {
+
         Node<T>* tempNode = head_;
         
         while (tempNode != NULL)
         {
-            if (tempNode->data == toBeSearched)
+            if (tempNode->data == toBeGeted)
             {
-                return true;
+                return &tempNode->data;
             }
             tempNode = tempNode->next;
     
         }
-        return false;
+        return NULL;
     
-    }
-
-    template <typename T>
-    bool LinkedList<T>::update(T toBeUpdated)
-    {
-        bool flag = false;
-        Node<T>* tempNode = head_;
-
-        while (tempNode != NULL)
-        {
-            if (tempNode->data == toBeUpdated)
-            {
-                tempNode->data = toBeUpdated;
-                flag = true;
-                break;
-            }
-            tempNode = tempNode->next;
-        }
-        return flag;
     }
 
     template <typename T>

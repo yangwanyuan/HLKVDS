@@ -4,6 +4,8 @@
 
 #include <list>
 #include <atomic>
+#include <mutex>
+#include <condition_variable>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -39,11 +41,11 @@ namespace kvdb {
         void startThds();
         void stopThds();
 
-        bool insertKey(KVSlice& slice, OpType op_type);
-        void updateIndex(Request *req);
+        bool insertKey(KVSlice& slice);
+        bool updateMeta(Request *req);
 
-        bool readData(HashEntry* entry, string &data);
-        bool enqueReqs(Request *req);
+        bool readData(KVSlice& slice, string &data);
+        void enqueReqs(Request *req);
         bool findAndLockSeg(Request *req, SegmentSlice*& seg_ptr);
 
 
@@ -53,6 +55,9 @@ namespace kvdb {
         BlockDevice* bdev_;
         SegmentManager* segMgr_;
         string fileName_;
+
+        SegmentSlice *seg_;
+        std::mutex segMtx_;
 
     // Seg Write to device thread
     private:
@@ -75,17 +80,65 @@ namespace kvdb {
         SegWriteThd segWriteT_;
         std::list<SegmentSlice*> segWriteQue_;
         std::atomic<bool> segWriteT_stop_;
-        Mutex segWriteQueMtx_;
-        Cond segWriteQueCond_;
+        std::mutex segWriteQueMtx_;
+        std::condition_variable segWriteQueCv_;
 
         void SegWriteThdEntry();
 
+    private:
+        friend class SegTimeoutThd;
+        class SegTimeoutThd : public Thread
+        {
+        public:
+            SegTimeoutThd(): db_(NULL){}
+            SegTimeoutThd(KvdbDS* db): db_(db){}
+            virtual ~SegTimeoutThd(){}
+            SegTimeoutThd(SegTimeoutThd& toBeCopied) = delete;
+            SegTimeoutThd& operator=(SegTimeoutThd& toBeCopied) = delete;
+
+            virtual void* Entry() { db_->SegTimeoutThdEntry(); return 0; }
+
+        private:
+            friend class KvdbDS;
+            KvdbDS* db_;
+        };
+
+        SegTimeoutThd segTimeoutT_;
+        std::atomic<bool> segTimeoutT_stop_;
+
+        void SegTimeoutThdEntry();
 
     private:
         static KvdbDS *instance_;
 
-    };
 
+    // Seg Reaper thread
+    private:
+        friend class SegReaperThd;
+        class SegReaperThd : public Thread
+        {
+        public:
+            SegReaperThd(): db_(NULL){}
+            SegReaperThd(KvdbDS* db): db_(db){}
+            virtual ~SegReaperThd(){}
+            SegReaperThd(SegReaperThd& toBeCopied) = delete;
+            SegReaperThd& operator=(SegReaperThd& toBeCopied) = delete;
+
+            virtual void* Entry() { db_->SegReaperThdEntry(); return 0; }
+
+        private:
+            friend class KvdbDS;
+            KvdbDS* db_;
+        };
+        SegReaperThd segReaperT_;
+        std::list<SegmentSlice*> segReaperQue_;
+        std::atomic<bool> segReaperT_stop_;
+        std::mutex segReaperQueMtx_;
+        std::condition_variable segReaperQueCv_;
+
+        void SegReaperThdEntry();
+
+    };
 }  // namespace kvdb
 
 #endif  // #ifndef _KV_DB_KVDB_IMPL_H_

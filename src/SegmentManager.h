@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <mutex>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -58,8 +59,6 @@ namespace kvdb{
         uint64_t GetDataRegionSize(){ return (uint64_t)segNum_ << segSizeBit_; }
         uint32_t GetSegmentSize(){ return segSize_; }
 
-        bool GetEmptySegId(uint32_t& seg_id);
-
         inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
         {
             if (seg_id >= segNum_)
@@ -84,15 +83,13 @@ namespace kvdb{
 
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
-        void SetSegUsed(uint32_t seg_id);
-        void SetSegFree(uint32_t seg_id);
+        bool AllocSeg(uint32_t& seg_id);
+        void FreeSeg(uint32_t seg_id);
         char* GetZeros() const { return zeros_; }
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
 
-        void Lock() { mtx_.Lock(); }
-        void Unlock() { mtx_.Unlock(); }
 
     private:
         vector<SegmentStat> segTable_;
@@ -105,7 +102,7 @@ namespace kvdb{
         bool isFull_;
         
         BlockDevice* bdev_;
-        Mutex mtx_;
+        mutable std::mutex mtx_;
 
         char* zeros_;
     };

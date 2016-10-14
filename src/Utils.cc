@@ -34,11 +34,16 @@ namespace kvdb{
         return (time_t)tm_.tv_sec;
     }
 
+    timeval KVTime::GetTimeval()
+    {
+        return tm_;
+    }
+
     void KVTime::Update()
     {
         gettimeofday(&tm_, NULL);
     }
-    
+
 
     KVTime::KVTime()
     {
@@ -86,6 +91,11 @@ namespace kvdb{
         {
             return tm_.tv_usec < toBeCopied.tm_.tv_usec;
         }
+    }
+
+    bool KVTime::operator==(const KVTime& toBeCopied)
+    {
+        return (tm_.tv_sec == toBeCopied.tm_.tv_sec && tm_.tv_usec == toBeCopied.tm_.tv_usec) ;
     }
 
     int64_t KVTime::operator-(const KVTime& toBeCopied)

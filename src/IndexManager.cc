@@ -88,16 +88,19 @@ namespace kvdb{
 
     HashEntry::HashEntry(): cachePtr_(NULL)
     {
+        stampPtr_ = new LogicStamp;
         entryPtr_ = new HashEntryOnDisk;
     }
 
-    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, void* read_ptr): cachePtr_(read_ptr)
+    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr): cachePtr_(read_ptr)
     {
+        stampPtr_ = new LogicStamp(time_stamp, 0);
         entryPtr_ = new HashEntryOnDisk(entry_ondisk);
     }
 
     HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr)
     {
+        stampPtr_ = new LogicStamp;
         entryPtr_ = new HashEntryOnDisk(data_header, header_offset);
         cachePtr_ = read_ptr;
     }
@@ -105,6 +108,7 @@ namespace kvdb{
     HashEntry::HashEntry(const HashEntry& toBeCopied)
     {
         entryPtr_ = new HashEntryOnDisk(*toBeCopied.entryPtr_);
+        stampPtr_ = new LogicStamp(*toBeCopied.stampPtr_);
         cachePtr_ = toBeCopied.cachePtr_;
     }
 
@@ -114,6 +118,10 @@ namespace kvdb{
         if (entryPtr_)
         {
             delete entryPtr_;
+        }
+        if (stampPtr_)
+        {
+            delete stampPtr_;
         }
         return;
     }
@@ -139,9 +147,16 @@ namespace kvdb{
         entryPtr_->SetKeyDigest(digest);
     }
 
+    void HashEntry::SetLogicStamp(KVTime seg_time, int32_t seg_key_no)
+    {
+        delete stampPtr_;
+        stampPtr_ = new LogicStamp(seg_time, seg_key_no);
+    }
+
     bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
     {
         htSize_ = computeHashSizeForCreateDB(numObjects);
+        used_ = 0;
         
         if (!initHashTable(htSize_))
         {
@@ -210,9 +225,7 @@ namespace kvdb{
         int64_t timeLength = KVTime::SizeOf();
         lastTime_->Update();
         time_t _time =lastTime_->GetTime();
-        //timeval _time =lastTime_->GetTime();
 
-        //if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
         if (bdev_->pWrite((void *)&_time, timeLength, offset ) != timeLength)
         {
             __ERROR("Error write timestamp to file\n");
@@ -221,33 +234,87 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::UpdateIndex(KVSlice* slice, OpType op_type)
+    bool IndexManager::UpdateIndex(KVSlice* slice)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
 
         HashEntry entry = slice->GetHashEntry();
+        const char* data = slice->GetData();
+
+        std::lock_guard<std::mutex> l(mtx_);
 
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
         createListIfNotExist(hash_index);
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
 
-        //Lock();
-        switch(op_type)
+        bool is_exist = entry_list->search(entry);
+        if (!is_exist)
         {
-            case OpType::INSERT:
-                entry_list->insert(entry);
-                break;
-            case OpType::UPDATE:
-                entry_list->update(entry);
-                break;
-            case OpType::DELETE:
-                entry_list->remove(entry);
-                break;
-            default:
-                break;
+            if (data)
+            {
+                //It's insert a new entry operation
+                if (used_ == htSize_)
+                {
+                    __DEBUG("UpdateIndex Failed, because the hashtable is full!");
+                    return false;
+                }
+                entry_list->put(entry);
+                used_++;
+                sbMgr_->AddElement();
+            }
         }
-        //Unlock();
-        return true; 
+        else
+        {
+            HashEntry *entry_inMem = entry_list->getRef(entry);
+            HashEntry::LogicStamp *lts = entry.GetLogicStamp();
+            HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
+            KVTime &t = lts->GetSegTime();
+            KVTime &t_inMem = lts_inMem->GetSegTime();
+
+            if ( t < t_inMem )
+            {
+                __DEBUG("Ignore the UpdateIndex request, because request is expired!");
+                return true;
+            }
+            else if( t == t_inMem && (lts->GetKeyNo() < lts_inMem->GetKeyNo()) )
+            {
+                __DEBUG("Ignore the UpdateIndex request, because request is expired!");
+                return true;
+            }
+
+            //this operation is need to do
+            entry_list->put(entry);
+        }
+
+
+        __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
+                slice->GetKeyStr().c_str(), slice->GetDataLen(),
+                slice->GetSegId(), slice->GetHashEntry().GetDataOffsetInSeg());
+
+        return true;
+    }
+
+    void IndexManager::RemoveEntry(HashEntry entry)
+    {
+        Kvdb_Digest digest = entry.GetKeyDigest();
+
+        uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+
+        std::lock_guard<std::mutex> l(mtx_);
+
+        HashEntry *entry_inMem = entry_list->getRef(entry);
+        HashEntry::LogicStamp *lts = entry.GetLogicStamp();
+        HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
+        KVTime &t = lts->GetSegTime();
+        KVTime &t_inMem = lts_inMem->GetSegTime();
+        if (t_inMem == t && entry_inMem->GetDataSize() == 0 )
+        {
+            entry_list->remove(entry);
+            used_--;
+            sbMgr_->DeleteElement();
+            __DEBUG("Remove the index entry!");
+        }
     }
 
     bool IndexManager::GetHashEntry(KVSlice *slice)
@@ -260,6 +327,7 @@ namespace kvdb{
         HashEntry entry;
         entry.SetKeyDigest(*digest);
         
+        std::lock_guard<std::mutex> l(mtx_);
         if (entry_list->search(entry))
         {
              vector<HashEntry> tmp_vec = entry_list->get();
@@ -270,26 +338,10 @@ namespace kvdb{
                  {
                      entry = *iter;
                      slice->SetHashEntry(&entry);
+                     __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u", entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(), entry.GetNextHeadOffsetInSeg());
                      return true;
                  }
              }
-        }
-        return false;
-    }
-
-    bool IndexManager::IsKeyExist(const KVSlice* slice)
-    {
-        const Kvdb_Digest* digest = &slice->GetDigest();
-        uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
-        createListIfNotExist(hash_index);
-        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
-
-        HashEntry entry;
-        entry.SetKeyDigest(*digest);
-
-        if(entry_list->search(entry))
-        {
-            return true;
         }
         return false;
     }
@@ -302,8 +354,8 @@ namespace kvdb{
     }
 
 
-    IndexManager::IndexManager(BlockDevice* bdev):
-        hashtable_(NULL), htSize_(0), bdev_(bdev), mtx_(Mutex())
+    IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr):
+        hashtable_(NULL), htSize_(0), used_(0), bdev_(bdev), sbMgr_(sbMgr)
     {
         lastTime_ = new KVTime();
         return ;
@@ -459,10 +511,10 @@ namespace kvdb{
             int entry_num = counter[i];
             for (int j = 0; j < entry_num; j++)
             {
-                HashEntry entry(entry_ondisk[entry_index], 0);
+                HashEntry entry(entry_ondisk[entry_index], *lastTime_, 0);
 
                 createListIfNotExist(i);
-                hashtable_[i]->insert(entry);
+                hashtable_[i]->put(entry);
                 entry_index++;
             }
             if (entry_num > 0)
@@ -470,12 +522,13 @@ namespace kvdb{
                 __DEBUG("read hashtable[%d]=%d", i, entry_num);
             }
         }
+        used_ = entry_index;
         return true;
     }
 
     bool IndexManager::persistHashTable(uint64_t offset)
     {
-        uint64_t entry_total = 0;
+        uint32_t entry_total = 0;
 
         //write hashtable to device
         uint64_t table_length = sizeof(int) * htSize_;
