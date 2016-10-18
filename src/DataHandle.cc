@@ -42,9 +42,9 @@ namespace kvdb{
         dataLength_ = toBeCopied.GetDataLen();
         key_ = toBeCopied.GetKey();
         data_ = toBeCopied.GetData();
-        digest_ = new Kvdb_Digest(toBeCopied.GetDigest());
+        *digest_ = *toBeCopied.digest_;
         isComputed_ = toBeCopied.IsDigestComputed();
-        entry_ = new HashEntry(toBeCopied.GetHashEntry());
+        *entry_ = *toBeCopied.entry_;
         segId_ = toBeCopied.segId_;
     }
 
@@ -159,6 +159,7 @@ namespace kvdb{
     SegmentSlice::~SegmentSlice()
 
     {
+        reqList_.clear();
         delReqList_.clear();
         delete segOndisk_;
         //if(data_)
@@ -192,8 +193,11 @@ namespace kvdb{
         keyAlignedNum_ = toBeCopied.keyAlignedNum_;
         isCompleted_ = toBeCopied.isCompleted_;
         hasReq_ = toBeCopied.hasReq_;
+        reqCommited_.store(toBeCopied.reqCommited_.load());
+        isCanReap_.store(toBeCopied.isCanReap_.load());
         reqList_ = toBeCopied.reqList_;
-        segOndisk_ = new SegmentOnDisk(*toBeCopied.segOndisk_);
+        *segOndisk_ = *toBeCopied.segOndisk_;
+        delReqList_ = toBeCopied.delReqList_;
         //data_ = toBeCopied.data_;
     }
 
@@ -203,7 +207,7 @@ namespace kvdb{
         startTime_(KVTime()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), isCompleted_(false), hasReq_(false),
-        segOndisk_(NULL)
+        reqCommited_(-1), isCanReap_(false), segOndisk_(NULL)
     {
         segOndisk_ = new SegmentOnDisk;
         //data_ = new char[segSize_];
@@ -318,7 +322,7 @@ namespace kvdb{
 
         delete[] iov_front;
         delete[] iov_back;
-        notifyAndClean(wstat);
+        //notifyAndClean(wstat);
 
         return wstat;
 
@@ -386,7 +390,7 @@ namespace kvdb{
 
 
         delete[] iov;
-        notifyAndClean(wstat);
+        //notifyAndClean(wstat);
 
         return wstat;
 
@@ -483,7 +487,7 @@ namespace kvdb{
     void SegmentSlice::notifyAndClean(bool req_state)
     {
         //Set logic timestamp to hashentry
-        reqCommited.store(keyNum_);
+        reqCommited_.store(keyNum_);
 
         int32_t keyNo = 0;
         persistTime_.Update();
@@ -491,12 +495,12 @@ namespace kvdb{
         {
             keyNo ++;
             KVSlice *slice = &(*iter)->GetSlice();
-            HashEntry *entry = &slice->GetHashEntry();
-            entry->SetLogicStamp(persistTime_, keyNo);
+            HashEntry entry = slice->GetHashEntry();
+            entry.SetLogicStamp(persistTime_, keyNo);
 
             if (!slice->GetData())
             {
-                delReqList_.push_back(*entry);
+                delReqList_.push_back(entry);
             }
         }
 
@@ -504,11 +508,13 @@ namespace kvdb{
         while (!reqList_.empty())
         {
             Request *req = reqList_.front();
+            reqList_.pop_front();
             req->Done();
             req->SetState(req_state);
             req->Signal();
-            reqList_.pop_front();
         }
+
+        isCanReap_.store(true);
     }
 
 
@@ -541,11 +547,18 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentSlice::NotifyFailed()
+    void SegmentSlice::Notify(bool stat)
     {
-        notifyAndClean(false);
+        notifyAndClean(stat);
     }
 
+    void SegmentSlice::WaitForReap()
+    {
+        while(!isCanReap_.load())
+        {
+            usleep(100);
+        }
+    }
 
     bool SegmentSlice::isExpire()
     {

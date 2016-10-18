@@ -113,6 +113,11 @@ namespace kvdb{
 
             KVTime& GetSegTime() { return segTime_; }
             int32_t GetKeyNo() { return keyNo_; }
+            void Set(KVTime seg_time, int32_t seg_key_no)
+            {
+                segTime_ = seg_time;
+                keyNo_ = seg_key_no;
+            }
         };
         HashEntry();
         HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr);
