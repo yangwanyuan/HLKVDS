@@ -116,7 +116,7 @@ namespace kvdb{
         void Notify(bool stat);
 
         void ReqCommited() { reqCommited_--; }
-        bool CheckAllCommited() { return reqCommited_ == 0; }
+        bool CheckAllCommited() { return reqCommited_.load() == 0; }
         std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
         void WaitForReap();
 

@@ -334,12 +334,8 @@ namespace kvdb {
         enqueReqs(req);
 
         req->Wait();
-        bool res = req->GetState();
 
-        if (res)
-        {
-            res = updateMeta(req);
-        }
+        bool res = updateMeta(req);
 
         delete req;
         return res;
@@ -347,10 +343,15 @@ namespace kvdb {
 
     bool KvdbDS::updateMeta(Request *req)
     {
-        KVSlice *slice = &req->GetSlice();
+        bool res = req->GetState();
+        // update index
+        if (res)
+        {
+            KVSlice *slice = &req->GetSlice();
+            res = idxMgr_->UpdateIndex(slice);
+        }
 
-        bool res = idxMgr_->UpdateIndex(slice);
-
+        // minus the segment delete counter
         SegmentSlice *seg = req->GetSeg();
         seg->ReqCommited();
         if (seg->CheckAllCommited())
@@ -424,10 +425,16 @@ namespace kvdb {
         std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
         while (true)
         {
-            while (!segWriteQue_.empty())
+            while (true)
             {
 
                 lck_que.lock();
+                if(segWriteQue_.empty())
+                {
+                    lck_que.unlock();
+                    break;
+                }
+
                 SegmentSlice *seg = segWriteQue_.front();
                 segWriteQue_.pop_front();
                 lck_que.unlock();
@@ -508,10 +515,16 @@ namespace kvdb {
         std::unique_lock<std::mutex> lck_que(segReaperQueMtx_, std::defer_lock);
         while (true)
         {
-            while (!segReaperQue_.empty())
+            while (true)
             {
 
                 lck_que.lock();
+                if (segReaperQue_.empty())
+                {
+                    lck_que.unlock();
+                    break;
+                }
+
                 SegmentSlice *seg = segReaperQue_.front();
                 segReaperQue_.pop_front();
                 lck_que.unlock();
