@@ -113,11 +113,12 @@ namespace kvdb{
         bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
         bool CompleteIfExpired();
-        void NotifyFailed();
+        void Notify(bool stat);
 
-        void ReqCommited() { reqCommited--; }
-        bool CheckAllCommited() { return reqCommited.load() == 0; }
+        void ReqCommited() { reqCommited_--; }
+        bool CheckAllCommited() { return reqCommited_ == 0; }
         std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
+        void WaitForReap();
 
         uint32_t GetSegId() const { return segId_; }
 
@@ -148,7 +149,8 @@ namespace kvdb{
         bool isCompleted_;
         bool hasReq_;
 
-        std::atomic<int32_t> reqCommited;
+        std::atomic<int32_t> reqCommited_;
+        std::atomic<bool> isCanReap_;
 
         std::mutex mtx_;
 

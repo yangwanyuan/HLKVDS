@@ -137,7 +137,8 @@ namespace kvdb{
 
     HashEntry& HashEntry::operator=(const HashEntry& toBeCopied)
     {
-        entryPtr_ = new HashEntryOnDisk(*toBeCopied.entryPtr_);
+        *entryPtr_ = *toBeCopied.entryPtr_;
+        *stampPtr_ = *toBeCopied.stampPtr_;
         cachePtr_ = toBeCopied.cachePtr_;
         return *this;
     }
@@ -149,8 +150,7 @@ namespace kvdb{
 
     void HashEntry::SetLogicStamp(KVTime seg_time, int32_t seg_key_no)
     {
-        delete stampPtr_;
-        stampPtr_ = new LogicStamp(seg_time, seg_key_no);
+        stampPtr_->Set(seg_time, seg_key_no);
     }
 
     bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)

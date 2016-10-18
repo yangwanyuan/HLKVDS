@@ -350,10 +350,6 @@ namespace kvdb {
         KVSlice *slice = &req->GetSlice();
 
         bool res = idxMgr_->UpdateIndex(slice);
-        if (!res)
-        {
-            return false;
-        }
 
         SegmentSlice *seg = req->GetSeg();
         seg->ReqCommited();
@@ -364,7 +360,7 @@ namespace kvdb {
             segReaperQueCv_.notify_all();
         }
 
-        return true;
+        return res;
     }
 
 
@@ -441,11 +437,12 @@ namespace kvdb {
                 if (!res)
                 {
                     __ERROR("Cann't get a new Empty Segment.\n");
-                    seg->NotifyFailed();
+                    seg->Notify(res);
                 }
                 else
                 {
                     res = seg->WriteSegToDevice(seg_id);
+                    seg->Notify(res);
                     if (!res)
                     {
                         //Free the segment if write failed
@@ -525,6 +522,7 @@ namespace kvdb {
                     idxMgr_->RemoveEntry(*iter);
                 }
                 __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+                seg->WaitForReap();
                 delete seg;
             }
 
