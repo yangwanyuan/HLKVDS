@@ -115,8 +115,7 @@ namespace kvdb{
         bool CompleteIfExpired();
         void Notify(bool stat);
 
-        void ReqCommited() { reqCommited_--; }
-        bool CheckAllCommited() { return reqCommited_.load() == 0; }
+        int32_t CommitedAndGetNum() { return --reqCommited_; }
         std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
         void WaitForReap();
 

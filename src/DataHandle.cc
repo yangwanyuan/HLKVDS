@@ -153,11 +153,10 @@ namespace kvdb{
         headPos_(0), tailPos_(0), keyNum_(0), keyAlignedNum_(0),
         isCompleted_(false), hasReq_(false), segOndisk_(NULL)
     {
-        segOndisk_ = new SegmentOnDisk;
+        segOndisk_ = new SegmentOnDisk();
     }
 
     SegmentSlice::~SegmentSlice()
-
     {
         delReqList_.clear();
         delete segOndisk_;
@@ -169,6 +168,7 @@ namespace kvdb{
 
     SegmentSlice::SegmentSlice(const SegmentSlice& toBeCopied)
     {
+        segOndisk_ = new SegmentOnDisk();
         copyHelper(toBeCopied);
     }
 
@@ -208,7 +208,7 @@ namespace kvdb{
         keyNum_(0), keyAlignedNum_(0), isCompleted_(false), hasReq_(false),
         reqCommited_(-1), isCanReap_(false), segOndisk_(NULL)
     {
-        segOndisk_ = new SegmentOnDisk;
+        segOndisk_ = new SegmentOnDisk();
         //data_ = new char[segSize_];
     }
 
@@ -440,6 +440,7 @@ namespace kvdb{
         {
 
             KVSlice *slice = &(*iter)->GetSlice();
+            slice->SetSegId(segId_);
             if (slice->IsAlignedData())
             {
                 uint32_t data_offset = tail_pos - ALIGNED_SIZE;
