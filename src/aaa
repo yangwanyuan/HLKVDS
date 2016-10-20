@@ -1,0 +1,1003 @@
+==180181== Helgrind, a thread error detector
+==180181== Copyright (C) 2007-2013, and GNU GPL'd, by OpenWorks LLP et al.
+==180181== Using Valgrind-3.10.1 and LibVEX; rerun with -h for copyright info
+==180181== Command: ./Benchmark -f /dev/sdc1 -s 320000 -n 256
+==180181== 
+[INFO]  [Pid:67330624] Create_KvdbDS (Kvdb_Impl.cc:97) : 
+CreateKvdbDS table information:
+	 hashtable_size            : 524288
+	 num_entries               : 0
+	 deleted_entries           : 0
+	 segment_size              : 262144 Bytes
+	 number_segments           : 40913
+	 Database Superblock Size  : 4096 Bytes
+	 Database Index Size       : 12161024 Bytes
+	 Total DB Meta Region Size : 12165120 Bytes
+	 Total DB Data Region Size : 10725097472 Bytes
+	 Total DB Total Size       : 10737262592 Bytes
+	 Total Device Size         : 10737418240 Bytes
+Create DB use time: 14.463s
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #1 is the program's root thread
+==180181== 
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #4 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x4119B1: kvdb::Thread::Start() (Utils.cc:123)
+==180181==    by 0x40334E: kvdb::KvdbDS::startThds() (Kvdb_Impl.cc:231)
+==180181==    by 0x402B40: kvdb::KvdbDS::Create_KvdbDS(char const*, unsigned int, unsigned int) (Kvdb_Impl.cc:100)
+==180181==    by 0x414B20: Create_DB(std::string, int) (Benchmark.cc:44)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5C402D8 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404E24: std::unique_lock<std::mutex>::lock() (mutex:511)
+==180181==    by 0x403FCB: kvdb::KvdbDS::SegWriteThdEntry() (Kvdb_Impl.cc:437)
+==180181==    by 0x40490B: kvdb::KvdbDS::SegWriteThd::Entry() (Kvdb_Impl.h:74)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5c402d8 is 152 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x40276F: kvdb::KvdbDS::Create_KvdbDS(char const*, unsigned int, unsigned int) (Kvdb_Impl.cc:34)
+==180181==    by 0x414B20: Create_DB(std::string, int) (Benchmark.cc:44)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+==180181== Possible data race during write of size 1 at 0x5C402D0 by thread #1
+==180181== Locks held: 1, at address 0x5C402D8
+==180181==    at 0x404B2E: std::__atomic_base<bool>::store(bool, std::memory_order) (atomic_base.h:474)
+==180181==    by 0x404AC9: std::__atomic_base<bool>::operator=(bool) (atomic_base.h:375)
+==180181==    by 0x40454E: std::atomic_bool::operator=(bool) (atomic:70)
+==180181==    by 0x40338F: kvdb::KvdbDS::stopThds() (Kvdb_Impl.cc:239)
+==180181==    by 0x4032C1: kvdb::KvdbDS::closeDB() (Kvdb_Impl.cc:212)
+==180181==    by 0x4034B7: kvdb::KvdbDS::~KvdbDS() (Kvdb_Impl.cc:258)
+==180181==    by 0x403615: kvdb::KvdbDS::~KvdbDS() (Kvdb_Impl.cc:265)
+==180181==    by 0x414BB8: Create_DB(std::string, int) (Benchmark.cc:50)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== This conflicts with a previous read of size 1 by thread #4
+==180181== Locks held: none
+==180181==    at 0x404AF5: std::__atomic_base<bool>::load(std::memory_order) const (atomic_base.h:496)
+==180181==    by 0x40456E: std::atomic_bool::operator bool() const (atomic:77)
+==180181==    by 0x404488: kvdb::KvdbDS::SegReaperThdEntry() (Kvdb_Impl.cc:552)
+==180181==    by 0x404A7F: kvdb::KvdbDS::SegReaperThd::Entry() (Kvdb_Impl.h:127)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5c402d0 is 144 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x40276F: kvdb::KvdbDS::Create_KvdbDS(char const*, unsigned int, unsigned int) (Kvdb_Impl.cc:34)
+==180181==    by 0x414B20: Create_DB(std::string, int) (Benchmark.cc:44)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #3 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x4119B1: kvdb::Thread::Start() (Utils.cc:123)
+==180181==    by 0x403325: kvdb::KvdbDS::startThds() (Kvdb_Impl.cc:226)
+==180181==    by 0x402B40: kvdb::KvdbDS::Create_KvdbDS(char const*, unsigned int, unsigned int) (Kvdb_Impl.cc:100)
+==180181==    by 0x414B20: Create_DB(std::string, int) (Benchmark.cc:44)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181== Possible data race during write of size 1 at 0x5C40350 by thread #1
+==180181== Locks held: none
+==180181==    at 0x404B2E: std::__atomic_base<bool>::store(bool, std::memory_order) (atomic_base.h:474)
+==180181==    by 0x404AC9: std::__atomic_base<bool>::operator=(bool) (atomic_base.h:375)
+==180181==    by 0x40454E: std::atomic_bool::operator=(bool) (atomic:70)
+==180181==    by 0x4033D4: kvdb::KvdbDS::stopThds() (Kvdb_Impl.cc:245)
+==180181==    by 0x4032C1: kvdb::KvdbDS::closeDB() (Kvdb_Impl.cc:212)
+==180181==    by 0x4034B7: kvdb::KvdbDS::~KvdbDS() (Kvdb_Impl.cc:258)
+==180181==    by 0x403615: kvdb::KvdbDS::~KvdbDS() (Kvdb_Impl.cc:265)
+==180181==    by 0x414BB8: Create_DB(std::string, int) (Benchmark.cc:50)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== This conflicts with a previous read of size 1 by thread #3
+==180181== Locks held: none
+==180181==    at 0x404AF5: std::__atomic_base<bool>::load(std::memory_order) const (atomic_base.h:496)
+==180181==    by 0x40456E: std::atomic_bool::operator bool() const (atomic:77)
+==180181==    by 0x4042B0: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:509)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5c40350 is 272 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x40276F: kvdb::KvdbDS::Create_KvdbDS(char const*, unsigned int, unsigned int) (Kvdb_Impl.cc:34)
+==180181==    by 0x414B20: Create_DB(std::string, int) (Benchmark.cc:44)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181== Possible data race during read of size 1 at 0x5C40350 by thread #3
+==180181== Locks held: none
+==180181==    at 0x404AF5: std::__atomic_base<bool>::load(std::memory_order) const (atomic_base.h:496)
+==180181==    by 0x40456E: std::atomic_bool::operator bool() const (atomic:77)
+==180181==    by 0x4042B0: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:509)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181== 
+==180181== This conflicts with a previous write of size 1 by thread #1
+==180181== Locks held: none
+==180181==    at 0x404B2E: std::__atomic_base<bool>::store(bool, std::memory_order) (atomic_base.h:474)
+==180181==    by 0x404AC9: std::__atomic_base<bool>::operator=(bool) (atomic_base.h:375)
+==180181==    by 0x40454E: std::atomic_bool::operator=(bool) (atomic:70)
+==180181==    by 0x4033D4: kvdb::KvdbDS::stopThds() (Kvdb_Impl.cc:245)
+==180181==    by 0x4032C1: kvdb::KvdbDS::closeDB() (Kvdb_Impl.cc:212)
+==180181==    by 0x4034B7: kvdb::KvdbDS::~KvdbDS() (Kvdb_Impl.cc:258)
+==180181==    by 0x403615: kvdb::KvdbDS::~KvdbDS() (Kvdb_Impl.cc:265)
+==180181==    by 0x414BB8: Create_DB(std::string, int) (Benchmark.cc:50)
+==180181==  Address 0x5c40350 is 272 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x40276F: kvdb::KvdbDS::Create_KvdbDS(char const*, unsigned int, unsigned int) (Kvdb_Impl.cc:34)
+==180181==    by 0x414B20: Create_DB(std::string, int) (Benchmark.cc:44)
+==180181==    by 0x4159CC: Bench(std::string, int, int) (Benchmark.cc:206)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+[INFO]  [Pid:67330624] readMetaDataFromDevice (Kvdb_Impl.cc:166) : 
+Reading meta information from file:
+	 hashtable_size            : 524288
+	 num_entries               : 0
+	 deleted_entries           : 0
+	 segment_size              : 262144 Bytes
+	 number_segments           : 40913
+	 Database Superblock Size  : 4096 Bytes
+	 Database Index Size       : 12161024 Bytes
+	 Total DB Meta Region Size : 12165120 Bytes
+	 Total DB Data Region Size : 10725097472 Bytes
+	 Total DB Total Size       : 10737262592 Bytes
+	 Total Device Size         : 10737418240 Bytes
+	 Current Segment ID        : 0
+Insert Bench Start, record_num = 256, Please wait ...
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #10 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x415165: Bench_Insert(kvdb::KvdbDS*, int, std::vector<std::string, std::allocator<std::string> >&) (Benchmark.cc:118)
+==180181==    by 0x415A15: Bench(std::string, int, int) (Benchmark.cc:213)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #6 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x4119B1: kvdb::Thread::Start() (Utils.cc:123)
+==180181==    by 0x403325: kvdb::KvdbDS::startThds() (Kvdb_Impl.cc:226)
+==180181==    by 0x403202: kvdb::KvdbDS::openDB() (Kvdb_Impl.cc:201)
+==180181==    by 0x403027: kvdb::KvdbDS::Open_KvdbDS(char const*) (Kvdb_Impl.cc:180)
+==180181==    by 0x4159FC: Bench(std::string, int, int) (Benchmark.cc:211)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5C402D8 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404E24: std::unique_lock<std::mutex>::lock() (mutex:511)
+==180181==    by 0x403FCB: kvdb::KvdbDS::SegWriteThdEntry() (Kvdb_Impl.cc:437)
+==180181==    by 0x40490B: kvdb::KvdbDS::SegWriteThd::Entry() (Kvdb_Impl.h:74)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5c402d8 is 152 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402FEB: kvdb::KvdbDS::Open_KvdbDS(char const*) (Kvdb_Impl.cc:178)
+==180181==    by 0x4159FC: Bench(std::string, int, int) (Benchmark.cc:211)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+==180181==  Lock at 0x5C40278 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404E24: std::unique_lock<std::mutex>::lock() (mutex:511)
+==180181==    by 0x405470: std::unique_lock<std::unique_lock<std::mutex> >::lock() (mutex:511)
+==180181==    by 0x4050AA: std::unique_lock<std::unique_lock<std::mutex> >::unique_lock(std::unique_lock<std::mutex>&) (mutex:443)
+==180181==    by 0x404D60: _ZSt4lockISt11unique_lockISt5mutexES2_IEEvRT_RT0_DpRT1_ (mutex:712)
+==180181==    by 0x40421E: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:496)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==  Address 0x5c40278 is 56 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402FEB: kvdb::KvdbDS::Open_KvdbDS(char const*) (Kvdb_Impl.cc:178)
+==180181==    by 0x4159FC: Bench(std::string, int, int) (Benchmark.cc:211)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+==180181== Possible data race during read of size 8 at 0x5C40270 by thread #10
+==180181== Locks held: none
+==180181==    at 0x403F1E: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181== 
+==180181== This conflicts with a previous write of size 8 by thread #6
+==180181== Locks held: 2, at addresses 0x5C402D8 0x5C40278
+==180181==    at 0x404283: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5c40270 is 48 bytes inside a block of size 424 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402FEB: kvdb::KvdbDS::Open_KvdbDS(char const*) (Kvdb_Impl.cc:178)
+==180181==    by 0x4159FC: Bench(std::string, int, int) (Benchmark.cc:211)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181==  Block was alloc'd by thread #1
+==180181== 
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #11 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x415165: Bench_Insert(kvdb::KvdbDS*, int, std::vector<std::string, std::allocator<std::string> >&) (Benchmark.cc:118)
+==180181==    by 0x415A15: Bench(std::string, int, int) (Benchmark.cc:213)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during read of size 1 at 0x5D08AB0 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A2B8: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:218)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ab0 is 80 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during read of size 4 at 0x5D08AA4 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A2DE: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:223)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aa4 is 68 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during read of size 4 at 0x5D08AA0 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A2E5: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:223)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aa0 is 64 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during read of size 4 at 0x5D08AA8 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A31E: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:230)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aa8 is 72 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 1 at 0x5D08AB1 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A329: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:232)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ab1 is 81 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 8 at 0x5D08A90 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x3805F36C: ??? (in /usr/lib/valgrind/helgrind-amd64-linux)
+==180181==    by 0x411718: kvdb::KVTime::Update() (Utils.cc:44)
+==180181==    by 0x40A33C: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:233)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08a90 is 48 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 4 at 0x5D08AA0 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A35F: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:238)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aa0 is 64 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 4 at 0x5D08AA4 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A373: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:239)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aa4 is 68 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during read of size 4 at 0x5D08AAC by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A37A: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:240)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aac is 76 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 4 at 0x5D08AAC by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A384: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:240)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aac is 76 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 4 at 0x5D08AA8 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x40A3C4: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:246)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08aa8 is 72 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during read of size 8 at 0x5D08AF0 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x4EAB920: std::__detail::_List_node_base::_M_hook(std::__detail::_List_node_base*) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.19)
+==180181==    by 0x40C1D0: void std::list<kvdb::Request*, std::allocator<kvdb::Request*> >::_M_insert<kvdb::Request* const&>(std::_List_iterator<kvdb::Request*>, kvdb::Request* const&) (stl_list.h:1562)
+==180181==    by 0x40BAEB: std::list<kvdb::Request*, std::allocator<kvdb::Request*> >::push_back(kvdb::Request* const&) (stl_list.h:1016)
+==180181==    by 0x40A3E0: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:247)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08af0 is 144 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 8 at 0x5D08AE8 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x4EAB92F: std::__detail::_List_node_base::_M_hook(std::__detail::_List_node_base*) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.19)
+==180181==    by 0x40C1D0: void std::list<kvdb::Request*, std::allocator<kvdb::Request*> >::_M_insert<kvdb::Request* const&>(std::_List_iterator<kvdb::Request*>, kvdb::Request* const&) (stl_list.h:1562)
+==180181==    by 0x40BAEB: std::list<kvdb::Request*, std::allocator<kvdb::Request*> >::push_back(kvdb::Request* const&) (stl_list.h:1016)
+==180181==    by 0x40A3E0: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:247)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ae8 is 136 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181==  Lock at 0x5D08AC0 was first observed
+==180181==    at 0x4C32536: pthread_mutex_lock (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x402647: __gthread_mutex_lock(pthread_mutex_t*) (gthr-default.h:748)
+==180181==    by 0x404589: std::mutex::lock() (mutex:134)
+==180181==    by 0x404B5F: std::lock_guard<std::mutex>::lock_guard(std::mutex&) (mutex:414)
+==180181==    by 0x40A2B3: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:217)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08ac0 is 96 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== Possible data race during write of size 8 at 0x5D08AF0 by thread #11
+==180181== Locks held: 1, at address 0x5D08AC0
+==180181==    at 0x4EAB932: std::__detail::_List_node_base::_M_hook(std::__detail::_List_node_base*) (in /usr/lib/x86_64-linux-gnu/libstdc++.so.6.0.19)
+==180181==    by 0x40C1D0: void std::list<kvdb::Request*, std::allocator<kvdb::Request*> >::_M_insert<kvdb::Request* const&>(std::_List_iterator<kvdb::Request*>, kvdb::Request* const&) (stl_list.h:1562)
+==180181==    by 0x40BAEB: std::list<kvdb::Request*, std::allocator<kvdb::Request*> >::push_back(kvdb::Request* const&) (stl_list.h:1016)
+==180181==    by 0x40A3E0: kvdb::SegmentSlice::Put(kvdb::Request*) (DataHandle.cc:247)
+==180181==    by 0x403F30: kvdb::KvdbDS::enqueReqs(kvdb::Request*) (Kvdb_Impl.cc:405)
+==180181==    by 0x403B4D: kvdb::KvdbDS::insertKey(kvdb::KVSlice&) (Kvdb_Impl.cc:341)
+==180181==    by 0x4039B6: kvdb::KvdbDS::Insert(char const*, unsigned int, char const*, unsigned short) (Kvdb_Impl.cc:298)
+==180181==    by 0x414ECA: fun_insert(void*) (Benchmark.cc:87)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Address 0x5d08af0 is 144 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #7 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x4119B1: kvdb::Thread::Start() (Utils.cc:123)
+==180181==    by 0x40334E: kvdb::KvdbDS::startThds() (Kvdb_Impl.cc:231)
+==180181==    by 0x403202: kvdb::KvdbDS::openDB() (Kvdb_Impl.cc:201)
+==180181==    by 0x403027: kvdb::KvdbDS::Open_KvdbDS(char const*) (Kvdb_Impl.cc:180)
+==180181==    by 0x4159FC: Bench(std::string, int, int) (Benchmark.cc:211)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ---Thread-Announcement------------------------------------------
+==180181== 
+==180181== Thread #5 was created
+==180181==    at 0x597533E: clone (clone.S:74)
+==180181==    by 0x5664199: do_clone.constprop.3 (createthread.c:75)
+==180181==    by 0x56658BA: create_thread (createthread.c:245)
+==180181==    by 0x56658BA: pthread_create@@GLIBC_2.2.5 (pthread_create.c:611)
+==180181==    by 0x4C30E0D: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x4119B1: kvdb::Thread::Start() (Utils.cc:123)
+==180181==    by 0x4032FC: kvdb::KvdbDS::startThds() (Kvdb_Impl.cc:222)
+==180181==    by 0x403202: kvdb::KvdbDS::openDB() (Kvdb_Impl.cc:201)
+==180181==    by 0x403027: kvdb::KvdbDS::Open_KvdbDS(char const*) (Kvdb_Impl.cc:180)
+==180181==    by 0x4159FC: Bench(std::string, int, int) (Benchmark.cc:211)
+==180181==    by 0x415B0E: main (Benchmark.cc:230)
+==180181== 
+==180181== ----------------------------------------------------------------
+==180181== 
+==180181== Possible data race during read of size 1 at 0x5D94E38 by thread #7
+==180181== Locks held: none
+==180181==    at 0x404AF5: std::__atomic_base<bool>::load(std::memory_order) const (atomic_base.h:496)
+==180181==    by 0x40B55D: std::atomic_bool::load(std::memory_order) const (atomic:98)
+==180181==    by 0x40B3F6: kvdb::SegmentSlice::WaitForReap() (DataHandle.cc:557)
+==180181==    by 0x404458: kvdb::KvdbDS::SegReaperThdEntry() (Kvdb_Impl.cc:547)
+==180181==    by 0x404A7F: kvdb::KvdbDS::SegReaperThd::Entry() (Kvdb_Impl.h:127)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181== 
+==180181== This conflicts with a previous write of size 1 by thread #5
+==180181== Locks held: none
+==180181==    at 0x404B2E: std::__atomic_base<bool>::store(bool, std::memory_order) (atomic_base.h:474)
+==180181==    by 0x40B53A: std::atomic_bool::store(bool, std::memory_order) (atomic:90)
+==180181==    by 0x40B269: kvdb::SegmentSlice::notifyAndClean(bool) (DataHandle.cc:517)
+==180181==    by 0x40B3C6: kvdb::SegmentSlice::Notify(bool) (DataHandle.cc:552)
+==180181==    by 0x404107: kvdb::KvdbDS::SegWriteThdEntry() (Kvdb_Impl.cc:458)
+==180181==    by 0x40490B: kvdb::KvdbDS::SegWriteThd::Entry() (Kvdb_Impl.h:74)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==  Address 0x5d94e38 is 88 bytes inside a block of size 176 alloc'd
+==180181==    at 0x4C2C500: operator new(unsigned long) (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x404260: kvdb::KvdbDS::SegTimeoutThdEntry() (Kvdb_Impl.cc:502)
+==180181==    by 0x4049C5: kvdb::KvdbDS::SegTimeoutThd::Entry() (Kvdb_Impl.h:99)
+==180181==    by 0x4118F8: kvdb::Thread::runThread(void*) (Utils.cc:112)
+==180181==    by 0x4C30FA6: ??? (in /usr/lib/valgrind/vgpreload_helgrind-amd64-linux.so)
+==180181==    by 0x5665183: start_thread (pthread_create.c:312)
+==180181==    by 0x597537C: clone (clone.S:111)
+==180181==  Block was alloc'd by thread #6
+==180181== 
+Insert Bench Finish. use time: 5.16106s
+Insert Bench Result: 49.6023 per second.
+Get Sequential Bench Start, record_num = 256, Please wait ...
+Get Sequential Bench Finish. use time: 0.397274s
+Get Sequential Bench Result: 644.392 per second.
+==180181== 
+==180181== For counts of detected and suppressed errors, rerun with: -v
+==180181== Use --history-level=approx or =none to gain increased speed, at
+==180181== the cost of reduced accuracy of conflicting-access information
+==180181== ERROR SUMMARY: 2113 errors from 19 contexts (suppressed: 18273 from 72)

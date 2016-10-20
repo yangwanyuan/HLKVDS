@@ -353,8 +353,7 @@ namespace kvdb {
 
         // minus the segment delete counter
         SegmentSlice *seg = req->GetSeg();
-        seg->ReqCommited();
-        if (seg->CheckAllCommited())
+        if (!seg->CommitedAndGetNum())
         {
             std::lock_guard<std::mutex> lck_que(segReaperQueMtx_);
             segReaperQue_.push_back(seg);
