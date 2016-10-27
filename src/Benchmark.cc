@@ -15,7 +15,7 @@
 
 #define TEST_BS 4096
 //#define TEST_THREAD_NUM 2
-#define TEST_THREAD_NUM 128
+#define TEST_THREAD_NUM 512
 
 using namespace std;
 using namespace kvdb;
@@ -145,10 +145,10 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
     {
         string key = *iter;
         string get_data;
-        if ( key == "40999kkkkk")
-        {
-            cout << "hello" << endl;
-        }
+        //if ( key == "40999kkkkk")
+        //{
+        //    cout << "hello" << endl;
+        //}
         if (!db->Get(key.c_str(), key_len, get_data))
         {
             cout << "Get key=" << key << " from DB failed" << endl;

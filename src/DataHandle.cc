@@ -395,21 +395,24 @@ namespace kvdb{
 
     }
 
-    //bool SegmentSlice::_writeDataToDevice()
-    //{
-    //    uint64_t offset = 0;
-    //    segMgr_->ComputeSegOffsetFromId(segId_, offset);
-    //
-    //    bool wstat = true;
-    //    if (bdev_->pWrite(data_, segSize_, offset) != segSize_)
-    //    {
-    //        __ERROR("Write Segment front data error, seg_id:%u", segId_);
-    //        wstat = false;
-    //    }
+    bool SegmentSlice::_writeDataToDevice()
+    {
+        char *data_buff =  new char[segSize_];
+        copyToData(data_buff);
 
-    //    notifyAndClean(wstat);
-    //    return wstat;
-    //}
+        uint64_t offset = 0;
+        segMgr_->ComputeSegOffsetFromId(segId_, offset);
+
+        bool wstat = true;
+        if (bdev_->pWrite(data_buff, segSize_, offset) != segSize_)
+        {
+            __ERROR("Write Segment front data error, seg_id:%u", segId_);
+            wstat = false;
+        }
+
+        delete data_buff;
+        return wstat;
+    }
 
     bool SegmentSlice::WriteSegToDevice(uint32_t seg_id)
     {
@@ -419,17 +422,19 @@ namespace kvdb{
 
         __DEBUG("Begin write seg, free size %u, seg id: %d, key num: %d", tailPos_-headPos_ , segId_, keyNum_);
 
-        uint32_t hole_size = tailPos_ - headPos_;
-        if ( hole_size > (segSize_ >> 1))
-        {
-            return _writeToDeviceHugeHole();
-        }
-        else
-        {
-            return _writeToDevice();
-            //copyToData();
-            //return _writeDataToDevice();
-        }
+        //return _writeToDevice();
+
+        return _writeDataToDevice();
+
+        //uint32_t hole_size = tailPos_ - headPos_;
+        //if ( hole_size > (segSize_ >> 1))
+        //{
+        //    return _writeToDeviceHugeHole();
+        //}
+        //else
+        //{
+        //    return _writeToDevice();
+        //}
     }
 
     void SegmentSlice::fillSlice()
@@ -495,7 +500,7 @@ namespace kvdb{
         {
             keyNo ++;
             KVSlice *slice = &(*iter)->GetSlice();
-            HashEntry entry = slice->GetHashEntry();
+            HashEntry &entry = slice->GetHashEntry();
             entry.SetLogicStamp(persistTime_, keyNo);
 
             if (!slice->GetData())
@@ -579,43 +584,43 @@ namespace kvdb{
         return freeSize > needSize;
     }
 
-    //void SegmentSlice::copyToData()
-    //{
-    //    uint64_t offset = 0;
-    //    segMgr_->ComputeSegOffsetFromId(segId_, offset);
+    void SegmentSlice::copyToData(char* data_buff)
+    {
+        uint64_t offset = 0;
+        segMgr_->ComputeSegOffsetFromId(segId_, offset);
 
-    //    uint32_t offset_begin = 0;
-    //    uint32_t offset_end = segSize_;
+        uint32_t offset_begin = 0;
+        uint32_t offset_end = segSize_;
 
-    //    memcpy(data_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
-    //    offset_begin += SegmentManager::SizeOfSegOnDisk();
+        memcpy(data_buff, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+        offset_begin += SegmentManager::SizeOfSegOnDisk();
 
-    //    //aggregate iovec
-    //    for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
-    //    {
-    //        KVSlice *slice = &(*iter)->GetSlice();
-    //        DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
-    //        char *data = (char *)slice->GetData();
-    //        uint16_t data_len = slice->GetDataLen();
+        //aggregate iovec
+        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
+        {
+            KVSlice *slice = &(*iter)->GetSlice();
+            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
+            char *data = (char *)slice->GetData();
+            uint16_t data_len = slice->GetDataLen();
 
-    //        memcpy(&(data_[offset_begin]), header, IndexManager::SizeOfDataHeader());
-    //        offset_begin += IndexManager::SizeOfDataHeader();
+            memcpy(&(data_buff[offset_begin]), header, IndexManager::SizeOfDataHeader());
+            offset_begin += IndexManager::SizeOfDataHeader();
 
-    //        if (slice->IsAlignedData())
-    //        {
-    //            offset_end -= data_len;
-    //            memcpy(&(data_[offset_end]), data, data_len);
-    //            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_end + offset);
-    //        }
-    //        else
-    //        {
-    //            memcpy(&(data_[offset_begin]), data, data_len);
-    //            offset_begin += data_len;
-    //            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
-    //        }
-    //    }
+            if (slice->IsAlignedData())
+            {
+                offset_end -= data_len;
+                memcpy(&(data_buff[offset_end]), data, data_len);
+                __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_end + offset);
+            }
+            else
+            {
+                memcpy(&(data_buff[offset_begin]), data, data_len);
+                offset_begin += data_len;
+                __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
+            }
+        }
 
-    //}
+    }
 
     void SegmentSlice::fillSegHead()
     {

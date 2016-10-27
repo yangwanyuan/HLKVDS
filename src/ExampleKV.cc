@@ -6,8 +6,8 @@
 
 #define TEST_RECORD_NUM 1
 
-#define TEST_DB_FILENAME "/dev/sdc1"
-//#define TEST_DB_FILENAME "/dev/sdc3"
+#define TEST_DB_FILENAME "/dev/sdb1"
+//#define TEST_DB_FILENAME "/dev/sdb3"
 
 void Get(kvdb::DB *db)
 {
