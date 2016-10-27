@@ -9,8 +9,8 @@
 #define TEST_HT_MAX_LOAD_FACTOR 0.8
 #define TEST_SEGMENT_SIZE 256*1024
 
-#define TEST_DB_FILENAME "/dev/sdc1"
-//#define TEST_DB_FILENAME "/dev/sdc3"
+#define TEST_DB_FILENAME "/dev/sdb1"
+//#define TEST_DB_FILENAME "/dev/sdb3"
 
 void CreateExample()
 {

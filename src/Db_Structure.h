@@ -12,7 +12,7 @@
 #define EXPIRED_TIME 1000 // unit microseconds
 #define ALIGNED_SIZE 4096
 
-#define SEG_POOL_SIZE 5
+#define SEG_POOL_SIZE 10
 
 //#define DEBUG
 #define INFO

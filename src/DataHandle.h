@@ -130,8 +130,8 @@ namespace kvdb{
         void notifyAndClean(bool req_state);
         bool _writeToDeviceHugeHole();
         bool _writeToDevice();
-        //bool _writeDataToDevice();
-        //void copyToData();
+        bool _writeDataToDevice();
+        void copyToData(char* data_buff);
 
         uint32_t segId_;
         SegmentManager* segMgr_;

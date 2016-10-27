@@ -217,14 +217,17 @@ namespace kvdb {
     {
         std::lock_guard<std::mutex> lck_wq(segWriteQueMtx_);
         segWriteT_stop_.store(false);
-        segWriteT_.Start();
+        for(int i = 0; i<SEG_POOL_SIZE; i++)
+        {
+            segWriteTP_.push_back(std::thread(&KvdbDS::SegWriteThdEntry, this));
+        }
 
         segTimeoutT_stop_.store(false);
-        segTimeoutT_.Start();
+        segTimeoutT_ = std::thread(&KvdbDS::SegTimeoutThdEntry, this);
 
-        std::lock_guard<std::mutex> lck_rq(segReaperQueMtx_);
+        //std::lock_guard<std::mutex> lck_rq(segReaperQueMtx_);
         segReaperT_stop_.store(false);
-        segReaperT_.Start();
+        segReaperT_ = std::thread(&KvdbDS::SegReaperThdEntry, this);
 
     }
 
@@ -234,16 +237,20 @@ namespace kvdb {
         segWriteT_stop_.store(true);
         segWriteQueCv_.notify_all();
         lck_wq.unlock();
-        segWriteT_.Join();
+        for(auto &th : segWriteTP_)
+        {
+            th.join();
+        }
 
         segTimeoutT_stop_.store(true);
-        segTimeoutT_.Join();
+        segTimeoutT_.join();
 
         std::unique_lock<std::mutex> lck_rq(segReaperQueMtx_);
         segReaperT_stop_.store(true);
         segReaperQueCv_.notify_all();
         lck_rq.unlock();
-        segReaperT_.Join();
+        segReaperT_.join();
+
     }
 
     KvdbDS::~KvdbDS()
@@ -255,19 +262,21 @@ namespace kvdb {
         delete bdev_;
         delete seg_;
 
+
     }
 
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
         seg_(NULL),
-        segWriteT_(this), segWriteT_stop_(false),
-        segTimeoutT_(this), segTimeoutT_stop_(false),
-        segReaperT_(this), segReaperT_stop_(false)
+        segWriteT_stop_(false),
+        segTimeoutT_stop_(false),
+        segReaperT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
         idxMgr_ = new IndexManager(bdev_, sbMgr_);
+
     }
 
 
@@ -407,6 +416,7 @@ namespace kvdb {
 
                 segWriteQue_.push_back(temp);
                 segWriteQueCv_.notify_all();
+                //segWriteQueCv_.notify_one();
             }
             else
             {
@@ -456,6 +466,7 @@ namespace kvdb {
                     }
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d %s", seg_id, res==true? "Success":"Failed");
+                    //__INFO("Segment thread write seg to device, seg_id:%d %s", seg_id, res==true? "Success":"Failed");
 
                     //Update Superblock
                     sbMgr_->SetCurSegId(seg_id);
@@ -486,12 +497,15 @@ namespace kvdb {
             if (seg_->CompleteIfExpired())
             {
                 std::lock(lck, lck_que);
+                if(seg_->CompleteIfExpired())
+                {
+                    SegmentSlice *temp = seg_;
+                    segWriteQue_.push_back(temp);
+                    segWriteQueCv_.notify_all();
+                    //segWriteQueCv_.notify_one();
 
-                SegmentSlice *temp = seg_;
-                segWriteQue_.push_back(temp);
-                segWriteQueCv_.notify_all();
-
-                seg_ = new SegmentSlice(segMgr_, bdev_);
+                    seg_ = new SegmentSlice(segMgr_, bdev_);
+                }
 
                 lck.unlock();
                 lck_que.unlock();
@@ -551,3 +565,4 @@ namespace kvdb {
     }
 
 }
+
