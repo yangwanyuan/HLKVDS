@@ -3,6 +3,7 @@
 #define _KV_DB_KVDB_IMPL_H_
 
 #include <list>
+#include <queue>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
@@ -14,8 +15,9 @@
 #include "IndexManager.h"
 #include "DataHandle.h"
 #include "SegmentManager.h"
+#include "WorkQueue.h"
 
-using namespace std;
+//using namespace std;
 
 namespace kvdb {
 
@@ -59,6 +61,16 @@ namespace kvdb {
 
         SegmentSlice *seg_;
         std::mutex segMtx_;
+
+    // Request Dispatch thread
+    private:
+        std::thread reqDispatchT_;
+        std::queue<Request*> reqQue_;
+        std::atomic<bool> reqDispatchT_stop_;
+        std::mutex reqQueMtx_;
+        std::condition_variable reqQueCv_;
+
+        void ReqDispatchThdEntry();
 
     // Seg Write to device thread
     private:
