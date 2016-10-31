@@ -410,7 +410,7 @@ namespace kvdb{
             wstat = false;
         }
 
-        delete data_buff;
+        delete[] data_buff;
         return wstat;
     }
 

@@ -215,6 +215,9 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
+        reqDispatchT_stop_.store(false);
+        reqDispatchT_ = std::thread(&KvdbDS::ReqDispatchThdEntry,this);
+
         std::lock_guard<std::mutex> lck_wq(segWriteQueMtx_);
         segWriteT_stop_.store(false);
         for(int i = 0; i<SEG_POOL_SIZE; i++)
@@ -233,6 +236,12 @@ namespace kvdb {
 
     void KvdbDS::stopThds()
     {
+        std::unique_lock<std::mutex> lck_rq(reqQueMtx_);
+        reqDispatchT_stop_.store(true);
+        reqQueCv_.notify_all();
+        lck_rq.unlock();
+        reqDispatchT_.join();
+
         std::unique_lock<std::mutex> lck_wq(segWriteQueMtx_);
         segWriteT_stop_.store(true);
         segWriteQueCv_.notify_all();
@@ -245,10 +254,10 @@ namespace kvdb {
         segTimeoutT_stop_.store(true);
         segTimeoutT_.join();
 
-        std::unique_lock<std::mutex> lck_rq(segReaperQueMtx_);
+        std::unique_lock<std::mutex> lck_srq(segReaperQueMtx_);
         segReaperT_stop_.store(true);
         segReaperQueCv_.notify_all();
-        lck_rq.unlock();
+        lck_srq.unlock();
         segReaperT_.join();
 
     }
@@ -268,6 +277,7 @@ namespace kvdb {
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
         seg_(NULL),
+        reqDispatchT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
         segReaperT_stop_(false)
@@ -340,7 +350,12 @@ namespace kvdb {
     {
         Request *req = new Request(slice);
 
-        enqueReqs(req);
+        //enqueReqs(req);
+        std::unique_lock<std::mutex> lck_req_que(reqQueMtx_);
+        //reqQue_.push_back(req);
+        reqQue_.push(req);
+        reqQueCv_.notify_all();
+        lck_req_que.unlock();
 
         req->Wait();
 
@@ -425,6 +440,62 @@ namespace kvdb {
             lck.unlock();
             lck_que.unlock();
         }
+    }
+
+    void KvdbDS::ReqDispatchThdEntry()
+    {
+        __DEBUG("Requests Dispatch thread start!!");
+        std::unique_lock<std::mutex> lck_req_que(reqQueMtx_, std::defer_lock);
+        std::unique_lock<std::mutex> lck_seg(segMtx_, std::defer_lock);
+        std::unique_lock<std::mutex> lck_seg_que(segWriteQueMtx_, std::defer_lock);
+        while(true)
+        {
+            lck_req_que.lock();
+            while(!reqQue_.empty())
+            {
+                Request *req = reqQue_.front();
+                //reqQue_.pop_front();
+                reqQue_.pop();
+
+                ///////////////////////
+                while(!seg_->Put(req))
+                {
+                    std::lock(lck_seg, lck_seg_que);
+                    if (!seg_->Put(req))
+                    {
+                        seg_->Complete();
+
+                        SegmentSlice *temp = seg_;
+                        seg_ = new SegmentSlice(segMgr_, bdev_);
+
+                        segWriteQue_.push_back(temp);
+                        segWriteQueCv_.notify_all();
+                        //segWriteQueCv_.notify_one();
+                    }
+                    else
+                    {
+                        lck_seg.unlock();
+                        lck_seg_que.unlock();
+                        break;
+                    }
+                    lck_seg.unlock();
+                    lck_seg_que.unlock();
+                }
+                ///////////////////////
+            }
+            lck_req_que.unlock();
+
+            if (reqDispatchT_stop_.load())
+            {
+                break;
+            }
+
+            lck_req_que.lock();
+            reqQueCv_.wait(lck_req_que);
+            lck_req_que.unlock();
+
+        }
+        __DEBUG("Requests Dispatch thread stop!!");
     }
 
     void KvdbDS::SegWriteThdEntry()
