@@ -1,12 +1,12 @@
 CC = gcc
 CXX = g++
-C_FLAGS = -g -Wall
-CXX_FLAGS = -g -Wall --std=c++11
+C_FLAGS = -g -Wall -fPIC
+CXX_FLAGS = -g -Wall --std=c++11 -fPIC
 INCLUDES = -I ./
 LIBS = -pthread
 
 #PROGNAME = CreateDb ExampleKV DbTest
-PROGNAME = DbTest CreateDb ExampleKV Benchmark
+PROGNAME = DbTest CreateDb ExampleKV Benchmark libkv.so
 
 all: $(PROGNAME)
 
@@ -30,6 +30,8 @@ ExampleKV: $(OBJECTS)
 DbTest : $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) DbTest.cc -o DbTest $(INCLUDES) $(LIBS)
 
+libkv.so: $(OBJECTS)
+	$(CXX) $(CXX_FLAGS) $(OBJECTS) -shared -o libkv.so $(INCLUDES) $(LIBS)
 .PHONY:clean
 clean:
 	rm -fr $(OBJECTS) 
