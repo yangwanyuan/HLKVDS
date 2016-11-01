@@ -114,7 +114,7 @@ namespace kvdb{
             goto create_fail;
         }
 
-        return OK;
+        return FOK;
 
 create_fail:
         close(directFd_);
@@ -144,7 +144,7 @@ create_fail:
             return ERR;
         }    
 
-        return OK;
+        return FOK;
     }
 
     int KernelDevice::set_metazone_zero(uint64_t meta_size)
@@ -165,7 +165,7 @@ create_fail:
             }
             nbytes -= bytes_to_write;
         }
-        return OK;
+        return FOK;
     }
 
     int KernelDevice::fill_file_with_zeros()
@@ -186,7 +186,7 @@ create_fail:
             }
             nbytes -= bytes_to_write; 
         }
-        return OK;
+        return FOK;
     }
 
     uint64_t KernelDevice::get_block_device_capacity()
@@ -248,7 +248,7 @@ create_fail:
             devType_ = REG_FILE;
             capacity_ = statbuf.st_size; 
         }
-        return OK;
+        return FOK;
 open_fail:
         close(bufFd_);
         close(directFd_);

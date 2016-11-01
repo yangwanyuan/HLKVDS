@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+namespace kvdb {
 #define MAGIC_NUMBER 0xffff0001
 
 #define RMDsize 160
@@ -63,7 +64,7 @@
     #define __ERROR(x...)
 #endif
 
-#define OK 0
+#define FOK 0
 #define ERR (-1)
 
 typedef uint16_t U16;
@@ -73,7 +74,6 @@ typedef int16_t S16;
 typedef int32_t S32;
 typedef int64_t S64;
 
-namespace kvdb {
     enum struct OpType {UNKOWN, INSERT, UPDATE, DELETE};
 }  // namespace kvdb
 

@@ -7,7 +7,6 @@
 #include "Kvdb_Impl.h"
 
 using namespace std;
-using namespace kvdb;
 
 namespace kvdb{
 
