@@ -410,7 +410,7 @@ namespace kvdb{
             wstat = false;
         }
 
-        delete data_buff;
+        delete[] data_buff;
         return wstat;
     }
 
@@ -619,6 +619,7 @@ namespace kvdb{
                 __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
             }
         }
+        memset(&(data_buff[offset_begin]), 0, (offset_end - offset_begin));
 
     }
 
