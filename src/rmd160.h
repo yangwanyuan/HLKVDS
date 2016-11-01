@@ -47,8 +47,8 @@ typedef    unsigned int        dword; /* unsigned 32-bit integer */
 /* x must be of an unsigned 32 bits type and 0 <= n < 32. */
 #define ROL(x, n)        (((x) << (n)) | ((x) >> (32-(n))))
 
-/* the three basic functions F(), G() and H() */
-#define F(x, y, z)        ((x) ^ (y) ^ (z)) 
+/* the three basic functions F1(), G() and H() */
+#define F1(x, y, z)        ((x) ^ (y) ^ (z))
 #define G(x, y, z)        (((x) & (y)) | (~(x) & (z))) 
 #define H(x, y, z)        (((x) | ~(y)) ^ (z))
 #define I(x, y, z)        (((x) & (z)) | ((y) & ~(z))) 
@@ -56,7 +56,7 @@ typedef    unsigned int        dword; /* unsigned 32-bit integer */
   
 /* the eight basic operations FF() through III() */
 #define FF(a, b, c, d, e, x, s)        {\
-      (a) += F((b), (c), (d)) + (x);\
+      (a) += F1((b), (c), (d)) + (x);\
       (a) = ROL((a), (s)) + (e);\
       (c) = ROL((c), 10);\
    }
@@ -81,7 +81,7 @@ typedef    unsigned int        dword; /* unsigned 32-bit integer */
       (c) = ROL((c), 10);\
    }
 #define FFF(a, b, c, d, e, x, s)        {\
-      (a) += F((b), (c), (d)) + (x);\
+      (a) += F1((b), (c), (d)) + (x);\
       (a) = ROL((a), (s)) + (e);\
       (c) = ROL((c), 10);\
    }

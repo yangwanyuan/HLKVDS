@@ -37,3 +37,7 @@ clean:
 	rm -fr $(OBJECTS) 
 	rm -fr $(PROGNAME)
 
+
+install:
+	cp *.h /usr/local/include
+	cp libkv.so /usr/local/lib

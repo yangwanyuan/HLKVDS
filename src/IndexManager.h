@@ -15,10 +15,10 @@
 
 using namespace std;
 
-class SegmentSlice;
 
 namespace kvdb{
     class KVSlice;
+    class SegmentSlice;
     //struct OpType;
 
     class DataHeader {
