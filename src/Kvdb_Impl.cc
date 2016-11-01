@@ -10,7 +10,7 @@
 
 namespace kvdb {
 
-    KvdbDS* KvdbDS::instance_ = NULL;
+    //KvdbDS* KvdbDS::instance_ = NULL;
 
     KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
                                     uint32_t hash_table_size,
@@ -171,11 +171,11 @@ namespace kvdb {
 
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
-        if (instance_)
-        {
-            return instance_;
-        }
-        instance_ = new KvdbDS(filename);
+        //if (instance_)
+        //{
+        //    return instance_;
+        //}
+        KvdbDS *instance_ = new KvdbDS(filename);
 
         if (!instance_->openDB())
         {

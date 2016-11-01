@@ -88,8 +88,8 @@ namespace kvdb {
 
         void SegReaperThdEntry();
 
-    private:
-        static KvdbDS *instance_;
+    //private:
+    //    static KvdbDS *instance_;
     };
 
 

@@ -95,5 +95,8 @@ int main(int argc, char** argv){
 
     Create_DB_Test(filename);
     Open_DB_Test(filename);
+    std::cout<<"first process success" << std::endl;
+    Create_DB_Test(filename);
+    Open_DB_Test(filename);
     return 0;
 }
