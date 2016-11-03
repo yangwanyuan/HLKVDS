@@ -160,10 +160,6 @@ namespace kvdb{
     {
         delReqList_.clear();
         delete segOndisk_;
-        //if(data_)
-        //{
-        //    delete[] data_;
-        //}
     }
 
     SegmentSlice::SegmentSlice(const SegmentSlice& toBeCopied)
@@ -197,7 +193,6 @@ namespace kvdb{
         reqList_ = toBeCopied.reqList_;
         *segOndisk_ = *toBeCopied.segOndisk_;
         delReqList_ = toBeCopied.delReqList_;
-        //data_ = toBeCopied.data_;
     }
 
     SegmentSlice::SegmentSlice(SegmentManager* sm, BlockDevice* bdev)
@@ -209,7 +204,6 @@ namespace kvdb{
         reqCommited_(-1), isCanReap_(false), segOndisk_(NULL)
     {
         segOndisk_ = new SegmentOnDisk();
-        //data_ = new char[segSize_];
     }
 
     bool SegmentSlice::TryPut(Request* req)
@@ -218,31 +212,11 @@ namespace kvdb{
         {
             return false;
         }
-        KVSlice *slice = &req->GetSlice();
-        uint32_t freeSize = tailPos_ - headPos_;
-        uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
-        if (freeSize < needSize)
-        {
-            return false;
-        }
-        return true;
+        return isCanFit(req);
     }
 
     bool SegmentSlice::Put(Request* req)
     {
-        //std::lock_guard<std::mutex> l(mtx_);
-        //if(isCompleted_)
-        //{
-        //    return false;
-        //}
-        //KVSlice *slice = &req->GetSlice();
-        //uint32_t freeSize = tailPos_ - headPos_;
-        //uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
-        //if (freeSize < needSize)
-        //{
-        //    return false;
-        //}
-        //
         KVSlice *slice = &req->GetSlice();
 
         if ( keyNum_ == 0)
@@ -269,149 +243,6 @@ namespace kvdb{
         return true;
     }
 
-    bool SegmentSlice::_writeToDeviceHugeHole()
-    {
-        //calculate iovec offset
-        uint64_t front_offset = 0;
-        segMgr_->ComputeSegOffsetFromId(segId_, front_offset);
-        uint64_t back_offset = (front_offset + segSize_) - (ALIGNED_SIZE * keyAlignedNum_);
-
-        //alloc iovec
-        uint32_t iovec_num = keyNum_ * 2 + 1;
-        uint32_t front_iovec_num = iovec_num - keyAlignedNum_;
-        uint32_t back_iovec_num = keyAlignedNum_;
-        ssize_t front_nwriten = 0;
-        ssize_t back_nwriten = 0;
-        uint32_t front_index = 0;
-        uint32_t back_index = keyAlignedNum_ - 1;
-
-        struct iovec *iov_front = new struct iovec[front_iovec_num];
-        struct iovec *iov_back = new struct iovec[back_iovec_num];
-
-        //aggregate SegmentOnDisk to iovec
-        iov_front[front_index].iov_base = segOndisk_;
-        iov_front[front_index].iov_len = SegmentManager::SizeOfSegOnDisk();
-        front_index++;
-        front_nwriten += SegmentManager::SizeOfSegOnDisk();
-
-        //aggregate iovec
-        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
-        {
-            KVSlice *slice = &(*iter)->GetSlice();
-            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
-            char *data = (char *)slice->GetData();
-            uint16_t data_len = slice->GetDataLen();
-
-            iov_front[front_index].iov_base = header;
-            iov_front[front_index].iov_len = IndexManager::SizeOfDataHeader();
-            front_index++;
-            front_nwriten += IndexManager::SizeOfDataHeader();
-
-            if (slice->IsAlignedData())
-            {
-                iov_back[back_index].iov_base = data;
-                iov_back[back_index].iov_len = data_len;
-                back_index--;
-                back_nwriten += data_len;
-            }
-            else
-            {
-                iov_front[front_index].iov_base = data;
-                iov_front[front_index].iov_len = data_len;
-                front_index++;
-                front_nwriten += data_len;
-            }
-        }
-
-        //Write segment head, dataheader
-        bool wstat = true;
-        if (bdev_->pWritev(iov_front, front_iovec_num, front_offset) != front_nwriten)
-        {
-            __ERROR("Write Segment front data error, seg_id:%u", segId_);
-            wstat = false;
-        }
-
-        if (bdev_->pWritev(iov_back, back_iovec_num, back_offset) != back_nwriten)
-        {
-            __ERROR("Write Segment front data error, seg_id:%u", segId_);
-            wstat = false;
-        }
-
-        delete[] iov_front;
-        delete[] iov_back;
-        //notifyAndClean(wstat);
-
-        return wstat;
-
-    }
-
-    bool SegmentSlice::_writeToDevice()
-    {
-        //calculate iovec offset
-        uint64_t offset = 0;
-        segMgr_->ComputeSegOffsetFromId(segId_, offset);
-
-        //alloc iovec
-        uint32_t iovec_num = keyNum_ * 2 + 2;
-        uint32_t index = 0;
-        uint32_t back_index = iovec_num - 1;
-
-        struct iovec *iov = new struct iovec[iovec_num];
-        iov[index].iov_base = segOndisk_;
-        iov[index].iov_len = SegmentManager::SizeOfSegOnDisk();
-        __DEBUG("Segment size %lu, index: %u, total: %u", iov[index].iov_len, index, iovec_num);
-        index ++ ;
-
-        //aggregate iovec
-        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
-        {
-            KVSlice *slice = &(*iter)->GetSlice();
-            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
-            char *data = (char *)slice->GetData();
-            uint16_t data_len = slice->GetDataLen();
-
-            iov[index].iov_base = header;
-            iov[index].iov_len = IndexManager::SizeOfDataHeader();
-            __DEBUG("Dataheader size %lu, index: %u", iov[index].iov_len, index);
-            index++;
-
-            if (slice->IsAlignedData())
-            {
-                iov[back_index].iov_base = data;
-                iov[back_index].iov_len = data_len;
-                __DEBUG("Aligned value size %lu, index: %u", iov[back_index].iov_len, back_index);
-                back_index--;
-            }
-            else
-            {
-                iov[index].iov_base = data;
-                iov[index].iov_len = data_len;
-                index++;
-            }
-        }
-
-        ssize_t hole_size = tailPos_ - headPos_;
-        char *hole = segMgr_->GetZeros();
-
-        iov[index].iov_base = hole;
-        iov[index].iov_len = hole_size;
-        __DEBUG("hole size %lu, index:%u", iov[index].iov_len, index);
-
-        //Write segment head, dataheader
-        bool wstat = true;
-        if (bdev_->pWritev(iov, iovec_num, offset) != segSize_)
-        {
-            __ERROR("Write Segment front data error, seg_id:%u", segId_);
-            wstat = false;
-        }
-
-
-        delete[] iov;
-        //notifyAndClean(wstat);
-
-        return wstat;
-
-    }
 
     bool SegmentSlice::_writeDataToDevice()
     {
@@ -434,25 +265,11 @@ namespace kvdb{
 
     bool SegmentSlice::WriteSegToDevice(uint32_t seg_id)
     {
-
         segId_ = seg_id;
         fillSlice();
-
         __DEBUG("Begin write seg, free size %u, seg id: %d, key num: %d", tailPos_-headPos_ , segId_, keyNum_);
 
-        //return _writeToDevice();
-
         return _writeDataToDevice();
-
-        //uint32_t hole_size = tailPos_ - headPos_;
-        //if ( hole_size > (segSize_ >> 1))
-        //{
-        //    return _writeToDeviceHugeHole();
-        //}
-        //else
-        //{
-        //    return _writeToDevice();
-        //}
     }
 
     void SegmentSlice::fillSlice()
@@ -553,33 +370,11 @@ namespace kvdb{
         isCompleted_ = true;
     }
 
-    //bool SegmentSlice::CompleteIfExpired()
-    //{
-    //    //std::lock_guard<std::mutex> l(mtx_);
-    //    if (isCompleted_)
-    //    {
-    //        return true;
-    //    }
-    //    if (!isExpire())
-    //    {
-    //        return false;
-    //    }
-
-    //    fillSegHead();
-    //    isCompleted_ = true;
-    //    return true;
-    //}
-
-
     void SegmentSlice::Notify(bool stat)
     {
         notifyAndClean(stat);
     }
 
-    bool SegmentSlice::IsExpired()
-    {
-        return isExpire();
-    }
 
     void SegmentSlice::WaitForReap()
     {
@@ -589,7 +384,7 @@ namespace kvdb{
         }
     }
 
-    bool SegmentSlice::isExpire()
+    bool SegmentSlice::IsExpired()
     {
         KVTime nowTime;
         if (!hasReq_)

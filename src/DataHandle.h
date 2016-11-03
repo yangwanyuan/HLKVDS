@@ -113,7 +113,6 @@ namespace kvdb{
         bool Put(Request* req);
         bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
-        //bool CompleteIfExpired();
         void Notify(bool stat);
         bool IsExpired();
 
@@ -124,14 +123,11 @@ namespace kvdb{
         uint32_t GetSegId() const { return segId_; }
 
     private:
-        bool isExpire();
         bool isCanFit(Request* req) const;
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSlice();
         void fillSegHead();
         void notifyAndClean(bool req_state);
-        bool _writeToDeviceHugeHole();
-        bool _writeToDevice();
         bool _writeDataToDevice();
         void copyToData(char* data_buff);
 
@@ -159,8 +155,6 @@ namespace kvdb{
         SegmentOnDisk *segOndisk_;
 
         std::list<HashEntry> delReqList_;
-
-        //char* data_;
     };
 
 } //end namespace kvdb
