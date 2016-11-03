@@ -215,7 +215,9 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        std::lock_guard<std::mutex> lck_wq(segWriteQueMtx_);
+        reqDispatchT_stop_.store(false);
+        reqDispatchT_ = std::thread(&KvdbDS::ReqDispatchThdEntry,this);
+
         segWriteT_stop_.store(false);
         for(int i = 0; i<SEG_POOL_SIZE; i++)
         {
@@ -225,7 +227,6 @@ namespace kvdb {
         segTimeoutT_stop_.store(false);
         segTimeoutT_ = std::thread(&KvdbDS::SegTimeoutThdEntry, this);
 
-        //std::lock_guard<std::mutex> lck_rq(segReaperQueMtx_);
         segReaperT_stop_.store(false);
         segReaperT_ = std::thread(&KvdbDS::SegReaperThdEntry, this);
 
@@ -233,10 +234,10 @@ namespace kvdb {
 
     void KvdbDS::stopThds()
     {
-        std::unique_lock<std::mutex> lck_wq(segWriteQueMtx_);
+        reqDispatchT_stop_.store(true);
+        reqDispatchT_.join();
+
         segWriteT_stop_.store(true);
-        segWriteQueCv_.notify_all();
-        lck_wq.unlock();
         for(auto &th : segWriteTP_)
         {
             th.join();
@@ -245,10 +246,7 @@ namespace kvdb {
         segTimeoutT_stop_.store(true);
         segTimeoutT_.join();
 
-        std::unique_lock<std::mutex> lck_rq(segReaperQueMtx_);
         segReaperT_stop_.store(true);
-        segReaperQueCv_.notify_all();
-        lck_rq.unlock();
         segReaperT_.join();
 
     }
@@ -262,12 +260,12 @@ namespace kvdb {
         delete bdev_;
         delete seg_;
 
-
     }
 
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
         seg_(NULL),
+        reqDispatchT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
         segReaperT_stop_(false)
@@ -339,13 +337,9 @@ namespace kvdb {
     bool KvdbDS::insertKey(KVSlice& slice)
     {
         Request *req = new Request(slice);
-
-        enqueReqs(req);
-
+        reqQue_.Enqueue_Notify(req);
         req->Wait();
-
         bool res = updateMeta(req);
-
         delete req;
         return res;
     }
@@ -359,16 +353,12 @@ namespace kvdb {
             KVSlice *slice = &req->GetSlice();
             res = idxMgr_->UpdateIndex(slice);
         }
-
         // minus the segment delete counter
         SegmentSlice *seg = req->GetSeg();
         if (!seg->CommitedAndGetNum())
         {
-            std::lock_guard<std::mutex> lck_que(segReaperQueMtx_);
-            segReaperQue_.push_back(seg);
-            segReaperQueCv_.notify_all();
+            segReaperQue_.Enqueue_Notify(seg);
         }
-
         return res;
     }
 
@@ -400,54 +390,46 @@ namespace kvdb {
         return true;
     }
 
-    void KvdbDS::enqueReqs(Request *req)
+
+    void KvdbDS::ReqDispatchThdEntry()
     {
-        std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
-        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
-        while(!seg_->Put(req))
+        __DEBUG("Requests Dispatch thread start!!");
+        std::unique_lock<std::mutex> lck_seg(segMtx_, std::defer_lock);
+        while(!reqDispatchT_stop_.load())
         {
-            std::lock(lck, lck_que);
-            if (!seg_->Put(req))
+            Request  *req = reqQue_.Wait_Dequeue();
+            if ( req )
             {
-                seg_->Complete();
+                lck_seg.lock();
+                if(seg_->TryPut(req))
+                {
+                    seg_->Put(req);
+                }
+                else
+                {
+                     seg_->Complete();
 
-                SegmentSlice *temp = seg_;
-                seg_ = new SegmentSlice(segMgr_, bdev_);
+                     SegmentSlice *temp = seg_;
+                     seg_ = new SegmentSlice(segMgr_, bdev_);
+                     seg_->Put(req);
 
-                segWriteQue_.push_back(temp);
-                segWriteQueCv_.notify_all();
-                //segWriteQueCv_.notify_one();
+                     segWriteQue_.Enqueue_Notify(temp);
+                }
+                lck_seg.unlock();
             }
-            else
-            {
-                break;
-            }
-            lck.unlock();
-            lck_que.unlock();
+
         }
+        __DEBUG("Requests Dispatch thread stop!!");
     }
 
     void KvdbDS::SegWriteThdEntry()
     {
         __DEBUG("Segment write thread start!!");
-
-        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
-        while (true)
+        while (!segWriteT_stop_)
         {
-            while (true)
+            SegmentSlice *seg = segWriteQue_.Wait_Dequeue();
+            if ( seg )
             {
-
-                lck_que.lock();
-                if(segWriteQue_.empty())
-                {
-                    lck_que.unlock();
-                    break;
-                }
-
-                SegmentSlice *seg = segWriteQue_.front();
-                segWriteQue_.pop_front();
-                lck_que.unlock();
-
                 uint32_t seg_id = 0;
                 bool res = segMgr_->AllocSeg(seg_id);
                 if (!res)
@@ -466,22 +448,11 @@ namespace kvdb {
                     }
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d %s", seg_id, res==true? "Success":"Failed");
-                    //__INFO("Segment thread write seg to device, seg_id:%d %s", seg_id, res==true? "Success":"Failed");
 
                     //Update Superblock
                     sbMgr_->SetCurSegId(seg_id);
                 }
-                //delete seg;
             }
-
-            if (segWriteT_stop_.load())
-            {
-                break;
-            }
-
-            lck_que.lock();
-            segWriteQueCv_.wait(lck_que);
-            lck_que.unlock();
         }
         __DEBUG("Segment write thread stop!!");
     }
@@ -491,30 +462,20 @@ namespace kvdb {
     {
         __DEBUG("Segment Timeout thread start!!");
         std::unique_lock<std::mutex> lck(segMtx_, std::defer_lock);
-        std::unique_lock<std::mutex> lck_que(segWriteQueMtx_, std::defer_lock);
-        while (true)
+        while (!segTimeoutT_stop_)
         {
-            if (seg_->CompleteIfExpired())
+            lck.lock();
+            if (seg_->IsExpired())
             {
-                std::lock(lck, lck_que);
-                if(seg_->CompleteIfExpired())
-                {
-                    SegmentSlice *temp = seg_;
-                    segWriteQue_.push_back(temp);
-                    segWriteQueCv_.notify_all();
-                    //segWriteQueCv_.notify_one();
 
-                    seg_ = new SegmentSlice(segMgr_, bdev_);
-                }
+                seg_->Complete();
 
-                lck.unlock();
-                lck_que.unlock();
+                SegmentSlice *temp = seg_;
+                seg_ = new SegmentSlice(segMgr_, bdev_);
+
+                segWriteQue_.Enqueue_Notify(temp);
             }
-
-            if(segTimeoutT_stop_.load())
-            {
-                break;
-            }
+            lck.unlock();
 
             usleep(EXPIRED_TIME);
         }
@@ -525,23 +486,11 @@ namespace kvdb {
     {
         __DEBUG("Segment reaper thread start!!");
 
-        std::unique_lock<std::mutex> lck_que(segReaperQueMtx_, std::defer_lock);
-        while (true)
+        while (!segReaperT_stop_)
         {
-            while (true)
+            SegmentSlice *seg = segReaperQue_.Wait_Dequeue();
+            if ( seg )
             {
-
-                lck_que.lock();
-                if (segReaperQue_.empty())
-                {
-                    lck_que.unlock();
-                    break;
-                }
-
-                SegmentSlice *seg = segReaperQue_.front();
-                segReaperQue_.pop_front();
-                lck_que.unlock();
-
                 list<HashEntry>& del_list = seg->GetDelReqsList();
                 for(list<HashEntry>::iterator iter=del_list.begin(); iter != del_list.end(); iter++)
                 {
@@ -551,18 +500,8 @@ namespace kvdb {
                 seg->WaitForReap();
                 delete seg;
             }
-
-            if (segWriteT_stop_.load())
-            {
-                break;
-            }
-
-            lck_que.lock();
-            segReaperQueCv_.wait(lck_que);
-            lck_que.unlock();
         }
         __DEBUG("Segment write thread stop!!");
     }
-
 }
 

@@ -212,9 +212,8 @@ namespace kvdb{
         //data_ = new char[segSize_];
     }
 
-    bool SegmentSlice::Put(Request* req)
+    bool SegmentSlice::TryPut(Request* req)
     {
-        std::lock_guard<std::mutex> l(mtx_);
         if(isCompleted_)
         {
             return false;
@@ -226,6 +225,25 @@ namespace kvdb{
         {
             return false;
         }
+        return true;
+    }
+
+    bool SegmentSlice::Put(Request* req)
+    {
+        //std::lock_guard<std::mutex> l(mtx_);
+        //if(isCompleted_)
+        //{
+        //    return false;
+        //}
+        //KVSlice *slice = &req->GetSlice();
+        //uint32_t freeSize = tailPos_ - headPos_;
+        //uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
+        //if (freeSize < needSize)
+        //{
+        //    return false;
+        //}
+        //
+        KVSlice *slice = &req->GetSlice();
 
         if ( keyNum_ == 0)
         {
@@ -525,7 +543,7 @@ namespace kvdb{
 
     void SegmentSlice::Complete()
     {
-        std::lock_guard<std::mutex> l(mtx_);
+        //std::lock_guard<std::mutex> l(mtx_);
         if (isCompleted_)
         {
             return;
@@ -535,26 +553,32 @@ namespace kvdb{
         isCompleted_ = true;
     }
 
-    bool SegmentSlice::CompleteIfExpired()
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        if (isCompleted_)
-        {
-            return true;
-        }
-        if (!isExpire())
-        {
-            return false;
-        }
+    //bool SegmentSlice::CompleteIfExpired()
+    //{
+    //    //std::lock_guard<std::mutex> l(mtx_);
+    //    if (isCompleted_)
+    //    {
+    //        return true;
+    //    }
+    //    if (!isExpire())
+    //    {
+    //        return false;
+    //    }
 
-        fillSegHead();
-        isCompleted_ = true;
-        return true;
-    }
+    //    fillSegHead();
+    //    isCompleted_ = true;
+    //    return true;
+    //}
+
 
     void SegmentSlice::Notify(bool stat)
     {
         notifyAndClean(stat);
+    }
+
+    bool SegmentSlice::IsExpired()
+    {
+        return isExpire();
     }
 
     void SegmentSlice::WaitForReap()
