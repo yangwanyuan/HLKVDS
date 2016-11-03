@@ -17,8 +17,6 @@
 #include "SegmentManager.h"
 #include "WorkQueue.h"
 
-//using namespace std;
-
 namespace kvdb {
 
     class KvdbDS {
@@ -48,9 +46,6 @@ namespace kvdb {
         bool updateMeta(Request *req);
 
         bool readData(KVSlice& slice, string &data);
-        void enqueReqs(Request *req);
-        bool findAndLockSeg(Request *req, SegmentSlice*& seg_ptr);
-
 
     private:
         SuperBlockManager* sbMgr_;
@@ -65,39 +60,28 @@ namespace kvdb {
     // Request Dispatch thread
     private:
         std::thread reqDispatchT_;
-        std::queue<Request*> reqQue_;
         std::atomic<bool> reqDispatchT_stop_;
-        std::mutex reqQueMtx_;
-        std::condition_variable reqQueCv_;
-
+        WorkQueue<Request*> reqQue_;
         void ReqDispatchThdEntry();
 
     // Seg Write to device thread
     private:
         std::vector<std::thread> segWriteTP_;
-        std::list<SegmentSlice*> segWriteQue_;
         std::atomic<bool> segWriteT_stop_;
-        std::mutex segWriteQueMtx_;
-        std::condition_variable segWriteQueCv_;
-
+        WorkQueue<SegmentSlice*> segWriteQue_;
         void SegWriteThdEntry();
-
 
     // Seg Timeout thread
     private:
         std::thread segTimeoutT_;
         std::atomic<bool> segTimeoutT_stop_;
-
         void SegTimeoutThdEntry();
 
     // Seg Reaper thread
     private:
         std::thread segReaperT_;
-        std::list<SegmentSlice*> segReaperQue_;
         std::atomic<bool> segReaperT_stop_;
-        std::mutex segReaperQueMtx_;
-        std::condition_variable segReaperQueCv_;
-
+        WorkQueue<SegmentSlice*> segReaperQue_;
         void SegReaperThdEntry();
 
     private:

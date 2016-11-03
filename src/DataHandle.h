@@ -109,11 +109,13 @@ namespace kvdb{
 
         SegmentSlice(SegmentManager* sm, BlockDevice* bdev);
 
+        bool TryPut(Request* req);
         bool Put(Request* req);
         bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
-        bool CompleteIfExpired();
+        //bool CompleteIfExpired();
         void Notify(bool stat);
+        bool IsExpired();
 
         int32_t CommitedAndGetNum() { return --reqCommited_; }
         std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
@@ -151,7 +153,7 @@ namespace kvdb{
         std::atomic<int32_t> reqCommited_;
         std::atomic<bool> isCanReap_;
 
-        std::mutex mtx_;
+        //std::mutex mtx_;
 
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;

@@ -3,37 +3,67 @@
 
 #include <queue>
 #include <mutex>
+#include <chrono>
 #include <iostream>
 
 namespace kvdb {
 template <typename T> class WorkQueue{
 public:
-    typedef T queue_type;
-    std::queue<queue_type> _queue;
-    std::mutex _queue_lock;
+    typedef T QueueType;
 
-    void enqueue( queue_type _work ){
-        std::lock_guard<std::mutex> guard(_queue_lock);
-        this->_queue.push( _work );
+    void Enqueue( QueueType _work )
+    {
+        std::lock_guard<std::mutex> lck(mtx_);
+        dataQueue_.push( _work );
     }
 
-    queue_type dequeue(){
-        _queue_lock.lock();
-        if(this->_queue.empty()){
-            _queue_lock.unlock();
+    QueueType Dequeue()
+    {
+        std::unique_lock<std::mutex> lck(mtx_);
+        if(dataQueue_.empty()){
+            lck.unlock();
             return NULL;
         }
 
-        queue_type data = this->_queue.front();
-        this->_queue.pop();
-        _queue_lock.unlock();
+        QueueType data = dataQueue_.front();
+        dataQueue_.pop();
+        lck.unlock();
         return data;
     }
 
-    bool empty(){
-        std::lock_guard<std::mutex> guard(_queue_lock);
-        return this->_queue.empty();
+    void Enqueue_Notify( QueueType _work )
+    {
+        std::lock_guard<std::mutex> lck(mtx_);
+        dataQueue_.push( _work );
+        cv_.notify_one();
     }
+
+    QueueType Wait_Dequeue()
+    {
+        std::unique_lock<std::mutex> lck(mtx_);
+        if(cv_.wait_for(lck, std::chrono::milliseconds(10), [this]{ return !dataQueue_.empty();}))
+        {
+            QueueType data = dataQueue_.front();
+            dataQueue_.pop();
+            return data;
+        }
+        else
+        {
+            return NULL;
+        }
+    }
+
+    bool empty(){
+        std::lock_guard<std::mutex> guard(mtx_);
+        return dataQueue_.empty();
+    }
+
+
+private:
+    std::queue<QueueType> dataQueue_;
+    std::mutex mtx_;
+    std::condition_variable cv_;
+
 };
 }
 #endif
