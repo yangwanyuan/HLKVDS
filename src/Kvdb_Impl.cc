@@ -10,8 +10,6 @@
 
 namespace kvdb {
 
-    //KvdbDS* KvdbDS::instance_ = NULL;
-
     KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
                                     uint32_t hash_table_size,
                                     uint32_t segment_size)
@@ -171,10 +169,6 @@ namespace kvdb {
 
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
-        //if (instance_)
-        //{
-        //    return instance_;
-        //}
         KvdbDS *instance_ = new KvdbDS(filename);
 
         if (!instance_->openDB())
@@ -215,8 +209,8 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        reqDispatchT_stop_.store(false);
-        reqDispatchT_ = std::thread(&KvdbDS::ReqDispatchThdEntry,this);
+        reqForwardT_stop_.store(false);
+        reqForwardT_ = std::thread(&KvdbDS::ReqForwardThdEntry,this);
 
         segWriteT_stop_.store(false);
         for(int i = 0; i<SEG_POOL_SIZE; i++)
@@ -234,8 +228,8 @@ namespace kvdb {
 
     void KvdbDS::stopThds()
     {
-        reqDispatchT_stop_.store(true);
-        reqDispatchT_.join();
+        reqForwardT_stop_.store(true);
+        reqForwardT_.join();
 
         segWriteT_stop_.store(true);
         for(auto &th : segWriteTP_)
@@ -265,7 +259,7 @@ namespace kvdb {
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
         seg_(NULL),
-        reqDispatchT_stop_(false),
+        reqForwardT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
         segReaperT_stop_(false)
@@ -391,11 +385,11 @@ namespace kvdb {
     }
 
 
-    void KvdbDS::ReqDispatchThdEntry()
+    void KvdbDS::ReqForwardThdEntry()
     {
-        __DEBUG("Requests Dispatch thread start!!");
+        __DEBUG("Requests Forward thread start!!");
         std::unique_lock<std::mutex> lck_seg(segMtx_, std::defer_lock);
-        while(!reqDispatchT_stop_.load())
+        while(!reqForwardT_stop_.load())
         {
             Request  *req = reqQue_.Wait_Dequeue();
             if ( req )
@@ -419,7 +413,7 @@ namespace kvdb {
             }
 
         }
-        __DEBUG("Requests Dispatch thread stop!!");
+        __DEBUG("Requests Forward thread stop!!");
     }
 
     void KvdbDS::SegWriteThdEntry()
