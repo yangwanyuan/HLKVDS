@@ -96,7 +96,7 @@ namespace kvdb{
         for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             SegmentOnDisk seg_ondisk;
-            //write seg to device
+            //read seg from  device
             if ( bdev_->pRead(&seg_ondisk, seg_size, offset) != seg_size)
             {
                 __ERROR("can not write segment to device!");
