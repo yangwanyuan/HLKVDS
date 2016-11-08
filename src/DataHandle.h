@@ -114,16 +114,14 @@ namespace kvdb{
         SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
 
         bool TryPut(Request* req);
-        bool Put(Request* req);
+        void Put(Request* req);
         bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
         void Notify(bool stat);
         bool IsExpired();
 
         int32_t CommitedAndGetNum() { return --reqCommited_; }
-
         void CleanDeletedEntry();
-
         uint32_t GetSegId() const { return segId_; }
 
     private:

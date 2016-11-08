@@ -402,12 +402,9 @@ namespace kvdb {
                 else
                 {
                      seg_->Complete();
-
-                     SegmentSlice *temp = seg_;
+                     segWriteQue_.Enqueue_Notify(seg_);
                      seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
                      seg_->Put(req);
-
-                     segWriteQue_.Enqueue_Notify(temp);
                 }
                 lck_seg.unlock();
             }
@@ -435,16 +432,20 @@ namespace kvdb {
                 {
                     res = seg->WriteSegToDevice(seg_id);
                     seg->Notify(res);
-                    if (!res)
+                    if ( res )
+                    {
+                        //Update Superblock
+                        sbMgr_->SetCurSegId(seg_id);
+                    }
+                    else
                     {
                         //Free the segment if write failed
                         segMgr_->FreeSeg(seg_id);
                     }
 
-                    __DEBUG("Segment thread write seg to device, seg_id:%d %s", seg_id, res==true? "Success":"Failed");
+                    __DEBUG("Segment thread write seg to device, seg_id:%d %s",
+                            seg_id, res==true? "Success":"Failed");
 
-                    //Update Superblock
-                    sbMgr_->SetCurSegId(seg_id);
                 }
             }
         }
@@ -461,13 +462,10 @@ namespace kvdb {
             lck.lock();
             if (seg_->IsExpired())
             {
-
                 seg_->Complete();
 
-                SegmentSlice *temp = seg_;
+                segWriteQue_.Enqueue_Notify(seg_);
                 seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
-
-                segWriteQue_.Enqueue_Notify(temp);
             }
             lck.unlock();
 

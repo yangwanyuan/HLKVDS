@@ -199,7 +199,7 @@ namespace kvdb{
         return isCanFit(req);
     }
 
-    bool SegmentSlice::Put(Request* req)
+    void SegmentSlice::Put(Request* req)
     {
         KVSlice *slice = &req->GetSlice();
 
@@ -224,7 +224,6 @@ namespace kvdb{
         req->SetSeg(this);
 
         __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
-        return true;
     }
 
 
