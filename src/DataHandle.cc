@@ -76,22 +76,12 @@ namespace kvdb{
 
     string KVSlice::GetKeyStr() const
     {
-        char * data = new char[keyLength_ + 1];
-        memcpy(data, key_, keyLength_);
-        data[keyLength_] = '\0';
-        string r(data);
-        delete[] data;
-        return r;
+        return string(key_, keyLength_);
     }
 
     string KVSlice::GetDataStr() const
     {
-        char * data = new char[dataLength_ + 1];
-        memcpy(data, data_, dataLength_);
-        data[dataLength_] = '\0';
-        string r(data);
-        delete[] data;
-        return r;
+        return string(data_, dataLength_);
     }
 
     void KVSlice::SetHashEntry(const HashEntry *hash_entry)
@@ -104,35 +94,30 @@ namespace kvdb{
         segId_ = seg_id;
     }
 
-    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL), segPtr_(NULL){}
+    Request::Request(): slice_(NULL), segPtr_(NULL){}
 
     Request::~Request(){}
 
+
     Request::Request(const Request& toBeCopied) :
-        isDone_(toBeCopied.isDone_), writeStat_(toBeCopied.writeStat_),
-        slice_(toBeCopied.slice_), segPtr_(toBeCopied.segPtr_){}
+        stat_(toBeCopied.stat_), slice_(toBeCopied.slice_),
+        segPtr_(toBeCopied.segPtr_){}
 
     Request& Request::operator=(const Request& toBeCopied)
     {
-        isDone_ = toBeCopied.isDone_;
-        writeStat_ = toBeCopied.writeStat_;
+        stat_ = toBeCopied.stat_;
         slice_ = toBeCopied.slice_;
         segPtr_ = toBeCopied.segPtr_;
         return *this;
     }
 
-    Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice), segPtr_(NULL){}
+    Request::Request(KVSlice& slice) : slice_(&slice), segPtr_(NULL){}
 
-    void Request::Done()
+    void Request::SetWriteStat(bool stat)
     {
         std::lock_guard<std::mutex> l(mtx_);
-        isDone_ = 1;
-    }
-
-    void Request::SetState(bool state)
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        writeStat_ = state;
+        stat_.writed = true;
+        stat_.write_stat = stat;
     }
 
     void Request::Wait()
@@ -148,7 +133,7 @@ namespace kvdb{
     }
 
     SegmentSlice::SegmentSlice()
-        :segId_(0), segMgr_(NULL), bdev_(NULL), segSize_(0),
+        :segId_(0), segMgr_(NULL), idxMgr_(NULL), bdev_(NULL), segSize_(0),
         persistTime_(KVTime()), startTime_(KVTime()),
         headPos_(0), tailPos_(0), keyNum_(0), keyAlignedNum_(0),
         isCompleted_(false), hasReq_(false), segOndisk_(NULL)
@@ -158,7 +143,6 @@ namespace kvdb{
 
     SegmentSlice::~SegmentSlice()
     {
-        delReqList_.clear();
         delete segOndisk_;
     }
 
@@ -178,6 +162,7 @@ namespace kvdb{
     {
         segId_ = toBeCopied.segId_;
         segMgr_ = toBeCopied.segMgr_;
+        idxMgr_ = toBeCopied.idxMgr_;
         bdev_ = toBeCopied.bdev_;
         segSize_ = toBeCopied.segSize_;
         persistTime_ = toBeCopied.persistTime_;
@@ -189,19 +174,18 @@ namespace kvdb{
         isCompleted_ = toBeCopied.isCompleted_;
         hasReq_ = toBeCopied.hasReq_;
         reqCommited_.store(toBeCopied.reqCommited_.load());
-        isCanReap_.store(toBeCopied.isCanReap_.load());
         reqList_ = toBeCopied.reqList_;
         *segOndisk_ = *toBeCopied.segOndisk_;
         delReqList_ = toBeCopied.delReqList_;
     }
 
-    SegmentSlice::SegmentSlice(SegmentManager* sm, BlockDevice* bdev)
-        : segId_(0), segMgr_(sm), bdev_(bdev),
+    SegmentSlice::SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev)
+        : segId_(0), segMgr_(sm), idxMgr_(im), bdev_(bdev),
         segSize_(segMgr_->GetSegmentSize()), persistTime_(KVTime()),
         startTime_(KVTime()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), isCompleted_(false), hasReq_(false),
-        reqCommited_(-1), isCanReap_(false), segOndisk_(NULL)
+        reqCommited_(-1), segOndisk_(NULL)
     {
         segOndisk_ = new SegmentOnDisk();
     }
@@ -326,6 +310,8 @@ namespace kvdb{
 
     void SegmentSlice::notifyAndClean(bool req_state)
     {
+        std::lock_guard<std::mutex> l(mtx_);
+
         //Set logic timestamp to hashentry
         reqCommited_.store(keyNum_);
 
@@ -349,18 +335,15 @@ namespace kvdb{
         {
             Request *req = reqList_.front();
             reqList_.pop_front();
-            req->Done();
-            req->SetState(req_state);
+            req->SetWriteStat(req_state);
             req->Signal();
         }
 
-        isCanReap_.store(true);
     }
 
 
     void SegmentSlice::Complete()
     {
-        //std::lock_guard<std::mutex> l(mtx_);
         if (isCompleted_)
         {
             return;
@@ -376,12 +359,14 @@ namespace kvdb{
     }
 
 
-    void SegmentSlice::WaitForReap()
+    void SegmentSlice::CleanDeletedEntry()
     {
-        while(!isCanReap_.load())
+        std::lock_guard<std::mutex> l(mtx_);
+        for(list<HashEntry>::iterator iter=delReqList_.begin(); iter != delReqList_.end(); iter++)
         {
-            usleep(100);
+            idxMgr_->RemoveEntry(*iter);
         }
+        delReqList_.clear();
     }
 
     bool SegmentSlice::IsExpired()

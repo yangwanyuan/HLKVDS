@@ -54,7 +54,7 @@ public:
     }
 
     bool empty(){
-        std::lock_guard<std::mutex> guard(mtx_);
+        std::lock_guard<std::mutex> lck(mtx_);
         return dataQueue_.empty();
     }
 

@@ -94,7 +94,7 @@ namespace kvdb {
                db_index_size, db_meta_size, db_data_size, 
                db_size, device_size);
 
-        ds->seg_ = new SegmentSlice(ds->segMgr_, ds->bdev_);
+        ds->seg_ = new SegmentSlice(ds->segMgr_,ds->idxMgr_, ds->bdev_);
         ds->startThds();
 
         return ds; 
@@ -139,7 +139,7 @@ namespace kvdb {
             return false;
         }
 
-        seg_ = new SegmentSlice(segMgr_, bdev_);
+        seg_ = new SegmentSlice(segMgr_, idxMgr_,  bdev_);
 
         __INFO("\nReading meta information from file:\n"
                "\t hashtable_size            : %d\n"
@@ -340,9 +340,9 @@ namespace kvdb {
 
     bool KvdbDS::updateMeta(Request *req)
     {
-        bool res = req->GetState();
+        bool res = req->GetWriteStat();
         // update index
-        if (res)
+        if ( res )
         {
             KVSlice *slice = &req->GetSlice();
             res = idxMgr_->UpdateIndex(slice);
@@ -404,7 +404,7 @@ namespace kvdb {
                      seg_->Complete();
 
                      SegmentSlice *temp = seg_;
-                     seg_ = new SegmentSlice(segMgr_, bdev_);
+                     seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
                      seg_->Put(req);
 
                      segWriteQue_.Enqueue_Notify(temp);
@@ -465,7 +465,7 @@ namespace kvdb {
                 seg_->Complete();
 
                 SegmentSlice *temp = seg_;
-                seg_ = new SegmentSlice(segMgr_, bdev_);
+                seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
 
                 segWriteQue_.Enqueue_Notify(temp);
             }
@@ -485,13 +485,8 @@ namespace kvdb {
             SegmentSlice *seg = segReaperQue_.Wait_Dequeue();
             if ( seg )
             {
-                list<HashEntry>& del_list = seg->GetDelReqsList();
-                for(list<HashEntry>::iterator iter=del_list.begin(); iter != del_list.end(); iter++)
-                {
-                    idxMgr_->RemoveEntry(*iter);
-                }
+                seg->CleanDeletedEntry();
                 __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-                seg->WaitForReap();
                 delete seg;
             }
         }
