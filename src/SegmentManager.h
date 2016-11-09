@@ -85,7 +85,6 @@ namespace kvdb{
 
         bool AllocSeg(uint32_t& seg_id);
         void FreeSeg(uint32_t seg_id);
-        char* GetZeros() const { return zeros_; }
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
@@ -104,7 +103,6 @@ namespace kvdb{
         BlockDevice* bdev_;
         mutable std::mutex mtx_;
 
-        char* zeros_;
     };
 
 } //end namespace kvdb
