@@ -20,7 +20,6 @@ namespace kvdb {
         }
 
         uint32_t num_entries = 0;
-        uint32_t deleted_entries = 0;
         uint32_t number_segments = 0;
         uint64_t db_sb_size = 0;
         uint64_t db_index_size = 0;
@@ -76,8 +75,8 @@ namespace kvdb {
         db_data_size = ds->segMgr_->GetDataRegionSize();
         db_size = db_meta_size + db_data_size;
 
-        DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, 
-                        deleted_entries, segment_size, number_segments, 
+        DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries,
+                        segment_size, number_segments,
                         0, db_sb_size, db_index_size, db_seg_table_size,
                         db_data_size, device_capacity);
 
@@ -86,7 +85,6 @@ namespace kvdb {
         __INFO("\nCreateKvdbDS table information:\n"
                "\t hashtable_size            : %d\n"
                "\t num_entries               : %d\n"
-               "\t deleted_entries           : %d\n"
                "\t segment_size              : %d Bytes\n"
                "\t number_segments           : %d\n"
                "\t Database Superblock Size  : %ld Bytes\n"
@@ -96,7 +94,7 @@ namespace kvdb {
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
                "\t Total Device Size         : %ld Bytes",
-               hash_table_size, num_entries, deleted_entries,
+               hash_table_size, num_entries,
                segment_size, number_segments, db_sb_size, 
                db_index_size, db_seg_table_size, db_meta_size,
                db_data_size, db_size, device_capacity);
@@ -139,8 +137,6 @@ namespace kvdb {
             return false;
         }
 
-
-        //offset += sbMgr_->GetSbSize();
         offset = SuperBlockManager::GetSuperBlockSizeOnDevice();;
         if (!idxMgr_->LoadIndexFromDevice(offset, sbMgr_->GetHTSize()))
         {
@@ -158,7 +154,6 @@ namespace kvdb {
         __INFO("\nReading meta information from file:\n"
                "\t hashtable_size            : %d\n"
                "\t num_entries               : %d\n"
-               "\t deleted_entries           : %d\n"
                "\t segment_size              : %d Bytes\n"
                "\t number_segments           : %d\n"
                "\t Database Superblock Size  : %ld Bytes\n"
@@ -170,7 +165,7 @@ namespace kvdb {
                "\t Total Device Size         : %ld Bytes\n"
                "\t Current Segment ID        : %d",
                sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
-               sbMgr_->GetDeletedNum(), sbMgr_->GetSegmentSize(),
+               sbMgr_->GetSegmentSize(),
                sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
                sbMgr_->GetIndexSize(), sbMgr_->GetSegTableSize(),
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize()),

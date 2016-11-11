@@ -44,7 +44,6 @@ namespace kvdb{
         std::lock_guard<std::mutex> l(mtx_);
         sb_->hashtable_size        = sb.hashtable_size;
         sb_->number_elements       = sb.number_elements;
-        sb_->deleted_elements      = sb.deleted_elements;
         sb_->segment_size          = sb.segment_size;
         sb_->number_segments       = sb.number_segments;
         sb_->current_segment       = sb.current_segment;
@@ -81,18 +80,6 @@ namespace kvdb{
     {
         std::lock_guard<std::mutex> l(mtx_);
         sb_->number_elements--;
-    }
-
-    void SuperBlockManager::AddDeleted()
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        sb_->deleted_elements++;
-    }
-
-    void SuperBlockManager::DeleteDeleted()
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        sb_->deleted_elements--;
     }
 
     void SuperBlockManager::SetCurSegId(uint32_t id)
