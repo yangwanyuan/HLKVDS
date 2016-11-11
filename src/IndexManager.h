@@ -150,6 +150,7 @@ namespace kvdb{
         static inline size_t SizeOfHashEntryOnDisk(){ return sizeof(HashEntryOnDisk); }
 
         static uint64_t GetIndexSizeOnDevice(uint32_t ht_size);
+        static uint32_t ComputeHashSizeForPower2(uint32_t number);
         bool InitIndexForCreateDB(uint32_t numObjects);
 
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
@@ -165,7 +166,6 @@ namespace kvdb{
         ~IndexManager();
 
     private:
-        uint32_t computeHashSizeForCreateDB(uint32_t number);
         void createListIfNotExist(uint32_t index);
 
         bool initHashTable(uint32_t size);

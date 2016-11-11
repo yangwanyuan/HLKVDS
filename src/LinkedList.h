@@ -26,10 +26,10 @@ namespace kvdb{
         ~LinkedList();
         LinkedList& operator=(const LinkedList<T> &);
 
-        bool search(T toBeSearched);
+        bool search(T& toBeSearched);
         //if put T is existed, return false
-        bool put(T toBePuted);
-        bool remove(T toBeRemoved);
+        bool put(T& toBePuted);
+        bool remove(T& toBeRemoved);
 
         T* getRef(T toBeGeted);
         vector<T> get();
@@ -108,23 +108,23 @@ namespace kvdb{
     }
 
     template <typename T>
-    bool LinkedList<T>::search(T toBeSearched)
+    bool LinkedList<T>::search(T& toBeSearched)
     {
-        Node<T>* tempNode = head_;
+        Node<T>* curNode = head_;
 
-        while (tempNode != NULL)
+        while (curNode != NULL)
         {
-            if (tempNode->data == toBeSearched)
+            if (curNode->data == toBeSearched)
             {
                 return true;
             }
-            tempNode = tempNode->next;
+            curNode = curNode->next;
         }
         return false;
     }
 
     template <typename T>
-    bool LinkedList<T>::put(T toBePuted)
+    bool LinkedList<T>::put(T& toBePuted)
     {
         bool is_new = true;
 
@@ -136,21 +136,24 @@ namespace kvdb{
         }
         else
         {
-            Node<T>* tempNode = head_;
-            while (tempNode->next != NULL)
+            Node<T>* curNode = head_;
+            Node<T>* preNode;
+            while (curNode != NULL)
             {
-                if (tempNode->data == toBePuted)
+                if (curNode->data == toBePuted)
                 {
-                    tempNode->data = toBePuted;
+                    curNode->data = toBePuted;
                     is_new = false;
                     delete newNode;
                     break;
                 }
-                tempNode = tempNode->next;
+                preNode = curNode;
+                curNode = curNode->next;
             }
             if(is_new)
             {
-                tempNode->next = newNode;
+                curNode = newNode;
+                preNode->next = curNode;
                 size_++;
             }
         }
@@ -158,34 +161,38 @@ namespace kvdb{
     }
 
     template <typename T>
-    bool LinkedList<T>::remove(T toBeRemoved)
+    bool LinkedList<T>::remove(T& toBeRemoved)
     {   
         bool flag = false;
+        if (head_ == NULL)
+        {
+            return flag;
+        }
 
-        Node<T>* nodePtr = head_;
-        Node<T>* tempNode = nodePtr->next;
+        Node<T>* preNode = head_;
+        Node<T>* curNode = preNode->next;
 
         if (head_->data == toBeRemoved)
         {
-            head_ = tempNode;
-            delete nodePtr;
+            head_ = curNode;
+            delete preNode;
             size_--;
             flag = true;
         }
         else
         {
-            while (tempNode != NULL)
+            while (curNode != NULL)
             {
-                if (tempNode->data == toBeRemoved)
+                if (curNode->data == toBeRemoved)
                 {
-                    nodePtr->next = tempNode->next;
-                    delete tempNode;
+                    preNode->next = curNode->next;
+                    delete curNode;
                     size_--;
                     flag = true;
                     break;
                 }
-                nodePtr = nodePtr->next;
-                tempNode = tempNode->next;
+                preNode = curNode;
+                curNode = curNode->next;
             }
         }
         return flag;

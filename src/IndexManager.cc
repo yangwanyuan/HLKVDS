@@ -142,7 +142,7 @@ namespace kvdb{
 
     bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
     {
-        htSize_ = computeHashSizeForCreateDB(numObjects);
+        htSize_ = ComputeHashSizeForPower2(numObjects);
         used_ = 0;
         
         if (!initHashTable(htSize_))
@@ -305,6 +305,7 @@ namespace kvdb{
             sbMgr_->DeleteElement();
             __DEBUG("Remove the index entry!");
         }
+
     }
 
     bool IndexManager::GetHashEntry(KVSlice *slice)
@@ -368,7 +369,7 @@ namespace kvdb{
         }
     }
 
-    uint32_t IndexManager::computeHashSizeForCreateDB(uint32_t number)
+    uint32_t IndexManager::ComputeHashSizeForPower2(uint32_t number)
     {
         // Gets the next highest power of 2 larger than number
         number--;

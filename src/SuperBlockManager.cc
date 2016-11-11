@@ -50,8 +50,9 @@ namespace kvdb{
         sb_->current_segment       = sb.current_segment;
         sb_->db_sb_size            = sb.db_sb_size;
         sb_->db_index_size         = sb.db_index_size;
+        sb_->db_seg_table_size     = sb.db_seg_table_size;
         sb_->db_data_size          = sb.db_data_size;
-        sb_->device_size           = sb.device_size;
+        sb_->device_capacity       = sb.device_capacity;
     }
 
 
