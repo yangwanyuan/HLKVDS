@@ -59,8 +59,10 @@ namespace kvdb{
     class SegmentManager{
     public:
         static inline size_t SizeOfSegOnDisk(){ return sizeof(SegmentOnDisk); }
+        static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
+        static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
 
-        bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t start_offset, uint32_t segment_size);
+        bool InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size, uint32_t number_segments);
 
         bool LoadSegmentTableFromDevice(uint64_t start_offset, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
         bool WriteSegmentTableToDevice(uint64_t offset);
@@ -69,7 +71,6 @@ namespace kvdb{
         uint32_t GetNumberOfSeg(){ return segNum_; }
         uint64_t GetDataRegionSize(){ return (uint64_t)segNum_ << segSizeBit_; }
         uint32_t GetSegmentSize(){ return segSize_; }
-        uint64_t GetSegTableSizeOnDevice() const { return dataStartOff_ - segTableOff_; }
 
         inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
         {
@@ -115,8 +116,6 @@ namespace kvdb{
         BlockDevice* bdev_;
         mutable std::mutex mtx_;
 
-        uint32_t computeSegNum(uint64_t total_size, uint32_t seg_size);
-        uint64_t computeSegTableSize(uint32_t seg_num);
     };
 
 } //end namespace kvdb

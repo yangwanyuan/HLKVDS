@@ -26,84 +26,26 @@ namespace kvdb{
         }
     }
 
-    int KernelDevice::CreateNewDB(string path, off_t size, bool dsync)
+    int KernelDevice::SetNewDBZero(off_t meta_size, bool clear_data_region)
     {
-        path_ = path;
-
-        int r = 0;
-
-        r = open(path_.c_str(), O_RDWR | O_DIRECT, 0666);
-        if (r < 0)
-        {
-            __ERROR("Could not open file: %s\n", strerror(errno));
-            goto create_fail;
-        }
-        directFd_ = r;
-
-        if (dsync)
-        {
-            //bufFd_ = open(path_.c_str(), O_RDWR | O_SYNC, 0666);
-            bufFd_ = open(path_.c_str(), O_RDWR | O_DSYNC, 0666);
-        }
-        else
-        {
-            bufFd_ = open(path_.c_str(), O_RDWR, 0666);
-        }
-
-        if (bufFd_ < 0)
-        {
-            __ERROR("Could not open file: %s\n", strerror(errno));
-            goto create_fail;
-        }
-
-        struct stat statbuf;
-        r = fstat(directFd_, &statbuf);
-        if (r < 0)
-        {
-            __ERROR("Could not stat file: %s\n", strerror(errno));
-            goto create_fail;
-        }
-        
-        if (S_ISBLK(statbuf.st_mode))
-        {
-            capacity_ = get_block_device_capacity();
-            blockSize_ = statbuf.st_blksize;
-        }
-        else
-        {
-            __ERROR("The path is not a block device");
-            goto create_fail;
-        }
-
-        r = posix_fadvise(bufFd_, 0, 0, POSIX_FADV_RANDOM);
-        if (r < 0)
-        {
-            __ERROR("couldn't posix_fadvise random");
-            goto create_fail;
-        }
-
-        r = set_metazone_zero(size);
+        int r = set_metazone_zero(meta_size);
         if (r<0)
         {
             __ERROR("couldn't set metazone zero");
-            goto create_fail;
+            return ERR;
         }
 
-        r = set_device_zero();
-        if (r < 0)
+        if (clear_data_region)
         {
-            __ERROR("couldn't set device zero");
-            goto create_fail;
+            r = set_device_zero();
+            if (r < 0)
+            {
+                __ERROR("couldn't set device zero");
+                return ERR;
+            }
         }
 
         return FOK;
-
-create_fail:
-        close(directFd_);
-        close(bufFd_);
-        directFd_ = -1;
-        bufFd_ = -1;
-        return ERR; 
     }
 
     int KernelDevice::set_device_zero()
@@ -111,7 +53,7 @@ create_fail:
         int r = 0;
 
         lseek(bufFd_, 0, SEEK_SET);
-        //r = fill_file_with_zeros();
+        r = fill_file_with_zeros();
         if (r < 0)
         {
             __ERROR("Could not zero out DB file.\n");

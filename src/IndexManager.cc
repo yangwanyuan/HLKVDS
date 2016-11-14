@@ -342,7 +342,7 @@ namespace kvdb{
         return false;
     }
 
-    uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
+    uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size)
     {
         uint64_t index_size = sizeof(time_t) + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
         uint64_t index_size_pages = index_size / getpagesize();

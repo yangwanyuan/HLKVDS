@@ -12,16 +12,13 @@ using namespace std;
 namespace kvdb{
     class BlockDevice{
     public:
-        //static BlockDevice* CreateDevice(const std::string& path);
         static BlockDevice* CreateDevice();
 
         BlockDevice(){}
         virtual ~BlockDevice() {}
 
-        virtual int CreateNewDB(string path, off_t size, bool dsync = true) = 0;
-        //virtual int CreateNewDB(string path, off_t size, bool dsync = false) = 0;
+        virtual int SetNewDBZero(off_t meta_size, bool clear_data_region = false) = 0;
         virtual int Open(string path, bool dsync = true) = 0;
-        //virtual int Open(string path, bool dsync = false) = 0;
         virtual void Close() = 0;
 
         virtual uint64_t GetDeviceCapacity() = 0;
@@ -31,8 +28,6 @@ namespace kvdb{
         virtual ssize_t pWritev(const struct iovec *iov, int iovcnt, off_t offset) = 0;
         virtual ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset) = 0;
 
-    private:
-        //std::string path_;
     };
 }//namespace kvdb
 

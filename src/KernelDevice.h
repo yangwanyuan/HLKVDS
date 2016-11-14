@@ -8,14 +8,12 @@
 
 namespace kvdb{
 
-    //enum device_type{REG_FILE, BLOCK_FILE};
-    
     class KernelDevice : public BlockDevice{
     public:
         KernelDevice();
         virtual ~KernelDevice();
 
-        int CreateNewDB(string path, off_t size, bool dsync);
+        int SetNewDBZero(off_t meta_size, bool clear_data_region) ;
         int Open(string path, bool dsync);
         void Close();
 
@@ -32,7 +30,6 @@ namespace kvdb{
         uint64_t capacity_;
         int blockSize_;
         std::string path_;
-        //device_type devType_;
         
         int set_device_zero();
         int set_metazone_zero(uint64_t meta_size);

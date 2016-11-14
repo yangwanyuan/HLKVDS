@@ -30,56 +30,65 @@ namespace kvdb {
         uint64_t device_capacity = 0;
         
         KvdbDS* ds = new KvdbDS(filename);
-
-        db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-        hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
-
-        db_index_size = IndexManager::GetIndexSizeOnDevice(hash_table_size);
-
-        uint64_t segtable_offset = db_sb_size + db_index_size;
-
         int r = 0;
-        r = ds->bdev_->CreateNewDB(filename, segtable_offset);
+        r = ds->bdev_->Open(filename);
         if (r < 0)
         {
             delete ds;
             return NULL;
         }
 
+        //Init Superblock region
+        db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
         if (!ds->sbMgr_->InitSuperBlockForCreateDB())
         {
             delete ds;
             return NULL;
         }
 
+        //Init Index region
+        hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
+        db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
         if (!ds->idxMgr_->InitIndexForCreateDB(hash_table_size))
         {
             delete ds;
             return NULL;
         }
 
+        //Init Segment region
         device_capacity = ds->bdev_->GetDeviceCapacity();
-        if (!ds->segMgr_->InitSegmentForCreateDB(device_capacity,
-                                                segtable_offset,
-                                                segment_size))
+        uint64_t seg_total_size = device_capacity - db_sb_size - db_index_size;
+
+        number_segments = SegmentManager::ComputeSegNum(seg_total_size, segment_size);
+        uint64_t segtable_offset = db_sb_size + db_index_size;
+
+        if (!ds->segMgr_->InitSegmentForCreateDB(segtable_offset,
+                                                segment_size,
+                                                number_segments))
         {
             delete ds;
             return NULL;
         }
 
 
-        hash_table_size = ds->idxMgr_->GetHashTableSize();
-        number_segments = ds->segMgr_->GetNumberOfSeg();
-        db_seg_table_size = ds->segMgr_->GetSegTableSizeOnDevice();
-        db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
+        db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
+
+        db_meta_size  = db_sb_size + db_index_size + db_seg_table_size;
         db_data_size = ds->segMgr_->GetDataRegionSize();
         db_size = db_meta_size + db_data_size;
+
+        r = ds->bdev_->SetNewDBZero(db_meta_size);
+        if (r < 0)
+        {
+            delete ds;
+            return NULL;
+        }
+
 
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries,
                         segment_size, number_segments,
                         0, db_sb_size, db_index_size, db_seg_table_size,
                         db_data_size, device_capacity);
-
         ds->sbMgr_->SetSuperBlock(sb);
 
         __INFO("\nCreateKvdbDS table information:\n"
@@ -115,13 +124,16 @@ namespace kvdb {
             return false;
         }
 
-        offset = SuperBlockManager::GetSuperBlockSizeOnDevice();
+        uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
+        offset += db_sb_size;
         if (!idxMgr_->WriteIndexToDevice(offset))
         {
             return false;
         }
 
-        offset = SuperBlockManager::GetSuperBlockSizeOnDevice() + IndexManager::GetIndexSizeOnDevice(idxMgr_->GetHashTableSize());
+        uint32_t hashtable_size = idxMgr_->GetHashTableSize();
+        uint64_t db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
+        offset += db_index_size;
         if (!segMgr_->WriteSegmentTableToDevice(offset))
         {
             return false;
@@ -137,14 +149,20 @@ namespace kvdb {
             return false;
         }
 
-        offset = SuperBlockManager::GetSuperBlockSizeOnDevice();;
-        if (!idxMgr_->LoadIndexFromDevice(offset, sbMgr_->GetHTSize()))
+        uint32_t hashtable_size = sbMgr_->GetHTSize();
+        uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
+        offset += db_sb_size;
+        if (!idxMgr_->LoadIndexFromDevice(offset, hashtable_size))
         {
             return false;
         }
 
-        offset = SuperBlockManager::GetSuperBlockSizeOnDevice() + IndexManager::GetIndexSizeOnDevice(idxMgr_->GetHashTableSize());
-        if (!segMgr_->LoadSegmentTableFromDevice(offset, sbMgr_->GetSegmentSize(), sbMgr_->GetSegmentNum(), sbMgr_->GetCurSegmentId()))
+        uint64_t db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
+        offset += db_index_size;
+        uint32_t segment_size = sbMgr_->GetSegmentSize();
+        uint32_t number_segments = sbMgr_->GetSegmentNum();
+        uint32_t current_seg =sbMgr_->GetCurSegmentId();
+        if (!segMgr_->LoadSegmentTableFromDevice(offset, segment_size, number_segments, current_seg))
         {
             return false;
         }

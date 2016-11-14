@@ -149,7 +149,7 @@ namespace kvdb{
         static inline size_t SizeOfDataHeader(){ return sizeof(DataHeader); }
         static inline size_t SizeOfHashEntryOnDisk(){ return sizeof(HashEntryOnDisk); }
 
-        static uint64_t GetIndexSizeOnDevice(uint32_t ht_size);
+        static uint64_t ComputeIndexSizeOnDevice(uint32_t ht_size);
         static uint32_t ComputeHashSizeForPower2(uint32_t number);
         bool InitIndexForCreateDB(uint32_t numObjects);
 
