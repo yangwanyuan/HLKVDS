@@ -71,6 +71,13 @@ namespace kvdb{
 
     class Request{
     public:
+        struct ReqStat{
+            bool writed;
+            bool write_stat;
+            ReqStat(): writed(false), write_stat(false){}
+        };
+
+    public:
         Request();
         ~Request();
         Request(const Request& toBeCopied);
@@ -78,11 +85,9 @@ namespace kvdb{
         Request(KVSlice& slice);
 
         KVSlice& GetSlice() const { return *slice_; }
-        int IsDone() const { return isDone_; }
-        void Done();
 
-        void SetState(bool state);
-        bool GetState() const { return writeStat_; }
+        bool GetWriteStat() const { return stat_.write_stat; }
+        void SetWriteStat(bool stat);
 
         void SetSeg(SegmentSlice *seg) { segPtr_ = seg; }
         SegmentSlice* GetSeg() { return segPtr_; }
@@ -91,8 +96,7 @@ namespace kvdb{
         void Signal();
 
     private:
-        int isDone_;
-        bool writeStat_;
+        ReqStat stat_;
         KVSlice *slice_;
         mutable std::mutex mtx_;
         std::condition_variable cv_;
@@ -107,36 +111,31 @@ namespace kvdb{
         SegmentSlice(const SegmentSlice& toBeCopied);
         SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
-        SegmentSlice(SegmentManager* sm, BlockDevice* bdev);
+        SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
 
         bool TryPut(Request* req);
-        bool Put(Request* req);
+        void Put(Request* req);
         bool WriteSegToDevice(uint32_t seg_id);
         void Complete();
-        //bool CompleteIfExpired();
         void Notify(bool stat);
         bool IsExpired();
 
         int32_t CommitedAndGetNum() { return --reqCommited_; }
-        std::list<HashEntry>& GetDelReqsList() { return delReqList_; }
-        void WaitForReap();
-
+        void CleanDeletedEntry();
         uint32_t GetSegId() const { return segId_; }
 
     private:
-        bool isExpire();
         bool isCanFit(Request* req) const;
         void copyHelper(const SegmentSlice& toBeCopied);
         void fillSlice();
         void fillSegHead();
         void notifyAndClean(bool req_state);
-        bool _writeToDeviceHugeHole();
-        bool _writeToDevice();
         bool _writeDataToDevice();
         void copyToData(char* data_buff);
 
         uint32_t segId_;
         SegmentManager* segMgr_;
+        IndexManager* idxMgr_;
         BlockDevice* bdev_;
         uint32_t segSize_;
         KVTime persistTime_;
@@ -151,16 +150,12 @@ namespace kvdb{
         bool hasReq_;
 
         std::atomic<int32_t> reqCommited_;
-        std::atomic<bool> isCanReap_;
-
-        //std::mutex mtx_;
 
         std::list<Request *> reqList_;
         SegmentOnDisk *segOndisk_;
 
+        std::mutex mtx_;
         std::list<HashEntry> delReqList_;
-
-        //char* data_;
     };
 
 } //end namespace kvdb

@@ -38,10 +38,10 @@ public:
         cv_.notify_one();
     }
 
-    QueueType Wait_Dequeue()
+    QueueType Wait_Dequeue(int msec = 1000)
     {
         std::unique_lock<std::mutex> lck(mtx_);
-        if(cv_.wait_for(lck, std::chrono::milliseconds(10), [this]{ return !dataQueue_.empty();}))
+        if(cv_.wait_for(lck, std::chrono::milliseconds(msec), [this]{ return !dataQueue_.empty();}))
         {
             QueueType data = dataQueue_.front();
             dataQueue_.pop();
@@ -54,7 +54,7 @@ public:
     }
 
     bool empty(){
-        std::lock_guard<std::mutex> guard(mtx_);
+        std::lock_guard<std::mutex> lck(mtx_);
         return dataQueue_.empty();
     }
 

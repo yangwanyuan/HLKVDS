@@ -10,8 +10,6 @@
 
 namespace kvdb {
 
-    //KvdbDS* KvdbDS::instance_ = NULL;
-
     KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
                                     uint32_t hash_table_size,
                                     uint32_t segment_size)
@@ -22,81 +20,95 @@ namespace kvdb {
         }
 
         uint32_t num_entries = 0;
-        uint32_t deleted_entries = 0;
         uint32_t number_segments = 0;
         uint64_t db_sb_size = 0;
         uint64_t db_index_size = 0;
+        uint64_t db_seg_table_size =0;
         uint64_t db_meta_size = 0;
         uint64_t db_data_size = 0;
         uint64_t db_size = 0;
-        uint64_t device_size = 0;
+        uint64_t device_capacity = 0;
         
         KvdbDS* ds = new KvdbDS(filename);
-
-        db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-        db_index_size = IndexManager::GetIndexSizeOnDevice(hash_table_size);
-        db_meta_size = db_sb_size + db_index_size;
-
         int r = 0;
-        r = ds->bdev_->CreateNewDB(filename, db_meta_size);
+        r = ds->bdev_->Open(filename);
         if (r < 0)
         {
             delete ds;
             return NULL;
         }
 
-        if (!ds->sbMgr_->InitSuperBlockForCreateDB())
+        //Init Superblock region
+        db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
+        if (!ds->sbMgr_->InitSuperBlockForCreateDB(0))
         {
             delete ds;
             return NULL;
         }
 
-        if (!ds->idxMgr_->InitIndexForCreateDB(hash_table_size))
+        //Init Index region
+        hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
+        db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
+        if (!ds->idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size))
         {
             delete ds;
             return NULL;
         }
 
-        device_size = ds->bdev_->GetDeviceCapacity();
-        if (!ds->segMgr_->InitSegmentForCreateDB(device_size,
-                                                db_meta_size, 
-                                                segment_size))
+        //Init Segment region
+        device_capacity = ds->bdev_->GetDeviceCapacity();
+        uint64_t seg_total_size = device_capacity - db_sb_size - db_index_size;
+
+        number_segments = SegmentManager::ComputeSegNum(seg_total_size, segment_size);
+        uint64_t segtable_offset = db_sb_size + db_index_size;
+
+        if (!ds->segMgr_->InitSegmentForCreateDB(segtable_offset,
+                                                segment_size,
+                                                number_segments))
         {
             delete ds;
             return NULL;
         }
 
 
-        hash_table_size = ds->idxMgr_->GetHashTableSize();
-        number_segments = ds->segMgr_->GetNumberOfSeg();
+        db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
+
+        db_meta_size  = db_sb_size + db_index_size + db_seg_table_size;
         db_data_size = ds->segMgr_->GetDataRegionSize();
         db_size = db_meta_size + db_data_size;
 
-        DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, 
-                        deleted_entries, segment_size, number_segments, 
-                        0, db_sb_size, db_index_size, db_data_size, 
-                        device_size);
+        r = ds->bdev_->SetNewDBZero(db_meta_size);
+        if (r < 0)
+        {
+            delete ds;
+            return NULL;
+        }
 
+
+        DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries,
+                        segment_size, number_segments,
+                        0, db_sb_size, db_index_size, db_seg_table_size,
+                        db_data_size, device_capacity);
         ds->sbMgr_->SetSuperBlock(sb);
 
         __INFO("\nCreateKvdbDS table information:\n"
                "\t hashtable_size            : %d\n"
                "\t num_entries               : %d\n"
-               "\t deleted_entries           : %d\n"
                "\t segment_size              : %d Bytes\n"
                "\t number_segments           : %d\n"
                "\t Database Superblock Size  : %ld Bytes\n"
                "\t Database Index Size       : %ld Bytes\n"
+               "\t Database Seg Table Size   : %ld Bytes\n"
                "\t Total DB Meta Region Size : %ld Bytes\n"
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
                "\t Total Device Size         : %ld Bytes",
-               hash_table_size, num_entries, deleted_entries,
+               hash_table_size, num_entries,
                segment_size, number_segments, db_sb_size, 
-               db_index_size, db_meta_size, db_data_size, 
-               db_size, device_size);
+               db_index_size, db_seg_table_size, db_meta_size,
+               db_data_size, db_size, device_capacity);
 
-        ds->seg_ = new SegmentSlice(ds->segMgr_, ds->bdev_);
+        ds->seg_ = new SegmentSlice(ds->segMgr_,ds->idxMgr_, ds->bdev_);
         ds->startThds();
 
         return ds; 
@@ -106,14 +118,17 @@ namespace kvdb {
 
     bool KvdbDS::writeMetaDataToDevice()
     {
-        uint64_t offset = 0;
-        if (!sbMgr_->WriteSuperBlockToDevice(offset))
+        if (!sbMgr_->WriteSuperBlockToDevice())
         {
             return false;
         }
 
-        offset = SuperBlockManager::GetSuperBlockSizeOnDevice();
-        if (!idxMgr_->WriteIndexToDevice(offset))
+        if (!idxMgr_->WriteIndexToDevice())
+        {
+            return false;
+        }
+
+        if (!segMgr_->WriteSegmentTableToDevice())
         {
             return false;
         }
@@ -128,42 +143,47 @@ namespace kvdb {
             return false;
         }
 
-
-        offset += sbMgr_->GetSbSize();
-        if (!idxMgr_->LoadIndexFromDevice(offset, sbMgr_->GetHTSize()))
+        uint32_t hashtable_size = sbMgr_->GetHTSize();
+        uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
+        offset += db_sb_size;
+        if (!idxMgr_->LoadIndexFromDevice(offset, hashtable_size))
         {
             return false;
         }
 
-        offset += sbMgr_->GetIndexSize();
-        if (!segMgr_->LoadSegmentTableFromDevice(offset, sbMgr_->GetSegmentSize(), sbMgr_->GetSegmentNum(), sbMgr_->GetCurSegmentId()))
+        uint64_t db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
+        offset += db_index_size;
+        uint32_t segment_size = sbMgr_->GetSegmentSize();
+        uint32_t number_segments = sbMgr_->GetSegmentNum();
+        uint32_t current_seg =sbMgr_->GetCurSegmentId();
+        if (!segMgr_->LoadSegmentTableFromDevice(offset, segment_size, number_segments, current_seg))
         {
             return false;
         }
 
-        seg_ = new SegmentSlice(segMgr_, bdev_);
+        seg_ = new SegmentSlice(segMgr_, idxMgr_,  bdev_);
 
         __INFO("\nReading meta information from file:\n"
                "\t hashtable_size            : %d\n"
                "\t num_entries               : %d\n"
-               "\t deleted_entries           : %d\n"
                "\t segment_size              : %d Bytes\n"
                "\t number_segments           : %d\n"
                "\t Database Superblock Size  : %ld Bytes\n"
                "\t Database Index Size       : %ld Bytes\n"
+               "\t Database Seg Table Size   : %ld Bytes\n"
                "\t Total DB Meta Region Size : %ld Bytes\n"
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
                "\t Total Device Size         : %ld Bytes\n"
                "\t Current Segment ID        : %d",
                sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
-               sbMgr_->GetDeletedNum(), sbMgr_->GetSegmentSize(),
+               sbMgr_->GetSegmentSize(),
                sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
-               sbMgr_->GetIndexSize(),
-               (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize()),
+               sbMgr_->GetIndexSize(), sbMgr_->GetSegTableSize(),
+               (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize()),
                sbMgr_->GetDataRegionSize(),
-               (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetDataRegionSize()),
-               sbMgr_->GetDeviceSize(), sbMgr_->GetCurSegmentId());
+               (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize() + sbMgr_->GetDataRegionSize()),
+               sbMgr_->GetDeviceCapacity(), sbMgr_->GetCurSegmentId());
 
         return true;
     }
@@ -171,10 +191,6 @@ namespace kvdb {
 
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
     {
-        //if (instance_)
-        //{
-        //    return instance_;
-        //}
         KvdbDS *instance_ = new KvdbDS(filename);
 
         if (!instance_->openDB())
@@ -215,8 +231,8 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        reqDispatchT_stop_.store(false);
-        reqDispatchT_ = std::thread(&KvdbDS::ReqDispatchThdEntry,this);
+        reqForwardT_stop_.store(false);
+        reqForwardT_ = std::thread(&KvdbDS::ReqForwardThdEntry,this);
 
         segWriteT_stop_.store(false);
         for(int i = 0; i<SEG_POOL_SIZE; i++)
@@ -234,8 +250,8 @@ namespace kvdb {
 
     void KvdbDS::stopThds()
     {
-        reqDispatchT_stop_.store(true);
-        reqDispatchT_.join();
+        reqForwardT_stop_.store(true);
+        reqForwardT_.join();
 
         segWriteT_stop_.store(true);
         for(auto &th : segWriteTP_)
@@ -265,7 +281,7 @@ namespace kvdb {
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
         seg_(NULL),
-        reqDispatchT_stop_(false),
+        reqForwardT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
         segReaperT_stop_(false)
@@ -346,9 +362,9 @@ namespace kvdb {
 
     bool KvdbDS::updateMeta(Request *req)
     {
-        bool res = req->GetState();
+        bool res = req->GetWriteStat();
         // update index
-        if (res)
+        if ( res )
         {
             KVSlice *slice = &req->GetSlice();
             res = idxMgr_->UpdateIndex(slice);
@@ -391,11 +407,11 @@ namespace kvdb {
     }
 
 
-    void KvdbDS::ReqDispatchThdEntry()
+    void KvdbDS::ReqForwardThdEntry()
     {
-        __DEBUG("Requests Dispatch thread start!!");
+        __DEBUG("Requests Forward thread start!!");
         std::unique_lock<std::mutex> lck_seg(segMtx_, std::defer_lock);
-        while(!reqDispatchT_stop_.load())
+        while(!reqForwardT_stop_.load())
         {
             Request  *req = reqQue_.Wait_Dequeue();
             if ( req )
@@ -408,18 +424,15 @@ namespace kvdb {
                 else
                 {
                      seg_->Complete();
-
-                     SegmentSlice *temp = seg_;
-                     seg_ = new SegmentSlice(segMgr_, bdev_);
+                     segWriteQue_.Enqueue_Notify(seg_);
+                     seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
                      seg_->Put(req);
-
-                     segWriteQue_.Enqueue_Notify(temp);
                 }
                 lck_seg.unlock();
             }
 
         }
-        __DEBUG("Requests Dispatch thread stop!!");
+        __DEBUG("Requests Forward thread stop!!");
     }
 
     void KvdbDS::SegWriteThdEntry()
@@ -441,16 +454,20 @@ namespace kvdb {
                 {
                     res = seg->WriteSegToDevice(seg_id);
                     seg->Notify(res);
-                    if (!res)
+                    if ( res )
+                    {
+                        //Update Superblock
+                        sbMgr_->SetCurSegId(seg_id);
+                    }
+                    else
                     {
                         //Free the segment if write failed
                         segMgr_->FreeSeg(seg_id);
                     }
 
-                    __DEBUG("Segment thread write seg to device, seg_id:%d %s", seg_id, res==true? "Success":"Failed");
+                    __DEBUG("Segment thread write seg to device, seg_id:%d %s",
+                            seg_id, res==true? "Success":"Failed");
 
-                    //Update Superblock
-                    sbMgr_->SetCurSegId(seg_id);
                 }
             }
         }
@@ -467,13 +484,10 @@ namespace kvdb {
             lck.lock();
             if (seg_->IsExpired())
             {
-
                 seg_->Complete();
 
-                SegmentSlice *temp = seg_;
-                seg_ = new SegmentSlice(segMgr_, bdev_);
-
-                segWriteQue_.Enqueue_Notify(temp);
+                segWriteQue_.Enqueue_Notify(seg_);
+                seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
             }
             lck.unlock();
 
@@ -491,13 +505,8 @@ namespace kvdb {
             SegmentSlice *seg = segReaperQue_.Wait_Dequeue();
             if ( seg )
             {
-                list<HashEntry>& del_list = seg->GetDelReqsList();
-                for(list<HashEntry>::iterator iter=del_list.begin(); iter != del_list.end(); iter++)
-                {
-                    idxMgr_->RemoveEntry(*iter);
-                }
+                seg->CleanDeletedEntry();
                 __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-                seg->WaitForReap();
                 delete seg;
             }
         }

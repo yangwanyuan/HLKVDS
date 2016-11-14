@@ -57,12 +57,12 @@ namespace kvdb {
         SegmentSlice *seg_;
         std::mutex segMtx_;
 
-    // Request Dispatch thread
+    // Request Forward thread
     private:
-        std::thread reqDispatchT_;
-        std::atomic<bool> reqDispatchT_stop_;
+        std::thread reqForwardT_;
+        std::atomic<bool> reqForwardT_stop_;
         WorkQueue<Request*> reqQue_;
-        void ReqDispatchThdEntry();
+        void ReqForwardThdEntry();
 
     // Seg Write to device thread
     private:
@@ -84,8 +84,6 @@ namespace kvdb {
         WorkQueue<SegmentSlice*> segReaperQue_;
         void SegReaperThdEntry();
 
-    //private:
-    //    static KvdbDS *instance_;
     };
 
 

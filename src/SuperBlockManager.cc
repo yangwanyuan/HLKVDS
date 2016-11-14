@@ -6,9 +6,10 @@
 #include "SuperBlockManager.h"
 
 namespace kvdb{
-    bool SuperBlockManager::InitSuperBlockForCreateDB()
+    bool SuperBlockManager::InitSuperBlockForCreateDB(uint64_t offset)
     {
         sb_ = new DBSuperBlock;
+        startOff_ = offset;
 
         memset(sb_, 0, SuperBlockManager::SizeOfDBSuperBlock());
         return true;
@@ -17,6 +18,7 @@ namespace kvdb{
     bool SuperBlockManager::LoadSuperBlockFromDevice(uint64_t offset)
     {   
         sb_ = new DBSuperBlock;
+        startOff_ = offset;
         
         uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
         if ((uint64_t)bdev_->pRead(sb_, length, offset) != length)
@@ -28,12 +30,12 @@ namespace kvdb{
         return true;
     }
 
-    bool SuperBlockManager::WriteSuperBlockToDevice(uint64_t offset)
+    bool SuperBlockManager::WriteSuperBlockToDevice()
     {
         uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
-        if ((uint64_t)bdev_->pWrite(sb_, length, offset) != length)
+        if ((uint64_t)bdev_->pWrite(sb_, length, startOff_) != length)
         {
-            __ERROR("Could not write superblock at position %ld\n", offset);
+            __ERROR("Could not write superblock at position %ld\n", startOff_);
             return false;
         }
         return true;
@@ -44,14 +46,14 @@ namespace kvdb{
         std::lock_guard<std::mutex> l(mtx_);
         sb_->hashtable_size        = sb.hashtable_size;
         sb_->number_elements       = sb.number_elements;
-        sb_->deleted_elements      = sb.deleted_elements;
         sb_->segment_size          = sb.segment_size;
         sb_->number_segments       = sb.number_segments;
         sb_->current_segment       = sb.current_segment;
         sb_->db_sb_size            = sb.db_sb_size;
         sb_->db_index_size         = sb.db_index_size;
+        sb_->db_seg_table_size     = sb.db_seg_table_size;
         sb_->db_data_size          = sb.db_data_size;
-        sb_->device_size           = sb.device_size;
+        sb_->device_capacity       = sb.device_capacity;
     }
 
 
@@ -63,7 +65,7 @@ namespace kvdb{
 
 
     SuperBlockManager::SuperBlockManager(BlockDevice* bdev):
-        bdev_(bdev), sb_(NULL){}
+        bdev_(bdev), sb_(NULL), startOff_(0) {}
 
     SuperBlockManager::~SuperBlockManager()
     {
@@ -80,18 +82,6 @@ namespace kvdb{
     {
         std::lock_guard<std::mutex> l(mtx_);
         sb_->number_elements--;
-    }
-
-    void SuperBlockManager::AddDeleted()
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        sb_->deleted_elements++;
-    }
-
-    void SuperBlockManager::DeleteDeleted()
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        sb_->deleted_elements--;
     }
 
     void SuperBlockManager::SetCurSegId(uint32_t id)

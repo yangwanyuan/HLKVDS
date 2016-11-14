@@ -76,22 +76,12 @@ namespace kvdb{
 
     string KVSlice::GetKeyStr() const
     {
-        char * data = new char[keyLength_ + 1];
-        memcpy(data, key_, keyLength_);
-        data[keyLength_] = '\0';
-        string r(data);
-        delete[] data;
-        return r;
+        return string(key_, keyLength_);
     }
 
     string KVSlice::GetDataStr() const
     {
-        char * data = new char[dataLength_ + 1];
-        memcpy(data, data_, dataLength_);
-        data[dataLength_] = '\0';
-        string r(data);
-        delete[] data;
-        return r;
+        return string(data_, dataLength_);
     }
 
     void KVSlice::SetHashEntry(const HashEntry *hash_entry)
@@ -104,35 +94,30 @@ namespace kvdb{
         segId_ = seg_id;
     }
 
-    Request::Request(): isDone_(0), writeStat_(false), slice_(NULL), segPtr_(NULL){}
+    Request::Request(): slice_(NULL), segPtr_(NULL){}
 
     Request::~Request(){}
 
+
     Request::Request(const Request& toBeCopied) :
-        isDone_(toBeCopied.isDone_), writeStat_(toBeCopied.writeStat_),
-        slice_(toBeCopied.slice_), segPtr_(toBeCopied.segPtr_){}
+        stat_(toBeCopied.stat_), slice_(toBeCopied.slice_),
+        segPtr_(toBeCopied.segPtr_){}
 
     Request& Request::operator=(const Request& toBeCopied)
     {
-        isDone_ = toBeCopied.isDone_;
-        writeStat_ = toBeCopied.writeStat_;
+        stat_ = toBeCopied.stat_;
         slice_ = toBeCopied.slice_;
         segPtr_ = toBeCopied.segPtr_;
         return *this;
     }
 
-    Request::Request(KVSlice& slice) : isDone_(0), writeStat_(false), slice_(&slice), segPtr_(NULL){}
+    Request::Request(KVSlice& slice) : slice_(&slice), segPtr_(NULL){}
 
-    void Request::Done()
+    void Request::SetWriteStat(bool stat)
     {
         std::lock_guard<std::mutex> l(mtx_);
-        isDone_ = 1;
-    }
-
-    void Request::SetState(bool state)
-    {
-        std::lock_guard<std::mutex> l(mtx_);
-        writeStat_ = state;
+        stat_.writed = true;
+        stat_.write_stat = stat;
     }
 
     void Request::Wait()
@@ -148,7 +133,7 @@ namespace kvdb{
     }
 
     SegmentSlice::SegmentSlice()
-        :segId_(0), segMgr_(NULL), bdev_(NULL), segSize_(0),
+        :segId_(0), segMgr_(NULL), idxMgr_(NULL), bdev_(NULL), segSize_(0),
         persistTime_(KVTime()), startTime_(KVTime()),
         headPos_(0), tailPos_(0), keyNum_(0), keyAlignedNum_(0),
         isCompleted_(false), hasReq_(false), segOndisk_(NULL)
@@ -158,12 +143,7 @@ namespace kvdb{
 
     SegmentSlice::~SegmentSlice()
     {
-        delReqList_.clear();
         delete segOndisk_;
-        //if(data_)
-        //{
-        //    delete[] data_;
-        //}
     }
 
     SegmentSlice::SegmentSlice(const SegmentSlice& toBeCopied)
@@ -182,6 +162,7 @@ namespace kvdb{
     {
         segId_ = toBeCopied.segId_;
         segMgr_ = toBeCopied.segMgr_;
+        idxMgr_ = toBeCopied.idxMgr_;
         bdev_ = toBeCopied.bdev_;
         segSize_ = toBeCopied.segSize_;
         persistTime_ = toBeCopied.persistTime_;
@@ -193,23 +174,20 @@ namespace kvdb{
         isCompleted_ = toBeCopied.isCompleted_;
         hasReq_ = toBeCopied.hasReq_;
         reqCommited_.store(toBeCopied.reqCommited_.load());
-        isCanReap_.store(toBeCopied.isCanReap_.load());
         reqList_ = toBeCopied.reqList_;
         *segOndisk_ = *toBeCopied.segOndisk_;
         delReqList_ = toBeCopied.delReqList_;
-        //data_ = toBeCopied.data_;
     }
 
-    SegmentSlice::SegmentSlice(SegmentManager* sm, BlockDevice* bdev)
-        : segId_(0), segMgr_(sm), bdev_(bdev),
+    SegmentSlice::SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev)
+        : segId_(0), segMgr_(sm), idxMgr_(im), bdev_(bdev),
         segSize_(segMgr_->GetSegmentSize()), persistTime_(KVTime()),
         startTime_(KVTime()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), isCompleted_(false), hasReq_(false),
-        reqCommited_(-1), isCanReap_(false), segOndisk_(NULL)
+        reqCommited_(-1), segOndisk_(NULL)
     {
         segOndisk_ = new SegmentOnDisk();
-        //data_ = new char[segSize_];
     }
 
     bool SegmentSlice::TryPut(Request* req)
@@ -218,31 +196,11 @@ namespace kvdb{
         {
             return false;
         }
-        KVSlice *slice = &req->GetSlice();
-        uint32_t freeSize = tailPos_ - headPos_;
-        uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
-        if (freeSize < needSize)
-        {
-            return false;
-        }
-        return true;
+        return isCanFit(req);
     }
 
-    bool SegmentSlice::Put(Request* req)
+    void SegmentSlice::Put(Request* req)
     {
-        //std::lock_guard<std::mutex> l(mtx_);
-        //if(isCompleted_)
-        //{
-        //    return false;
-        //}
-        //KVSlice *slice = &req->GetSlice();
-        //uint32_t freeSize = tailPos_ - headPos_;
-        //uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
-        //if (freeSize < needSize)
-        //{
-        //    return false;
-        //}
-        //
         KVSlice *slice = &req->GetSlice();
 
         if ( keyNum_ == 0)
@@ -266,152 +224,8 @@ namespace kvdb{
         req->SetSeg(this);
 
         __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
-        return true;
     }
 
-    bool SegmentSlice::_writeToDeviceHugeHole()
-    {
-        //calculate iovec offset
-        uint64_t front_offset = 0;
-        segMgr_->ComputeSegOffsetFromId(segId_, front_offset);
-        uint64_t back_offset = (front_offset + segSize_) - (ALIGNED_SIZE * keyAlignedNum_);
-
-        //alloc iovec
-        uint32_t iovec_num = keyNum_ * 2 + 1;
-        uint32_t front_iovec_num = iovec_num - keyAlignedNum_;
-        uint32_t back_iovec_num = keyAlignedNum_;
-        ssize_t front_nwriten = 0;
-        ssize_t back_nwriten = 0;
-        uint32_t front_index = 0;
-        uint32_t back_index = keyAlignedNum_ - 1;
-
-        struct iovec *iov_front = new struct iovec[front_iovec_num];
-        struct iovec *iov_back = new struct iovec[back_iovec_num];
-
-        //aggregate SegmentOnDisk to iovec
-        iov_front[front_index].iov_base = segOndisk_;
-        iov_front[front_index].iov_len = SegmentManager::SizeOfSegOnDisk();
-        front_index++;
-        front_nwriten += SegmentManager::SizeOfSegOnDisk();
-
-        //aggregate iovec
-        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
-        {
-            KVSlice *slice = &(*iter)->GetSlice();
-            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
-            char *data = (char *)slice->GetData();
-            uint16_t data_len = slice->GetDataLen();
-
-            iov_front[front_index].iov_base = header;
-            iov_front[front_index].iov_len = IndexManager::SizeOfDataHeader();
-            front_index++;
-            front_nwriten += IndexManager::SizeOfDataHeader();
-
-            if (slice->IsAlignedData())
-            {
-                iov_back[back_index].iov_base = data;
-                iov_back[back_index].iov_len = data_len;
-                back_index--;
-                back_nwriten += data_len;
-            }
-            else
-            {
-                iov_front[front_index].iov_base = data;
-                iov_front[front_index].iov_len = data_len;
-                front_index++;
-                front_nwriten += data_len;
-            }
-        }
-
-        //Write segment head, dataheader
-        bool wstat = true;
-        if (bdev_->pWritev(iov_front, front_iovec_num, front_offset) != front_nwriten)
-        {
-            __ERROR("Write Segment front data error, seg_id:%u", segId_);
-            wstat = false;
-        }
-
-        if (bdev_->pWritev(iov_back, back_iovec_num, back_offset) != back_nwriten)
-        {
-            __ERROR("Write Segment front data error, seg_id:%u", segId_);
-            wstat = false;
-        }
-
-        delete[] iov_front;
-        delete[] iov_back;
-        //notifyAndClean(wstat);
-
-        return wstat;
-
-    }
-
-    bool SegmentSlice::_writeToDevice()
-    {
-        //calculate iovec offset
-        uint64_t offset = 0;
-        segMgr_->ComputeSegOffsetFromId(segId_, offset);
-
-        //alloc iovec
-        uint32_t iovec_num = keyNum_ * 2 + 2;
-        uint32_t index = 0;
-        uint32_t back_index = iovec_num - 1;
-
-        struct iovec *iov = new struct iovec[iovec_num];
-        iov[index].iov_base = segOndisk_;
-        iov[index].iov_len = SegmentManager::SizeOfSegOnDisk();
-        __DEBUG("Segment size %lu, index: %u, total: %u", iov[index].iov_len, index, iovec_num);
-        index ++ ;
-
-        //aggregate iovec
-        for(list<Request *>::iterator iter=reqList_.begin(); iter != reqList_.end(); iter++)
-        {
-            KVSlice *slice = &(*iter)->GetSlice();
-            DataHeader *header = &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
-            char *data = (char *)slice->GetData();
-            uint16_t data_len = slice->GetDataLen();
-
-            iov[index].iov_base = header;
-            iov[index].iov_len = IndexManager::SizeOfDataHeader();
-            __DEBUG("Dataheader size %lu, index: %u", iov[index].iov_len, index);
-            index++;
-
-            if (slice->IsAlignedData())
-            {
-                iov[back_index].iov_base = data;
-                iov[back_index].iov_len = data_len;
-                __DEBUG("Aligned value size %lu, index: %u", iov[back_index].iov_len, back_index);
-                back_index--;
-            }
-            else
-            {
-                iov[index].iov_base = data;
-                iov[index].iov_len = data_len;
-                index++;
-            }
-        }
-
-        ssize_t hole_size = tailPos_ - headPos_;
-        char *hole = segMgr_->GetZeros();
-
-        iov[index].iov_base = hole;
-        iov[index].iov_len = hole_size;
-        __DEBUG("hole size %lu, index:%u", iov[index].iov_len, index);
-
-        //Write segment head, dataheader
-        bool wstat = true;
-        if (bdev_->pWritev(iov, iovec_num, offset) != segSize_)
-        {
-            __ERROR("Write Segment front data error, seg_id:%u", segId_);
-            wstat = false;
-        }
-
-
-        delete[] iov;
-        //notifyAndClean(wstat);
-
-        return wstat;
-
-    }
 
     bool SegmentSlice::_writeDataToDevice()
     {
@@ -434,25 +248,11 @@ namespace kvdb{
 
     bool SegmentSlice::WriteSegToDevice(uint32_t seg_id)
     {
-
         segId_ = seg_id;
         fillSlice();
-
         __DEBUG("Begin write seg, free size %u, seg id: %d, key num: %d", tailPos_-headPos_ , segId_, keyNum_);
 
-        //return _writeToDevice();
-
         return _writeDataToDevice();
-
-        //uint32_t hole_size = tailPos_ - headPos_;
-        //if ( hole_size > (segSize_ >> 1))
-        //{
-        //    return _writeToDeviceHugeHole();
-        //}
-        //else
-        //{
-        //    return _writeToDevice();
-        //}
     }
 
     void SegmentSlice::fillSlice()
@@ -509,6 +309,8 @@ namespace kvdb{
 
     void SegmentSlice::notifyAndClean(bool req_state)
     {
+        std::lock_guard<std::mutex> l(mtx_);
+
         //Set logic timestamp to hashentry
         reqCommited_.store(keyNum_);
 
@@ -532,18 +334,15 @@ namespace kvdb{
         {
             Request *req = reqList_.front();
             reqList_.pop_front();
-            req->Done();
-            req->SetState(req_state);
+            req->SetWriteStat(req_state);
             req->Signal();
         }
 
-        isCanReap_.store(true);
     }
 
 
     void SegmentSlice::Complete()
     {
-        //std::lock_guard<std::mutex> l(mtx_);
         if (isCompleted_)
         {
             return;
@@ -553,43 +352,23 @@ namespace kvdb{
         isCompleted_ = true;
     }
 
-    //bool SegmentSlice::CompleteIfExpired()
-    //{
-    //    //std::lock_guard<std::mutex> l(mtx_);
-    //    if (isCompleted_)
-    //    {
-    //        return true;
-    //    }
-    //    if (!isExpire())
-    //    {
-    //        return false;
-    //    }
-
-    //    fillSegHead();
-    //    isCompleted_ = true;
-    //    return true;
-    //}
-
-
     void SegmentSlice::Notify(bool stat)
     {
         notifyAndClean(stat);
     }
 
-    bool SegmentSlice::IsExpired()
-    {
-        return isExpire();
-    }
 
-    void SegmentSlice::WaitForReap()
+    void SegmentSlice::CleanDeletedEntry()
     {
-        while(!isCanReap_.load())
+        std::lock_guard<std::mutex> l(mtx_);
+        for(list<HashEntry>::iterator iter=delReqList_.begin(); iter != delReqList_.end(); iter++)
         {
-            usleep(100);
+            idxMgr_->RemoveEntry(*iter);
         }
+        delReqList_.clear();
     }
 
-    bool SegmentSlice::isExpire()
+    bool SegmentSlice::IsExpired()
     {
         KVTime nowTime;
         if (!hasReq_)

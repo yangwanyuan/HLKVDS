@@ -11,28 +11,18 @@
 
 namespace kvdb{
 
-    DataHeader::DataHeader() : key_digest(Kvdb_Digest()), data_size(0), data_offset(0), next_header_offset(0){}
+    DataHeader::DataHeader()
+        : key_digest(Kvdb_Digest()), data_size(0),
+          data_offset(0), next_header_offset(0) {}
 
-    DataHeader::DataHeader(const Kvdb_Digest &digest, uint16_t size, uint32_t offset, uint32_t next_offset) : key_digest(digest), data_size(size), data_offset(offset), next_header_offset(next_offset){}
-
-    DataHeader::DataHeader(const DataHeader& toBeCopied)
-    {
-        key_digest = toBeCopied.key_digest;
-        data_size = toBeCopied.data_size;
-        data_offset = toBeCopied.data_offset;
-        next_header_offset = toBeCopied.next_header_offset;
-    }
+    DataHeader::DataHeader(const Kvdb_Digest &digest,
+                            uint16_t size, uint32_t offset,
+                            uint32_t next_offset)
+        : key_digest(digest), data_size(size),
+          data_offset(offset),
+          next_header_offset(next_offset) {}
 
     DataHeader::~DataHeader(){}
-
-    DataHeader& DataHeader::operator=(const DataHeader& toBeCopied)
-    {
-        key_digest = toBeCopied.key_digest;
-        data_size = toBeCopied.data_size;
-        data_offset = toBeCopied.data_offset;
-        next_header_offset = toBeCopied.next_header_offset;
-        return *this;
-    }
 
     void DataHeader::SetDigest(const Kvdb_Digest& digest)
     {
@@ -40,24 +30,18 @@ namespace kvdb{
     }
 
 
-    DataHeaderOffset::DataHeaderOffset(const DataHeaderOffset& toBeCopied)
-    {
-        physical_offset = toBeCopied.physical_offset;
-    }
-
     DataHeaderOffset::~DataHeaderOffset(){}
 
-    DataHeaderOffset& DataHeaderOffset::operator=(const DataHeaderOffset& toBeCopied)
-    {
-        physical_offset = toBeCopied.physical_offset;
-        return *this;
-    }
+    HashEntryOnDisk::HashEntryOnDisk()
+        : header(DataHeader()),
+          header_offset(DataHeaderOffset()){}
 
-    HashEntryOnDisk::HashEntryOnDisk() : header(DataHeader()), header_offset(DataHeaderOffset()){}
+    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader,
+                                    DataHeaderOffset& offset)
+        : header(dataheader), header_offset(offset){}
 
-    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset) : header(dataheader), header_offset(offset){}
-
-    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, uint64_t offset)
+    HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader,
+                                        uint64_t offset)
     {
         header = dataheader;
         DataHeaderOffset h_off(offset);
@@ -92,13 +76,16 @@ namespace kvdb{
         entryPtr_ = new HashEntryOnDisk;
     }
 
-    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr): cachePtr_(read_ptr)
+    HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp,
+                        void* read_ptr)
+        : cachePtr_(read_ptr)
     {
         stampPtr_ = new LogicStamp(time_stamp, 0);
         entryPtr_ = new HashEntryOnDisk(entry_ondisk);
     }
 
-    HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr)
+    HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset,
+                        void* read_ptr)
     {
         stampPtr_ = new LogicStamp;
         entryPtr_ = new HashEntryOnDisk(data_header, header_offset);
@@ -153,10 +140,11 @@ namespace kvdb{
         stampPtr_->Set(seg_time, seg_key_no);
     }
 
-    bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
+    bool IndexManager::InitIndexForCreateDB(uint64_t offset, uint32_t numObjects)
     {
-        htSize_ = computeHashSizeForCreateDB(numObjects);
+        htSize_ = ComputeHashSizeForPower2(numObjects);
         used_ = 0;
+        startOff_ = offset;
         
         if (!initHashTable(htSize_))
         {
@@ -169,6 +157,7 @@ namespace kvdb{
     bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint32_t ht_size)
     {
         htSize_ = ht_size;
+        startOff_ = offset;
 
         int64_t timeLength = KVTime::SizeOf();
         if (!rebuildTime(offset))
@@ -200,8 +189,10 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::WriteIndexToDevice(uint64_t offset)
+    bool IndexManager::WriteIndexToDevice()
     {
+        uint64_t offset = startOff_;
+
         int64_t timeLength = KVTime::SizeOf();
         if (!persistTime(offset))
         {
@@ -300,9 +291,12 @@ namespace kvdb{
 
         uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+        if ( !entry_list )
+        {
+            return;
+        }
 
         std::lock_guard<std::mutex> l(mtx_);
-
         HashEntry *entry_inMem = entry_list->getRef(entry);
         HashEntry::LogicStamp *lts = entry.GetLogicStamp();
         HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
@@ -315,14 +309,19 @@ namespace kvdb{
             sbMgr_->DeleteElement();
             __DEBUG("Remove the index entry!");
         }
+
     }
 
     bool IndexManager::GetHashEntry(KVSlice *slice)
     {
         const Kvdb_Digest *digest = &slice->GetDigest();
         uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
-        createListIfNotExist(hash_index);
+
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+        if ( !entry_list )
+        {
+            return false;
+        }
 
         HashEntry entry;
         entry.SetKeyDigest(*digest);
@@ -333,12 +332,13 @@ namespace kvdb{
              vector<HashEntry> tmp_vec = entry_list->get();
              for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++)
              {
-                 //if (iter->GetKeyDigest() == entry.GetKeyDigest())
                  if (iter->GetKeyDigest() == *digest)
                  {
                      entry = *iter;
                      slice->SetHashEntry(&entry);
-                     __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u", entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(), entry.GetNextHeadOffsetInSeg());
+                     __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u",
+                             entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(),
+                             entry.GetNextHeadOffsetInSeg());
                      return true;
                  }
              }
@@ -346,7 +346,7 @@ namespace kvdb{
         return false;
     }
 
-    uint64_t IndexManager::GetIndexSizeOnDevice(uint32_t ht_size)
+    uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size)
     {
         uint64_t index_size = sizeof(time_t) + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
         uint64_t index_size_pages = index_size / getpagesize();
@@ -355,7 +355,7 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr):
-        hashtable_(NULL), htSize_(0), used_(0), bdev_(bdev), sbMgr_(sbMgr)
+        hashtable_(NULL), htSize_(0), used_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr)
     {
         lastTime_ = new KVTime();
         return ;
@@ -373,7 +373,7 @@ namespace kvdb{
         }
     }
 
-    uint32_t IndexManager::computeHashSizeForCreateDB(uint32_t number)
+    uint32_t IndexManager::ComputeHashSizeForPower2(uint32_t number)
     {
         // Gets the next highest power of 2 larger than number
         number--;
@@ -393,7 +393,6 @@ namespace kvdb{
             LinkedList<HashEntry> *entry_list = new LinkedList<HashEntry>;
             hashtable_[index] = entry_list;
         }
-        return;
     }
 
     bool IndexManager::initHashTable(uint32_t size)
@@ -467,36 +466,20 @@ namespace kvdb{
 
     bool IndexManager::loadDataFromDevice(void* data, uint64_t length, uint64_t offset)
     {
-        //ssize_t nread;
-        int64_t nread;
-        uint64_t h_offset = 0;
-        while ((nread = bdev_->pRead((uint64_t *)data + h_offset, length, offset)) > 0){
-            length -= nread;
-            offset += nread;
-            h_offset += nread;
-            if (nread < 0)
-            {
-                __ERROR("Error in reading hashtable from file\n");
-                return false;
-            }
+        if (bdev_->pRead(data, length, offset) != (ssize_t)length)
+        {
+            __ERROR("Error in reading hashtable from file\n");
+            return false;
         }
         return true;
     }
 
     bool IndexManager::writeDataToDevice(void* data, uint64_t length, uint64_t offset)
     {
-        //ssize_t nwrite;
-        int64_t nwrite;
-        uint64_t h_offset = 0;
-        while ((nwrite = bdev_->pWrite((uint64_t *)data + h_offset, length, offset)) > 0){
-            length -= nwrite;
-            offset += nwrite;
-            h_offset += nwrite;
-            if (nwrite < 0)
-            {
-                __ERROR("Error in reading hashtable from file\n");
-                return false;
-            }
+        if (bdev_->pWrite(data, length, offset) != (ssize_t)length)
+        {
+            __ERROR("Error in writing hashtable to file\n");
+            return false;
         }
         return true;
     }

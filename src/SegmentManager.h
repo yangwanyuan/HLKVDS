@@ -34,7 +34,7 @@ namespace kvdb{
         SegmentOnDisk(uint32_t num);
         void Update();
         void SetKeyNum(uint32_t num) { number_keys = num; }
-    }__attribute__((__packed__));
+    };
 
 
     class SegmentStat{
@@ -45,14 +45,27 @@ namespace kvdb{
     public:
         SegmentStat() : state(SegUseStat::FREE), inuse_size(0){}
         ~SegmentStat() {}
+        SegmentStat(const SegmentStat& toBeCopied) :
+            state(toBeCopied.state),
+            inuse_size(toBeCopied.inuse_size){}
+        SegmentStat& operator=(const SegmentStat& toBeCopied)
+        {
+            state = toBeCopied.state;
+            inuse_size = toBeCopied.inuse_size;
+            return *this;
+        }
     };
 
     class SegmentManager{
     public:
         static inline size_t SizeOfSegOnDisk(){ return sizeof(SegmentOnDisk); }
+        static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
+        static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
 
-        bool InitSegmentForCreateDB(uint64_t device_capacity, uint64_t meta_size, uint32_t segment_size);
-        bool LoadSegmentTableFromDevice(uint64_t meta_size, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
+        bool InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size, uint32_t number_segments);
+
+        bool LoadSegmentTableFromDevice(uint64_t start_offset, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
+        bool WriteSegmentTableToDevice();
 
         uint32_t GetNowSegId(){ return curSegId_; }
         uint32_t GetNumberOfSeg(){ return segNum_; }
@@ -65,27 +78,25 @@ namespace kvdb{
             {
                 return false;
             }
-            offset = startOffset_ + ((uint64_t)seg_id << segSizeBit_);
+            offset = dataStartOff_ + ((uint64_t)seg_id << segSizeBit_);
             return true;
         }
 
         inline bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id)
         {
-            if (offset < startOffset_ || offset > endOffset_)
+            if (offset < dataStartOff_ || offset > dataEndOff_)
             {
                 return false;
             }
-            seg_id = (offset - startOffset_ ) >> segSizeBit_;
+            seg_id = (offset - dataStartOff_ ) >> segSizeBit_;
             return true;
         }
 
         bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
-
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
         bool AllocSeg(uint32_t& seg_id);
         void FreeSeg(uint32_t seg_id);
-        char* GetZeros() const { return zeros_; }
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
@@ -93,8 +104,9 @@ namespace kvdb{
 
     private:
         vector<SegmentStat> segTable_;
-        uint64_t startOffset_;
-        uint64_t endOffset_;
+        uint64_t startOff_;
+        uint64_t dataStartOff_;
+        uint64_t dataEndOff_;
         uint32_t segSize_;
         uint32_t segSizeBit_;
         uint32_t segNum_;
@@ -104,7 +116,6 @@ namespace kvdb{
         BlockDevice* bdev_;
         mutable std::mutex mtx_;
 
-        char* zeros_;
     };
 
 } //end namespace kvdb

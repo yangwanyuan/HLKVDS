@@ -31,9 +31,7 @@ namespace kvdb{
     public:
         DataHeader();
         DataHeader(const Kvdb_Digest &digest, uint16_t data_size, uint32_t data_offset, uint32_t next_header_offset);
-        DataHeader(const DataHeader& toBeCopied);
         ~DataHeader();
-        DataHeader& operator=(const DataHeader& toBeCopied);
 
         uint16_t GetDataSize() const { return data_size; }
         uint32_t GetDataOffset() const { return data_offset; }
@@ -54,9 +52,7 @@ namespace kvdb{
     public:
         DataHeaderOffset(): physical_offset(0){}
         DataHeaderOffset(uint64_t offset): physical_offset(offset){}
-        DataHeaderOffset(const DataHeaderOffset& toBeCopied);
         ~DataHeaderOffset();
-        DataHeaderOffset& operator=(const DataHeaderOffset& toBeCopied);
 
         uint64_t GetHeaderOffset() const { return physical_offset; }
 
@@ -144,7 +140,7 @@ namespace kvdb{
         LogicStamp *stampPtr_;
         void* cachePtr_;
 
-    }; //__attribute__((__packed__));
+    };
 
     
 
@@ -153,11 +149,12 @@ namespace kvdb{
         static inline size_t SizeOfDataHeader(){ return sizeof(DataHeader); }
         static inline size_t SizeOfHashEntryOnDisk(){ return sizeof(HashEntryOnDisk); }
 
-        static uint64_t GetIndexSizeOnDevice(uint32_t ht_size);
-        bool InitIndexForCreateDB(uint32_t numObjects);
+        static uint64_t ComputeIndexSizeOnDevice(uint32_t ht_size);
+        static uint32_t ComputeHashSizeForPower2(uint32_t number);
+        bool InitIndexForCreateDB(uint64_t offset, uint32_t numObjects);
 
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
-        bool WriteIndexToDevice(uint64_t offset);
+        bool WriteIndexToDevice();
 
         bool UpdateIndex(KVSlice* slice);
         bool GetHashEntry(KVSlice *slice);
@@ -169,7 +166,6 @@ namespace kvdb{
         ~IndexManager();
 
     private:
-        uint32_t computeHashSizeForCreateDB(uint32_t number);
         void createListIfNotExist(uint32_t index);
 
         bool initHashTable(uint32_t size);
@@ -188,6 +184,7 @@ namespace kvdb{
         LinkedList<HashEntry>** hashtable_;  
         uint32_t htSize_;
         uint32_t used_;
+        uint64_t startOff_;
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
 

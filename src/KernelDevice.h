@@ -8,22 +8,19 @@
 
 namespace kvdb{
 
-    enum device_type{REG_FILE, BLOCK_FILE};
-    
     class KernelDevice : public BlockDevice{
     public:
-        //KernelDevice(const std::string& path);
         KernelDevice();
         virtual ~KernelDevice();
 
-        int CreateNewDB(string path, off_t size);
-        int Open(string path);
+        int SetNewDBZero(off_t meta_size, bool clear_data_region) ;
+        int Open(string path, bool dsync);
         void Close();
 
         uint64_t GetDeviceCapacity(){ return get_capacity(); }
 
-        ssize_t pWrite(const void* buf, size_t count, off_t offset, bool writebuf);
-        ssize_t pRead(void* buf, size_t count, off_t offset, bool readbuf);
+        ssize_t pWrite(const void* buf, size_t count, off_t offset);
+        ssize_t pRead(void* buf, size_t count, off_t offset);
         ssize_t pWritev(const struct iovec *iov, int iovcnt, off_t offset);
         ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset);
 
@@ -33,7 +30,6 @@ namespace kvdb{
         uint64_t capacity_;
         int blockSize_;
         std::string path_;
-        device_type devType_;
         
         int set_device_zero();
         int set_metazone_zero(uint64_t meta_size);
@@ -46,22 +42,6 @@ namespace kvdb{
         int get_pagesize() { return getpagesize(); }
         int get_blocksize() { return blockSize_; }
 
-        bool IsSectorAligned(const size_t off){ return off % (get_blocksize()) == 0; }
-        bool IsPageAligned(const void* ptr){ return (uint64_t)ptr % (get_pagesize()) == 0; }
-
-        ssize_t BufferRead(void* buf, size_t count, off_t offset);
-        ssize_t BufferWrite(const void* buf, size_t count, off_t offset);
-        ssize_t DirectRead(void* buf, size_t count, off_t offset);
-        ssize_t DirectWrite(const void* buf, size_t count, off_t offset);
-
-        ssize_t DirectReadAligned(void* buf, size_t count, off_t offset);
-        ssize_t DirectWriteAligned(const void* buf, size_t count, off_t offset);
-        ssize_t DirectReadUnaligned(void* buf, size_t count, off_t offset);
-        ssize_t DirectWriteUnaligned(const void* buf, size_t count, off_t offset);
-
-
-        off_t LowerAligned(off_t offset, int pagesize);
-        off_t UpperAligned(off_t offset, int pagesize);
     };
 
 }//namespace kvdb
