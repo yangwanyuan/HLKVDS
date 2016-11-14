@@ -6,9 +6,10 @@
 #include "SuperBlockManager.h"
 
 namespace kvdb{
-    bool SuperBlockManager::InitSuperBlockForCreateDB()
+    bool SuperBlockManager::InitSuperBlockForCreateDB(uint64_t offset)
     {
         sb_ = new DBSuperBlock;
+        startOff_ = offset;
 
         memset(sb_, 0, SuperBlockManager::SizeOfDBSuperBlock());
         return true;
@@ -17,6 +18,7 @@ namespace kvdb{
     bool SuperBlockManager::LoadSuperBlockFromDevice(uint64_t offset)
     {   
         sb_ = new DBSuperBlock;
+        startOff_ = offset;
         
         uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
         if ((uint64_t)bdev_->pRead(sb_, length, offset) != length)
@@ -28,12 +30,12 @@ namespace kvdb{
         return true;
     }
 
-    bool SuperBlockManager::WriteSuperBlockToDevice(uint64_t offset)
+    bool SuperBlockManager::WriteSuperBlockToDevice()
     {
         uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
-        if ((uint64_t)bdev_->pWrite(sb_, length, offset) != length)
+        if ((uint64_t)bdev_->pWrite(sb_, length, startOff_) != length)
         {
-            __ERROR("Could not write superblock at position %ld\n", offset);
+            __ERROR("Could not write superblock at position %ld\n", startOff_);
             return false;
         }
         return true;
@@ -63,7 +65,7 @@ namespace kvdb{
 
 
     SuperBlockManager::SuperBlockManager(BlockDevice* bdev):
-        bdev_(bdev), sb_(NULL){}
+        bdev_(bdev), sb_(NULL), startOff_(0) {}
 
     SuperBlockManager::~SuperBlockManager()
     {

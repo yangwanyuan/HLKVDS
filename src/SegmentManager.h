@@ -65,7 +65,7 @@ namespace kvdb{
         bool InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size, uint32_t number_segments);
 
         bool LoadSegmentTableFromDevice(uint64_t start_offset, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg);
-        bool WriteSegmentTableToDevice(uint64_t offset);
+        bool WriteSegmentTableToDevice();
 
         uint32_t GetNowSegId(){ return curSegId_; }
         uint32_t GetNumberOfSeg(){ return segNum_; }
@@ -104,7 +104,7 @@ namespace kvdb{
 
     private:
         vector<SegmentStat> segTable_;
-        uint64_t segTableOff_;
+        uint64_t startOff_;
         uint64_t dataStartOff_;
         uint64_t dataEndOff_;
         uint32_t segSize_;

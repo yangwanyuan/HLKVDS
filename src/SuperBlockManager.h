@@ -66,10 +66,10 @@ namespace kvdb{
         static inline size_t SizeOfDBSuperBlock(){ return sizeof(DBSuperBlock); }
         static uint64_t GetSuperBlockSizeOnDevice(); 
 
-        bool InitSuperBlockForCreateDB();
+        bool InitSuperBlockForCreateDB(uint64_t offset);
 
         bool LoadSuperBlockFromDevice(uint64_t offset);
-        bool WriteSuperBlockToDevice(uint64_t offset);
+        bool WriteSuperBlockToDevice();
 
         void SetSuperBlock(DBSuperBlock& sb);
         const DBSuperBlock& GetSuperBlock() const { return *sb_; }
@@ -97,6 +97,8 @@ namespace kvdb{
     private:
         BlockDevice* bdev_;
         DBSuperBlock* sb_;
+
+        uint64_t startOff_;
 
         mutable std::mutex mtx_;
 

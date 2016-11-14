@@ -40,7 +40,7 @@ namespace kvdb {
 
         //Init Superblock region
         db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-        if (!ds->sbMgr_->InitSuperBlockForCreateDB())
+        if (!ds->sbMgr_->InitSuperBlockForCreateDB(0))
         {
             delete ds;
             return NULL;
@@ -49,7 +49,7 @@ namespace kvdb {
         //Init Index region
         hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
         db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
-        if (!ds->idxMgr_->InitIndexForCreateDB(hash_table_size))
+        if (!ds->idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size))
         {
             delete ds;
             return NULL;
@@ -118,23 +118,17 @@ namespace kvdb {
 
     bool KvdbDS::writeMetaDataToDevice()
     {
-        uint64_t offset = 0;
-        if (!sbMgr_->WriteSuperBlockToDevice(offset))
+        if (!sbMgr_->WriteSuperBlockToDevice())
         {
             return false;
         }
 
-        uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-        offset += db_sb_size;
-        if (!idxMgr_->WriteIndexToDevice(offset))
+        if (!idxMgr_->WriteIndexToDevice())
         {
             return false;
         }
 
-        uint32_t hashtable_size = idxMgr_->GetHashTableSize();
-        uint64_t db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
-        offset += db_index_size;
-        if (!segMgr_->WriteSegmentTableToDevice(offset))
+        if (!segMgr_->WriteSegmentTableToDevice())
         {
             return false;
         }

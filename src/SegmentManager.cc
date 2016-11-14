@@ -65,7 +65,7 @@ namespace kvdb{
             return false;
         }
 
-        segTableOff_ = start_offset;
+        startOff_ = start_offset;
         segSize_ = segment_size;
         segSizeBit_ = log2(segSize_);
         segNum_ = number_segments;
@@ -86,7 +86,7 @@ namespace kvdb{
 
     bool SegmentManager::LoadSegmentTableFromDevice(uint64_t start_offset, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg)
     {
-        segTableOff_ = start_offset;
+        startOff_ = start_offset;
         segSize_ = segment_size;
         segSizeBit_ = log2(segSize_);
         segNum_ = num_seg;
@@ -94,7 +94,7 @@ namespace kvdb{
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
-        uint64_t offset = segTableOff_;
+        uint64_t offset = startOff_;
         SegmentStat* segs_stat = new SegmentStat[segNum_];
         uint64_t length = sizeof(SegmentStat) * (uint64_t)segNum_;
         if (bdev_->pRead(segs_stat, length, offset) != (ssize_t)length)
@@ -113,7 +113,7 @@ namespace kvdb{
         return true;
     }
 
-    bool SegmentManager::WriteSegmentTableToDevice(uint64_t offset)
+    bool SegmentManager::WriteSegmentTableToDevice()
     {
         SegmentStat* segs_stat = new SegmentStat[segNum_];
         uint64_t length = sizeof(SegmentStat) * (uint64_t)segNum_;
@@ -121,7 +121,7 @@ namespace kvdb{
         {
             segs_stat[seg_index] = segTable_[seg_index];
         }
-        if (bdev_->pWrite(segs_stat, length, offset) != (ssize_t)length)
+        if (bdev_->pWrite(segs_stat, length, startOff_) != (ssize_t)length)
         {
                 __ERROR("can not write segment to device!");
                 delete[] segs_stat;

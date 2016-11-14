@@ -151,10 +151,10 @@ namespace kvdb{
 
         static uint64_t ComputeIndexSizeOnDevice(uint32_t ht_size);
         static uint32_t ComputeHashSizeForPower2(uint32_t number);
-        bool InitIndexForCreateDB(uint32_t numObjects);
+        bool InitIndexForCreateDB(uint64_t offset, uint32_t numObjects);
 
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
-        bool WriteIndexToDevice(uint64_t offset);
+        bool WriteIndexToDevice();
 
         bool UpdateIndex(KVSlice* slice);
         bool GetHashEntry(KVSlice *slice);
@@ -184,6 +184,7 @@ namespace kvdb{
         LinkedList<HashEntry>** hashtable_;  
         uint32_t htSize_;
         uint32_t used_;
+        uint64_t startOff_;
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
 

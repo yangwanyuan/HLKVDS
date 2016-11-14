@@ -140,10 +140,11 @@ namespace kvdb{
         stampPtr_->Set(seg_time, seg_key_no);
     }
 
-    bool IndexManager::InitIndexForCreateDB(uint32_t numObjects)
+    bool IndexManager::InitIndexForCreateDB(uint64_t offset, uint32_t numObjects)
     {
         htSize_ = ComputeHashSizeForPower2(numObjects);
         used_ = 0;
+        startOff_ = offset;
         
         if (!initHashTable(htSize_))
         {
@@ -156,6 +157,7 @@ namespace kvdb{
     bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint32_t ht_size)
     {
         htSize_ = ht_size;
+        startOff_ = offset;
 
         int64_t timeLength = KVTime::SizeOf();
         if (!rebuildTime(offset))
@@ -187,8 +189,10 @@ namespace kvdb{
         return true;
     }
 
-    bool IndexManager::WriteIndexToDevice(uint64_t offset)
+    bool IndexManager::WriteIndexToDevice()
     {
+        uint64_t offset = startOff_;
+
         int64_t timeLength = KVTime::SizeOf();
         if (!persistTime(offset))
         {
@@ -351,7 +355,7 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr):
-        hashtable_(NULL), htSize_(0), used_(0), bdev_(bdev), sbMgr_(sbMgr)
+        hashtable_(NULL), htSize_(0), used_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr)
     {
         lastTime_ = new KVTime();
         return ;
