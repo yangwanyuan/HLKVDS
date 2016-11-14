@@ -231,8 +231,8 @@ namespace kvdb {
 
     void KvdbDS::startThds()
     {
-        reqForwardT_stop_.store(false);
-        reqForwardT_ = std::thread(&KvdbDS::ReqForwardThdEntry,this);
+        reqMergeT_stop_.store(false);
+        reqMergeT_ = std::thread(&KvdbDS::ReqMergeThdEntry,this);
 
         segWriteT_stop_.store(false);
         for(int i = 0; i<SEG_POOL_SIZE; i++)
@@ -250,8 +250,8 @@ namespace kvdb {
 
     void KvdbDS::stopThds()
     {
-        reqForwardT_stop_.store(true);
-        reqForwardT_.join();
+        reqMergeT_stop_.store(true);
+        reqMergeT_.join();
 
         segWriteT_stop_.store(true);
         for(auto &th : segWriteTP_)
@@ -281,7 +281,7 @@ namespace kvdb {
     KvdbDS::KvdbDS(const string& filename) :
         fileName_(filename),
         seg_(NULL),
-        reqForwardT_stop_(false),
+        reqMergeT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
         segReaperT_stop_(false)
@@ -407,11 +407,11 @@ namespace kvdb {
     }
 
 
-    void KvdbDS::ReqForwardThdEntry()
+    void KvdbDS::ReqMergeThdEntry()
     {
-        __DEBUG("Requests Forward thread start!!");
+        __DEBUG("Requests Merge thread start!!");
         std::unique_lock<std::mutex> lck_seg(segMtx_, std::defer_lock);
-        while(!reqForwardT_stop_.load())
+        while(!reqMergeT_stop_.load())
         {
             Request  *req = reqQue_.Wait_Dequeue();
             if ( req )
@@ -432,7 +432,7 @@ namespace kvdb {
             }
 
         }
-        __DEBUG("Requests Forward thread stop!!");
+        __DEBUG("Requests Merge thread stop!!");
     }
 
     void KvdbDS::SegWriteThdEntry()
