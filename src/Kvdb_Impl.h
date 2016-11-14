@@ -57,12 +57,12 @@ namespace kvdb {
         SegmentSlice *seg_;
         std::mutex segMtx_;
 
-    // Request Forward thread
+    // Request Merge thread
     private:
-        std::thread reqForwardT_;
-        std::atomic<bool> reqForwardT_stop_;
+        std::thread reqMergeT_;
+        std::atomic<bool> reqMergeT_stop_;
         WorkQueue<Request*> reqQue_;
-        void ReqForwardThdEntry();
+        void ReqMergeThdEntry();
 
     // Seg Write to device thread
     private:
