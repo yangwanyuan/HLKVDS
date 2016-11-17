@@ -259,22 +259,21 @@ namespace kvdb{
             HashEntry *entry_inMem = entry_list->getRef(entry);
             HashEntry::LogicStamp *lts = entry.GetLogicStamp();
             HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
-            KVTime &t = lts->GetSegTime();
-            KVTime &t_inMem = lts_inMem->GetSegTime();
 
-            if ( t < t_inMem )
+            if ( *lts < *lts_inMem)
             {
+                segMgr_->ModifyDeathEntry(entry);
                 __DEBUG("Ignore the UpdateIndex request, because request is expired!");
-                return true;
             }
-            else if( t == t_inMem && (lts->GetKeyNo() < lts_inMem->GetKeyNo()) )
+            else
             {
-                __DEBUG("Ignore the UpdateIndex request, because request is expired!");
-                return true;
+                segMgr_->ModifyDeathEntry(*entry_inMem);
+                //this operation is need to do
+                entry_list->put(entry);
+                __DEBUG("UpdateIndex request, because request is new!");
             }
+            return true;
 
-            //this operation is need to do
-            entry_list->put(entry);
         }
 
 
@@ -305,6 +304,7 @@ namespace kvdb{
         if (t_inMem == t && entry_inMem->GetDataSize() == 0 )
         {
             entry_list->remove(entry);
+            segMgr_->ModifyDeathEntry(entry);
             used_--;
             sbMgr_->DeleteElement();
             __DEBUG("Remove the index entry!");
@@ -354,8 +354,8 @@ namespace kvdb{
     }
 
 
-    IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr):
-        hashtable_(NULL), htSize_(0), used_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr)
+    IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr, SegmentManager* segMgr):
+        hashtable_(NULL), htSize_(0), used_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr), segMgr_(segMgr)
     {
         lastTime_ = new KVTime();
         return ;

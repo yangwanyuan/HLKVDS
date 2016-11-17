@@ -12,6 +12,7 @@
 #include "LinkedList.h"
 #include "DataHandle.h"
 #include "SuperBlockManager.h"
+#include "SegmentManager.h"
 
 using namespace std;
 
@@ -107,6 +108,31 @@ namespace kvdb{
                 return *this;
             }
 
+            bool operator<(const LogicStamp& toBeCopied)
+            {
+                if ( (segTime_ < toBeCopied.segTime_) ||
+                     (segTime_ == toBeCopied.segTime_ && (keyNo_ < toBeCopied.keyNo_)) )
+                {
+                    return true;
+                }
+                return false;
+            }
+
+            bool operator>(const LogicStamp& toBeCopied)
+            {
+                if ( (segTime_ > toBeCopied.segTime_) ||
+                     (segTime_ == toBeCopied.segTime_ && (keyNo_ > toBeCopied.keyNo_)) )
+                {
+                    return true;
+                }
+                return false;
+            }
+
+            bool operator==(const LogicStamp& toBeCopied)
+            {
+                return ((segTime_ == toBeCopied.segTime_) && (keyNo_ == toBeCopied.keyNo_));
+            }
+
             KVTime& GetSegTime() { return segTime_; }
             int32_t GetKeyNo() { return keyNo_; }
             void Set(KVTime seg_time, int32_t seg_key_no)
@@ -162,7 +188,7 @@ namespace kvdb{
 
         uint32_t GetHashTableSize() const { return htSize_; }
 
-        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_);
+        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_);
         ~IndexManager();
 
     private:
@@ -187,6 +213,7 @@ namespace kvdb{
         uint64_t startOff_;
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
+        SegmentManager* segMgr_;
 
         KVTime* lastTime_;
         mutable std::mutex mtx_;

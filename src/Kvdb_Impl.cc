@@ -289,7 +289,7 @@ namespace kvdb {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
-        idxMgr_ = new IndexManager(bdev_, sbMgr_);
+        idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_);
 
     }
 
@@ -444,7 +444,7 @@ namespace kvdb {
             if ( seg )
             {
                 uint32_t seg_id = 0;
-                bool res = segMgr_->AllocSeg(seg_id);
+                bool res = segMgr_->Alloc(seg_id);
                 if (!res)
                 {
                     __ERROR("Cann't get a new Empty Segment.\n");
@@ -452,17 +452,19 @@ namespace kvdb {
                 }
                 else
                 {
+                    uint32_t free_size = seg->GetFreeSize();
                     res = seg->WriteSegToDevice(seg_id);
                     seg->Notify(res);
                     if ( res )
                     {
                         //Update Superblock
                         sbMgr_->SetCurSegId(seg_id);
+                        segMgr_->Use(seg_id, free_size);
                     }
                     else
                     {
                         //Free the segment if write failed
-                        segMgr_->FreeSeg(seg_id);
+                        segMgr_->Free(seg_id);
                     }
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d %s",

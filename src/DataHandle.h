@@ -119,6 +119,7 @@ namespace kvdb{
         void Complete();
         void Notify(bool stat);
         bool IsExpired();
+        uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
 
         int32_t CommitedAndGetNum() { return --reqCommited_; }
         void CleanDeletedEntry();

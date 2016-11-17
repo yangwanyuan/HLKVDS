@@ -83,8 +83,7 @@ void* fun_insert(void *arg)
 
     for (int i = key_start; i < key_end + 1;  i++)
     {
-        string key = key_list[i];
-        //string key = key_list[key_start];
+        string key = key_list[key_start];
         if (!db->Insert(key.c_str(), key_len, value->c_str(), value_size))
         {
             cout << "Insert key=" << key << "to DB failed!" << endl;
@@ -93,6 +92,7 @@ void* fun_insert(void *arg)
     return NULL;
 
 }
+
 void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
 {
 

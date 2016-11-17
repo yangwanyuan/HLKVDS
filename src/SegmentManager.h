@@ -18,7 +18,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
 
-    enum struct SegUseStat{FREE, USED};
+    enum struct SegUseStat{FREE, USED, RESERVED};
 
     class SegmentOnDisk{
     public:
@@ -40,18 +40,21 @@ namespace kvdb{
     class SegmentStat{
     public:
         SegUseStat state;
-        int inuse_size;
+        int free_size;
+        int death_size;
 
     public:
-        SegmentStat() : state(SegUseStat::FREE), inuse_size(0){}
+        SegmentStat() : state(SegUseStat::FREE), free_size(0), death_size(0) {}
         ~SegmentStat() {}
         SegmentStat(const SegmentStat& toBeCopied) :
             state(toBeCopied.state),
-            inuse_size(toBeCopied.inuse_size){}
+            free_size(toBeCopied.free_size),
+            death_size(toBeCopied.death_size){}
         SegmentStat& operator=(const SegmentStat& toBeCopied)
         {
             state = toBeCopied.state;
-            inuse_size = toBeCopied.inuse_size;
+            free_size = toBeCopied.free_size;
+            death_size = toBeCopied.death_size;
             return *this;
         }
     };
@@ -95,8 +98,10 @@ namespace kvdb{
         bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
-        bool AllocSeg(uint32_t& seg_id);
-        void FreeSeg(uint32_t seg_id);
+        bool Alloc(uint32_t& seg_id);
+        void Free(uint32_t seg_id);
+        void Use(uint32_t seg_id, uint32_t free_size);
+        void ModifyDeathEntry(HashEntry &entry);
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();

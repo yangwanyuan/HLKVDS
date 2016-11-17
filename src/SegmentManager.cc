@@ -106,7 +106,11 @@ namespace kvdb{
         for(uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             SegmentStat seg_stat;
-            seg_stat = segs_stat[seg_index];
+            // If state is reserved, need reset segmentstat
+            if (segs_stat[seg_index].state != SegUseStat::RESERVED)
+            {
+                seg_stat = segs_stat[seg_index];
+            }
             segTable_.push_back(seg_stat);
         }
         delete[] segs_stat;
@@ -119,7 +123,16 @@ namespace kvdb{
         uint64_t length = sizeof(SegmentStat) * (uint64_t)segNum_;
         for(uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
-            segs_stat[seg_index] = segTable_[seg_index];
+            // If state is reserved, need reset segmentstat
+            if (segTable_[seg_index].state != SegUseStat::RESERVED)
+            {
+                segs_stat[seg_index] = segTable_[seg_index];
+                //__INFO("seg_id = %d, stat = %d, free_size = %d, death_size = %d", seg_index, segTable_[seg_index].state, segTable_[seg_index].free_size, segTable_[seg_index].death_size);
+            }
+            else
+            {
+                __WARN("Segment Maybe not write to device! seg_id = %d", seg_index);
+            }
         }
         if (bdev_->pWrite(segs_stat, length, startOff_) != (ssize_t)length)
         {
@@ -129,39 +142,6 @@ namespace kvdb{
         }
         delete[] segs_stat;
         return true;
-    }
-
-    bool SegmentManager::AllocSeg(uint32_t& seg_id)
-    {
-        //for first use !!
-        std::lock_guard<std::mutex> l(mtx_);
-        if (segTable_[curSegId_].state == SegUseStat::FREE)
-        {
-            seg_id = curSegId_;
-            segTable_[curSegId_].state = SegUseStat::USED;
-            return true;
-        }
-
-        uint32_t seg_index = curSegId_ + 1; 
-        
-        while(seg_index != curSegId_)
-        {
-            if (segTable_[seg_index].state == SegUseStat::FREE)
-            {
-                seg_id = seg_index;
-                // set seg used
-                curSegId_ = seg_id;
-                segTable_[curSegId_].state = SegUseStat::USED;
-
-                return true;
-            }
-            seg_index++;
-            if ( seg_index == segNum_)
-            {
-                seg_index = 0;
-            }
-        }
-        return false;
     }
 
     bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset)
@@ -190,11 +170,63 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentManager::FreeSeg(uint32_t seg_id)
+    bool SegmentManager::Alloc(uint32_t& seg_id)
+    {
+        //for first use !!
+        std::lock_guard<std::mutex> l(mtx_);
+        if (segTable_[curSegId_].state == SegUseStat::FREE)
+        {
+            seg_id = curSegId_;
+            segTable_[curSegId_].state = SegUseStat::RESERVED;
+            return true;
+        }
+
+        uint32_t seg_index = curSegId_ + 1; 
+        
+        while(seg_index != curSegId_)
+        {
+            if (segTable_[seg_index].state == SegUseStat::FREE)
+            {
+                seg_id = seg_index;
+                // set seg used
+                curSegId_ = seg_id;
+                segTable_[curSegId_].state = SegUseStat::RESERVED;
+
+                return true;
+            }
+            seg_index++;
+            if ( seg_index == segNum_)
+            {
+                seg_index = 0;
+            }
+        }
+        return false;
+    }
+
+    void SegmentManager::Free(uint32_t seg_id)
     {
         std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].state = SegUseStat::FREE;
+    }
 
+    void SegmentManager::Use(uint32_t seg_id, uint32_t free_size)
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        segTable_[seg_id].state = SegUseStat::USED;
+        segTable_[seg_id].free_size = free_size;
+    }
+
+    void SegmentManager::ModifyDeathEntry(HashEntry &entry)
+    {
+        uint32_t seg_id;
+        uint64_t offset = entry.GetHeaderOffsetPhy();
+        ComputeSegIdFromOffset(offset, seg_id);
+
+        uint16_t data_size = entry.GetDataSize();
+        uint32_t death_size = (uint32_t)data_size + (uint32_t)IndexManager::SizeOfDataHeader();
+
+        std::lock_guard<std::mutex> l(mtx_);
+        segTable_[seg_id].death_size += death_size;
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
