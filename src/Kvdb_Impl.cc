@@ -303,13 +303,6 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, data, length);
-        res = slice.ComputeDigest();
-
-        if (!res)
-        {
-            __DEBUG("Compute key Digest failed!");
-            return res;
-        }
 
         res = insertKey(slice);
 
@@ -331,12 +324,6 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, NULL, 0);
-        res =  slice.ComputeDigest();
-        if (!res)
-        {
-            __DEBUG("Compute key Digest failed!");
-            return res;
-        }
 
         res = idxMgr_->GetHashEntry(&slice);
         if (!res)
@@ -514,5 +501,11 @@ namespace kvdb {
         }
         __DEBUG("Segment write thread stop!!");
     }
+
+    //void KvdbDS::GCThdEntry()
+    //{
+    //    vector<uint32_t> cands;
+    //    segMgr_->FindGCSegs(cands);
+    //}
 }
 

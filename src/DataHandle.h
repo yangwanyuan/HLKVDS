@@ -37,6 +37,7 @@ namespace kvdb{
         KVSlice& operator=(const KVSlice& toBeCopied);
 
         KVSlice(const char* key, int key_len, const char* data, int data_len);
+        KVSlice(Kvdb_Digest *digest, const char* data, int data_len);
 
         const Kvdb_Digest& GetDigest() const { return *digest_; }
         const char* GetKey() const { return key_; }
@@ -45,15 +46,14 @@ namespace kvdb{
         string GetDataStr() const;
         uint32_t GetKeyLen() const { return keyLength_; }
         uint16_t GetDataLen() const { return dataLength_; }
-        bool IsDigestComputed() const { return isComputed_; }
         bool IsAlignedData() const{ return GetDataLen() == ALIGNED_SIZE; }
         HashEntry& GetHashEntry() const { return *entry_; }
         uint32_t GetSegId() const { return segId_; }
 
         void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
-        bool ComputeDigest();
         void SetHashEntry(const HashEntry *hash_entry);
         void SetSegId(uint32_t seg_id);
+
 
     private:
         const char* key_;
@@ -61,11 +61,11 @@ namespace kvdb{
         const char* data_;
         uint16_t dataLength_;
         Kvdb_Digest *digest_;
-        bool isComputed_;
         HashEntry *entry_;
         uint32_t segId_;
 
         void copy_helper(const KVSlice& toBeCopied);
+        void computeDigest();
 
     };
 

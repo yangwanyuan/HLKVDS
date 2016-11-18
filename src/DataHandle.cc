@@ -10,7 +10,7 @@
 namespace kvdb{
 
     KVSlice::KVSlice()
-        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false), entry_(NULL), segId_(0){}
+        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), entry_(NULL), segId_(0){}
 
     KVSlice::~KVSlice()
     {
@@ -25,7 +25,7 @@ namespace kvdb{
     }
 
     KVSlice::KVSlice(const KVSlice& toBeCopied)
-        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), isComputed_(false), entry_(NULL), segId_(0)
+        : key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL), entry_(NULL), segId_(0)
     {
         copy_helper(toBeCopied);
     }
@@ -43,35 +43,41 @@ namespace kvdb{
         key_ = toBeCopied.GetKey();
         data_ = toBeCopied.GetData();
         *digest_ = *toBeCopied.digest_;
-        isComputed_ = toBeCopied.IsDigestComputed();
         *entry_ = *toBeCopied.entry_;
         segId_ = toBeCopied.segId_;
     }
 
     KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len)
-        : key_(key), keyLength_(key_len), data_(data), dataLength_(data_len), digest_(NULL), isComputed_(false), entry_(NULL), segId_(0){}
+        : key_(key), keyLength_(key_len), data_(data), dataLength_(data_len), digest_(NULL), entry_(NULL), segId_(0)
+    {
+        computeDigest();
+    }
+
+    KVSlice::KVSlice(Kvdb_Digest *digest, const char* data, int data_len)
+        : data_(data), dataLength_(data_len)
+    {
+        digest_ = new Kvdb_Digest(*digest);
+    }
 
     void KVSlice::SetKeyValue(const char* key, int key_len, const char* data, int data_len)
     {
-        isComputed_ = false;
         keyLength_ = key_len;
         dataLength_ = data_len;
         key_ = key;
         data_ = data;
+
+        computeDigest();
     }
 
-    bool KVSlice::ComputeDigest()
+    void KVSlice::computeDigest()
     {
-        if (!key_)
+        if (digest_)
         {
-            return false;
+            delete digest_;
         }
         digest_ = new Kvdb_Digest();
         Kvdb_Key vkey(key_, keyLength_);
         KeyDigestHandle::ComputeDigest(&vkey, *digest_);
-
-        isComputed_ = true;
-        return true;
     }
 
     string KVSlice::GetKeyStr() const
@@ -93,6 +99,7 @@ namespace kvdb{
     {
         segId_ = seg_id;
     }
+
 
     Request::Request(): slice_(NULL), segPtr_(NULL){}
 

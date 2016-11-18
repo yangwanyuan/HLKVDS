@@ -84,6 +84,10 @@ namespace kvdb {
         WorkQueue<SegmentSlice*> segReaperQue_;
         void SegReaperThdEntry();
 
+    //GC thread
+    //private:
+    //    void GCThdEntry();
+
     };
 
 
