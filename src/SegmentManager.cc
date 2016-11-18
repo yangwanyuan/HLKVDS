@@ -1,5 +1,6 @@
 #include "SegmentManager.h"
 #include <math.h>
+#include <map>
 
 namespace kvdb{
 
@@ -227,6 +228,47 @@ namespace kvdb{
 
         std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].death_size += death_size;
+    }
+
+    bool SegmentManager::FindGCSegs(std::vector<uint32_t> &gc_list)
+    {
+        std::multimap<uint32_t, uint32_t> cand_map;
+        uint32_t used_size;
+        std::unique_lock<std::mutex> lck(mtx_, std::defer_lock);
+        for(uint32_t index = 0; index < segNum_; index++)
+        {
+            lck.lock();
+            if (segTable_[index].state == SegUseStat::USED)
+            {
+                used_size = segSize_ - ( segTable_[index].free_size + segTable_[index].death_size + SegmentManager::SizeOfSegOnDisk());
+                cand_map.insert( std::pair<uint32_t, uint32_t> (used_size, index) );
+            }
+            lck.unlock();
+        }
+
+        for (std::multimap<uint32_t, uint32_t>::iterator iter = cand_map.begin(); iter != cand_map.end(); iter++)
+        {
+            __INFO("cand_map index=%d, used_size = %d", iter->second, iter->first);
+        }
+        used_size = 0;
+        for (std::multimap<uint32_t, uint32_t>::iterator iter = cand_map.begin(); iter != cand_map.end(); iter++)
+        {
+            __INFO("seg index=%d, used_size = %d need do GC", iter->second, iter->first);
+            gc_list.push_back(iter->second);
+            used_size += iter->first;
+            if (used_size > segSize_)
+            {
+                break;
+            }
+        }
+        __INFO("total gc seg_num = %d", (int)gc_list.size());
+
+        if (used_size < segSize_)
+        {
+            return false;
+        }
+        return true;
+
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 

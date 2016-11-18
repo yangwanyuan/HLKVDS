@@ -103,6 +103,8 @@ namespace kvdb{
         void Use(uint32_t seg_id, uint32_t free_size);
         void ModifyDeathEntry(HashEntry &entry);
 
+        bool FindGCSegs(std::vector<uint32_t> &gc_list);
+
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
 
