@@ -85,8 +85,8 @@ namespace kvdb {
         void SegReaperThdEntry();
 
     //GC thread
-    //private:
-    //    void GCThdEntry();
+    private:
+        void GCThdEntry();
 
     };
 

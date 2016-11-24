@@ -208,6 +208,8 @@ namespace kvdb{
     {
         std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].state = SegUseStat::FREE;
+        segTable_[seg_id].free_size = 0;
+        segTable_[seg_id].death_size = 0;
     }
 
     void SegmentManager::Use(uint32_t seg_id, uint32_t free_size)
@@ -216,6 +218,12 @@ namespace kvdb{
         segTable_[seg_id].state = SegUseStat::USED;
         segTable_[seg_id].free_size = free_size;
     }
+
+    //void SegmentManager::Reserved(uint32_t seg_id)
+    //{
+    //    std::lock_guard<std::mutex> l(mtx_);
+    //    segTable_[seg_id].state = SegUseStat::RESERVED;
+    //}
 
     void SegmentManager::ModifyDeathEntry(HashEntry &entry)
     {

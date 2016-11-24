@@ -502,10 +502,32 @@ namespace kvdb {
         __DEBUG("Segment write thread stop!!");
     }
 
-    //void KvdbDS::GCThdEntry()
-    //{
-    //    vector<uint32_t> cands;
-    //    segMgr_->FindGCSegs(cands);
-    //}
+    void KvdbDS::GCThdEntry()
+    {
+        vector<uint32_t> cands;
+        segMgr_->FindGCSegs(cands);
+
+
+        GCSegment seg_gc;
+        seg_gc.MergeSeg(cands);
+
+        uint32_t seg_id;
+        segMgr_->Alloc(seg_id);
+
+        bool ret;
+        ret = seg_gc.WriteSegToDevice(seg_id);
+
+        if (ret)
+        {
+            seg_gc.UpdateToIndex();
+            seg_gc.FreeSegs();
+            uint32_t free_size = seg_gc.GetFreeSize();
+            segMgr_->Use(seg_id, free_size);
+        }
+        else
+        {
+            segMgr_->Free(seg_id);
+        }
+    }
 }
 

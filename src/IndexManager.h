@@ -191,6 +191,8 @@ namespace kvdb{
         IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_);
         ~IndexManager();
 
+        bool IsSameInMem(HashEntry entry);
+
     private:
         void createListIfNotExist(uint32_t index);
 

@@ -346,6 +346,36 @@ namespace kvdb{
         return false;
     }
 
+    bool IndexManager::IsSameInMem(HashEntry entry)
+    {
+        Kvdb_Digest digest = entry.GetKeyDigest();
+
+        std::lock_guard<std::mutex> l(mtx_);
+
+        uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;
+        LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+        if ( !entry_list )
+        {
+            return false;
+        }
+
+        bool is_exist = entry_list->search(entry);
+        if (!is_exist)
+        {
+            return false;
+        }
+        else
+        {
+            HashEntry *entry_inMem = entry_list->getRef(entry);
+            if (entry_inMem->GetHeaderOffsetPhy() == entry.GetHeaderOffsetPhy())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size)
     {
         uint64_t index_size = sizeof(time_t) + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
