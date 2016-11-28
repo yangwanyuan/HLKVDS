@@ -451,7 +451,7 @@ namespace kvdb {
                     else
                     {
                         //Free the segment if write failed
-                        segMgr_->Free(seg_id);
+                        segMgr_->FreeForFailed(seg_id);
                     }
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d %s",
@@ -504,11 +504,13 @@ namespace kvdb {
 
     void KvdbDS::GCThdEntry()
     {
+        __INFO("Now Free Segment total %d before do GC",segMgr_->GetTotalFreeSegs());
+
         vector<uint32_t> cands;
         segMgr_->FindGCSegs(cands);
 
 
-        GCSegment seg_gc;
+        GCSegment seg_gc(segMgr_, idxMgr_, bdev_);
         seg_gc.MergeSeg(cands);
 
         uint32_t seg_id;
@@ -526,8 +528,15 @@ namespace kvdb {
         }
         else
         {
-            segMgr_->Free(seg_id);
+            segMgr_->FreeForFailed(seg_id);
         }
+
+        __INFO("Now Free Segment total %d after do GC",segMgr_->GetTotalFreeSegs());
+    }
+
+    void KvdbDS::Do_GC()
+    {
+        GCThdEntry();
     }
 }
 

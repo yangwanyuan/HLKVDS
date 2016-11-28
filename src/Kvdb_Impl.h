@@ -31,6 +31,8 @@ namespace kvdb {
         bool Get(const char* key, uint32_t key_len, string &data);
         bool Delete(const char* key, uint32_t key_len);
 
+        void Do_GC();
+
         virtual ~KvdbDS();
 
     private:

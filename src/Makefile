@@ -6,7 +6,7 @@ INCLUDES = -I ./
 LIBS = -pthread
 
 #PROGNAME = CreateDb ExampleKV DbTest
-PROGNAME = DbTest CreateDb ExampleKV Benchmark libkv.so
+PROGNAME = DbTest CreateDb ExampleKV Benchmark GCTest libkv.so
 
 all: $(PROGNAME)
 
@@ -29,6 +29,9 @@ ExampleKV: $(OBJECTS)
 
 DbTest : $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) DbTest.cc -o DbTest $(INCLUDES) $(LIBS)
+
+GCTest: $(OBJECTS)
+	$(CXX) $(CXX_FLAGS) $(OBJECTS) GCTest.cc -o GCTest $(INCLUDES) $(LIBS)
 
 libkv.so: $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) -shared -o libkv.so $(INCLUDES) $(LIBS)

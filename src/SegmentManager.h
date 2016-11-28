@@ -99,12 +99,15 @@ namespace kvdb{
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
         bool Alloc(uint32_t& seg_id);
-        void Free(uint32_t seg_id);
+        void FreeForFailed(uint32_t seg_id);
+        void FreeForGC(uint32_t seg_id);
         void Use(uint32_t seg_id, uint32_t free_size);
         //void Reserved(uint32_t seg_id);
         void ModifyDeathEntry(HashEntry &entry);
 
         bool FindGCSegs(std::vector<uint32_t> &gc_list);
+
+        uint32_t GetTotalFreeSegs();
 
         SegmentManager(BlockDevice* bdev);
         ~SegmentManager();
@@ -120,6 +123,9 @@ namespace kvdb{
         uint32_t segNum_;
         uint32_t curSegId_;
         bool isFull_;
+        uint32_t used_;
+        uint32_t freed_;
+        uint32_t reserved_;
         
         BlockDevice* bdev_;
         mutable std::mutex mtx_;

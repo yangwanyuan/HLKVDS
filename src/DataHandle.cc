@@ -510,8 +510,10 @@ namespace kvdb{
             {
                 segVec_.push_back(seg_id);
             }
+            __DEBUG("Merge seg id=%d completed", seg_id);
         }
 
+        __DEBUG("Merge Segment Finished!");
         //freeSize_ = tailPos_ - headPos_;
     }
 
@@ -531,6 +533,8 @@ namespace kvdb{
         uint32_t num_keys = seg_disk.number_keys;
         list<KVSlice*> slice_list;
 
+        __DEBUG("read seg_id = %d, have keys number = %d!", seg_id, num_keys);
+
         loadSegKV(slice_list, num_keys, seg_phy_off);
 
         if (!tryPutBatch(slice_list))
@@ -545,7 +549,7 @@ namespace kvdb{
 
     bool GCSegment::readSegFromDevice(uint64_t seg_offset)
     {
-        if (bdev_->pRead(&tempBuf_, segSize_, seg_offset) != segSize_)
+        if (bdev_->pRead(tempBuf_, segSize_, seg_offset) != segSize_)
         {
             __ERROR("GC read segment data error!!!");
             return false;
@@ -564,23 +568,28 @@ namespace kvdb{
             memcpy(&header, &tempBuf_[head_offset], IndexManager::SizeOfDataHeader());
 
             HashEntry hash_entry(header, phy_offset + (uint64_t)head_offset, NULL);
+            __DEBUG("load hash_entry from seg_offset = %ld, header_offset = %d", phy_offset, head_offset );
+
 
             if (idxMgr_->IsSameInMem(hash_entry))
             {
 
                 Kvdb_Digest digest = header.GetDigest();
-                head_offset = header.GetNextHeadOffset();
                 uint16_t data_len = header.GetDataSize();
                 if (data_len != 0)
                 {
                     uint32_t data_offset = header.GetDataOffset();
                     char* data = new char[data_len];
-                    memcpy(&data, &tempBuf_[data_offset], data_len);
+                    memcpy(data, &tempBuf_[data_offset], data_len);
 
                     KVSlice *slice = new KVSlice(&digest, data, data_len);
                     slice_list.push_back(slice);
+
+                    __DEBUG("the slice key_digest = %s, value = %s, seg_offset = %ld, head_offset = %d is valid, need to write", digest.GetDigest(), data, phy_offset, head_offset);
                 }
             }
+
+            head_offset = header.GetNextHeadOffset();
         }
 
     }
@@ -595,6 +604,7 @@ namespace kvdb{
             KVSlice *slice = *iter;
             if ( !isCanFit(slice, head_pos, tail_pos) )
             {
+                __DEBUG("tryPutBatch Failed!");
                 return false;
             }
             if (slice->IsAlignedData())
@@ -608,6 +618,7 @@ namespace kvdb{
             }
 
         }
+        __DEBUG("tryPutBatch Success!");
         return true;
     }
 
@@ -629,6 +640,7 @@ namespace kvdb{
             keyNum_++;
         }
         sliceList_.splice(sliceList_.end(), slice_list);
+        __DEBUG("PutBatch Success!");
 
     }
 
@@ -774,14 +786,16 @@ namespace kvdb{
             KVSlice *slice = *iter;
             idxMgr_->UpdateIndex(slice);
         }
+        __DEBUG("UpdateToIndex Success!");
     }
 
     void GCSegment::FreeSegs()
     {
         for(vector<uint32_t>::iterator iter=segVec_.begin(); iter != segVec_.end(); iter++)
         {
-            segMgr_->Free(*iter);
+            segMgr_->FreeForGC(*iter);
         }
+        __DEBUG("FreeSegs Success!");
     }
 
 }

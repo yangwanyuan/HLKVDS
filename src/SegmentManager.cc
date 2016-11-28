@@ -74,7 +74,10 @@ namespace kvdb{
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
-        
+        freed_ = segNum_;
+        used_ = 0;
+        reserved_ = 0;
+
         //init segment table
         SegmentStat seg_stat;
         for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
@@ -108,9 +111,19 @@ namespace kvdb{
         {
             SegmentStat seg_stat;
             // If state is reserved, need reset segmentstat
-            if (segs_stat[seg_index].state != SegUseStat::RESERVED)
+            if (segs_stat[seg_index].state == SegUseStat::FREE)
             {
                 seg_stat = segs_stat[seg_index];
+                freed_++;
+            }
+            else if(segs_stat[seg_index].state == SegUseStat::USED)
+            {
+                seg_stat = segs_stat[seg_index];
+                used_++;
+            }
+            else if (segs_stat[seg_index].state == SegUseStat::RESERVED)
+            {
+                freed_++;
             }
             segTable_.push_back(seg_stat);
         }
@@ -179,6 +192,9 @@ namespace kvdb{
         {
             seg_id = curSegId_;
             segTable_[curSegId_].state = SegUseStat::RESERVED;
+
+            reserved_++;
+            freed_--;
             return true;
         }
 
@@ -193,6 +209,8 @@ namespace kvdb{
                 curSegId_ = seg_id;
                 segTable_[curSegId_].state = SegUseStat::RESERVED;
 
+                reserved_++;
+                freed_--;
                 return true;
             }
             seg_index++;
@@ -204,12 +222,28 @@ namespace kvdb{
         return false;
     }
 
-    void SegmentManager::Free(uint32_t seg_id)
+    void SegmentManager::FreeForFailed(uint32_t seg_id)
     {
         std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].state = SegUseStat::FREE;
         segTable_[seg_id].free_size = 0;
         segTable_[seg_id].death_size = 0;
+
+        reserved_--;
+        freed_++;
+        __DEBUG("Free Segment seg_id = %d", seg_id);
+    }
+
+    void SegmentManager::FreeForGC(uint32_t seg_id)
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        segTable_[seg_id].state = SegUseStat::FREE;
+        segTable_[seg_id].free_size = 0;
+        segTable_[seg_id].death_size = 0;
+
+        used_--;
+        freed_++;
+        __DEBUG("Free Segment For GC, seg_id = %d", seg_id);
     }
 
     void SegmentManager::Use(uint32_t seg_id, uint32_t free_size)
@@ -217,6 +251,10 @@ namespace kvdb{
         std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].state = SegUseStat::USED;
         segTable_[seg_id].free_size = free_size;
+
+        reserved_--;
+        used_++;
+        __DEBUG("Used Segment seg_id = %d, free_size = %d", seg_id, free_size);
     }
 
     //void SegmentManager::Reserved(uint32_t seg_id)
@@ -238,6 +276,12 @@ namespace kvdb{
         segTable_[seg_id].death_size += death_size;
     }
 
+    uint32_t SegmentManager::GetTotalFreeSegs()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        return freed_;
+    }
+
     bool SegmentManager::FindGCSegs(std::vector<uint32_t> &gc_list)
     {
         std::multimap<uint32_t, uint32_t> cand_map;
@@ -256,12 +300,12 @@ namespace kvdb{
 
         for (std::multimap<uint32_t, uint32_t>::iterator iter = cand_map.begin(); iter != cand_map.end(); iter++)
         {
-            __INFO("cand_map index=%d, used_size = %d", iter->second, iter->first);
+            __DEBUG("cand_map index=%d, used_size = %d", iter->second, iter->first);
         }
         used_size = 0;
         for (std::multimap<uint32_t, uint32_t>::iterator iter = cand_map.begin(); iter != cand_map.end(); iter++)
         {
-            __INFO("seg index=%d, used_size = %d need do GC", iter->second, iter->first);
+            __DEBUG("seg index=%d, used_size = %d need do GC", iter->second, iter->first);
             gc_list.push_back(iter->second);
             used_size += iter->first;
             if (used_size > segSize_)
@@ -269,7 +313,7 @@ namespace kvdb{
                 break;
             }
         }
-        __INFO("total gc seg_num = %d", (int)gc_list.size());
+        __DEBUG("total gc seg_num = %d", (int)gc_list.size());
 
         if (used_size < segSize_)
         {
@@ -280,7 +324,7 @@ namespace kvdb{
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev){}
+        dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), used_(0), freed_(0), reserved_(0), bdev_(bdev){}
 
     SegmentManager::~SegmentManager()
     {

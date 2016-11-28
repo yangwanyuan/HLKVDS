@@ -250,6 +250,7 @@ namespace kvdb{
                     return false;
                 }
                 entry_list->put(entry);
+                __DEBUG("UpdateIndex request, because this entry is not exist!");
                 used_++;
                 sbMgr_->AddElement();
             }
@@ -270,7 +271,7 @@ namespace kvdb{
                 segMgr_->ModifyDeathEntry(*entry_inMem);
                 //this operation is need to do
                 entry_list->put(entry);
-                __DEBUG("UpdateIndex request, because request is new!");
+                __DEBUG("UpdateIndex request, because request is new than in memory!");
             }
             return true;
 
@@ -356,23 +357,28 @@ namespace kvdb{
         LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
         if ( !entry_list )
         {
+            __DEBUG("Not Same, because linkedlist is not created!");
             return false;
         }
 
         bool is_exist = entry_list->search(entry);
         if (!is_exist)
         {
+            __DEBUG("Not Same, because entry is not exist!");
             return false;
         }
         else
         {
             HashEntry *entry_inMem = entry_list->getRef(entry);
+            __DEBUG("the entry header_offset = %ld, in memory entry header_offset=%ld", entry.GetHeaderOffsetPhy(), entry_inMem->GetHeaderOffsetPhy());
             if (entry_inMem->GetHeaderOffsetPhy() == entry.GetHeaderOffsetPhy())
             {
+                __DEBUG("Same, because entry is same with in memory!");
                 return true;
             }
         }
 
+        __DEBUG("Not Same, because entry is not same with in memory!");
         return false;
     }
 
