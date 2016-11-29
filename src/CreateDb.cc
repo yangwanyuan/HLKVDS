@@ -10,7 +10,7 @@
 #define TEST_SEGMENT_SIZE 256*1024
 
 #define TEST_DB_FILENAME "/dev/sdb1"
-//#define TEST_DB_FILENAME "/dev/sdb3"
+//#define TEST_DB_FILENAME "/dev/sdb2"
 
 void CreateExample()
 {

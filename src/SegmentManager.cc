@@ -202,6 +202,10 @@ namespace kvdb{
         
         while(seg_index != curSegId_)
         {
+            if ( seg_index == segNum_)
+            {
+                seg_index = 0;
+            }
             if (segTable_[seg_index].state == SegUseStat::FREE)
             {
                 seg_id = seg_index;
@@ -214,10 +218,6 @@ namespace kvdb{
                 return true;
             }
             seg_index++;
-            if ( seg_index == segNum_)
-            {
-                seg_index = 0;
-            }
         }
         return false;
     }
@@ -267,7 +267,10 @@ namespace kvdb{
     {
         uint32_t seg_id;
         uint64_t offset = entry.GetHeaderOffsetPhy();
-        ComputeSegIdFromOffset(offset, seg_id);
+        if (!ComputeSegIdFromOffset(offset, seg_id))
+        {
+            __ERROR("Compute Seg Id Wrong!!! offset = %ld", offset);
+        }
 
         uint16_t data_size = entry.GetDataSize();
         uint32_t death_size = (uint32_t)data_size + (uint32_t)IndexManager::SizeOfDataHeader();

@@ -509,27 +509,32 @@ namespace kvdb {
         vector<uint32_t> cands;
         segMgr_->FindGCSegs(cands);
 
-
-        GCSegment seg_gc(segMgr_, idxMgr_, bdev_);
-        seg_gc.MergeSeg(cands);
-
-        uint32_t seg_id;
-        segMgr_->Alloc(seg_id);
+        GCSegment *seg_gc = new GCSegment(segMgr_, idxMgr_, bdev_);
+        seg_gc->MergeSeg(cands);
 
         bool ret;
-        ret = seg_gc.WriteSegToDevice(seg_id);
+        uint32_t seg_id;
+        ret = segMgr_->Alloc(seg_id);
+        if ( !ret )
+        {
+            __ERROR("Cann't get a new Empty Segment, GC FAILED!\n");
+            return;
+        }
 
+        ret = seg_gc->WriteSegToDevice(seg_id);
         if (ret)
         {
-            seg_gc.UpdateToIndex();
-            seg_gc.FreeSegs();
-            uint32_t free_size = seg_gc.GetFreeSize();
+            seg_gc->UpdateToIndex();
+            seg_gc->FreeSegs();
+            uint32_t free_size = seg_gc->GetFreeSize();
             segMgr_->Use(seg_id, free_size);
         }
         else
         {
             segMgr_->FreeForFailed(seg_id);
         }
+
+        delete seg_gc;
 
         __INFO("Now Free Segment total %d after do GC",segMgr_->GetTotalFreeSegs());
     }

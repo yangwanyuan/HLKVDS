@@ -211,8 +211,9 @@ namespace kvdb{
         std::vector<uint32_t> segVec_;
 
         std::list<KVSlice*> sliceList_;
-        char *writeBuf_;
-        char *tempBuf_;
+        char *dataBuf_;
+        //char *writeBuf_;
+        //char *tempBuf_;
     };
 
 } //end namespace kvdb

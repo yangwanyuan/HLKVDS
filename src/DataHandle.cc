@@ -54,7 +54,7 @@ namespace kvdb{
     }
 
     KVSlice::KVSlice(Kvdb_Digest *digest, const char* data, int data_len)
-        : data_(data), dataLength_(data_len)
+        : key_(NULL), keyLength_(0), data_(data), dataLength_(data_len), digest_(NULL), entry_(NULL), segId_(0)
     {
         digest_ = new Kvdb_Digest(*digest);
     }
@@ -446,23 +446,26 @@ namespace kvdb{
           segOndisk_(NULL)
     {
         segOndisk_ = new SegmentOnDisk();
-        writeBuf_ = new char[segSize_];
-        tempBuf_ = new char[segSize_];
+        dataBuf_ = new char[segSize_];
+        //writeBuf_ = new char[segSize_];
+        //tempBuf_ = new char[segSize_];
     }
 
     GCSegment::~GCSegment()
     {
         deleteKVList(sliceList_);
         delete segOndisk_;
-        delete writeBuf_;
-        delete tempBuf_;
+        delete[] dataBuf_;
+        //delete[] writeBuf_;
+        //delete[] tempBuf_;
     }
 
     GCSegment::GCSegment(const GCSegment& toBeCopied)
     {
         segOndisk_ = new SegmentOnDisk();
-        writeBuf_ = new char[segSize_];
-        tempBuf_ = new char[segSize_];
+        dataBuf_ = new char[segSize_];
+        //writeBuf_ = new char[segSize_];
+        //tempBuf_ = new char[segSize_];
         copyHelper(toBeCopied);
     }
 
@@ -486,7 +489,8 @@ namespace kvdb{
         keyNum_ = toBeCopied.keyNum_;
         keyAlignedNum_ = toBeCopied.keyAlignedNum_;
         *segOndisk_ = *toBeCopied.segOndisk_;
-        memcpy(writeBuf_, toBeCopied.writeBuf_, segSize_);
+        memcpy(dataBuf_, toBeCopied.dataBuf_, segSize_);
+        //memcpy(writeBuf_, toBeCopied.writeBuf_, segSize_);
     }
 
     GCSegment::GCSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev)
@@ -497,8 +501,9 @@ namespace kvdb{
           //freeSize_(0), keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL)
     {
         segOndisk_ = new SegmentOnDisk();
-        writeBuf_ = new char[segSize_];
-        tempBuf_ = new char[segSize_];
+        dataBuf_ = new char[segSize_];
+        //writeBuf_ = new char[segSize_];
+        //tempBuf_ = new char[segSize_];
     }
 
     void GCSegment::MergeSeg(vector<uint32_t> &cands)
@@ -528,7 +533,8 @@ namespace kvdb{
         }
 
         SegmentOnDisk seg_disk;
-        memcpy(&seg_disk, tempBuf_, SegmentManager::SizeOfSegOnDisk());
+        //memcpy(&seg_disk, tempBuf_, SegmentManager::SizeOfSegOnDisk());
+        memcpy(&seg_disk, dataBuf_, SegmentManager::SizeOfSegOnDisk());
 
         uint32_t num_keys = seg_disk.number_keys;
         list<KVSlice*> slice_list;
@@ -549,7 +555,8 @@ namespace kvdb{
 
     bool GCSegment::readSegFromDevice(uint64_t seg_offset)
     {
-        if (bdev_->pRead(tempBuf_, segSize_, seg_offset) != segSize_)
+        //if (bdev_->pRead(tempBuf_, segSize_, seg_offset) != segSize_)
+        if (bdev_->pRead(dataBuf_, segSize_, seg_offset) != segSize_)
         {
             __ERROR("GC read segment data error!!!");
             return false;
@@ -565,7 +572,8 @@ namespace kvdb{
         for(uint32_t index = 0; index < num_keys; index++)
         {
             DataHeader header;
-            memcpy(&header, &tempBuf_[head_offset], IndexManager::SizeOfDataHeader());
+            //memcpy(&header, &tempBuf_[head_offset], IndexManager::SizeOfDataHeader());
+            memcpy(&header, &dataBuf_[head_offset], IndexManager::SizeOfDataHeader());
 
             HashEntry hash_entry(header, phy_offset + (uint64_t)head_offset, NULL);
             __DEBUG("load hash_entry from seg_offset = %ld, header_offset = %d", phy_offset, head_offset );
@@ -580,7 +588,8 @@ namespace kvdb{
                 {
                     uint32_t data_offset = header.GetDataOffset();
                     char* data = new char[data_len];
-                    memcpy(data, &tempBuf_[data_offset], data_len);
+                    //memcpy(data, &tempBuf_[data_offset], data_len);
+                    memcpy(data, &dataBuf_[data_offset], data_len);
 
                     KVSlice *slice = new KVSlice(&digest, data, data_len);
                     slice_list.push_back(slice);
@@ -658,7 +667,7 @@ namespace kvdb{
             KVSlice *slice = slice_list.front();
             slice_list.pop_front();
             const char* data = slice->GetData();
-            delete data;
+            delete[] data;
             delete slice;
         }
     }
@@ -734,7 +743,8 @@ namespace kvdb{
         uint32_t offset_begin = 0;
         uint32_t offset_end = segSize_;
 
-        memcpy(writeBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+        //memcpy(writeBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+        memcpy(dataBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
         offset_begin += SegmentManager::SizeOfSegOnDisk();
 
         //aggregate iovec
@@ -745,23 +755,27 @@ namespace kvdb{
             char *data = (char *)slice->GetData();
             uint16_t data_len = slice->GetDataLen();
 
-            memcpy(&(writeBuf_[offset_begin]), header, IndexManager::SizeOfDataHeader());
+            //memcpy(&(writeBuf_[offset_begin]), header, IndexManager::SizeOfDataHeader());
+            memcpy(&(dataBuf_[offset_begin]), header, IndexManager::SizeOfDataHeader());
             offset_begin += IndexManager::SizeOfDataHeader();
 
             if (slice->IsAlignedData())
             {
                 offset_end -= data_len;
-                memcpy(&(writeBuf_[offset_end]), data, data_len);
+                memcpy(&(dataBuf_[offset_end]), data, data_len);
+                //memcpy(&(writeBuf_[offset_end]), data, data_len);
                 __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_end + offset);
             }
             else
             {
-                memcpy(&(writeBuf_[offset_begin]), data, data_len);
+                memcpy(&(dataBuf_[offset_begin]), data, data_len);
+                //memcpy(&(writeBuf_[offset_begin]), data, data_len);
                 offset_begin += data_len;
                 __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
             }
         }
-        memset(&(writeBuf_[offset_begin]), 0, (offset_end - offset_begin));
+        memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
+        //memset(&(writeBuf_[offset_begin]), 0, (offset_end - offset_begin));
     }
 
     bool GCSegment::_writeDataToDevice()
@@ -771,7 +785,8 @@ namespace kvdb{
         uint64_t offset = 0;
         segMgr_->ComputeSegOffsetFromId(segId_, offset);
 
-        if (bdev_->pWrite(writeBuf_, segSize_, offset) != segSize_)
+        //if (bdev_->pWrite(writeBuf_, segSize_, offset) != segSize_)
+        if (bdev_->pWrite(dataBuf_, segSize_, offset) != segSize_)
         {
             __ERROR("Write Segment front data error, seg_id:%u", segId_);
             return false;
