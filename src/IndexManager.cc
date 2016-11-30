@@ -254,6 +254,12 @@ namespace kvdb{
                 used_++;
                 sbMgr_->AddElement();
             }
+            else
+            {
+                //It's a invalid delete operation
+                __DEBUG("Ignore the UpdateIndex request, because this is a delete operation but not exist in Memory");
+                segMgr_->ModifyDeathEntry(entry);
+            }
         }
         else
         {

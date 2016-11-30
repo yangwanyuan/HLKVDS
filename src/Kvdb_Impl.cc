@@ -3,6 +3,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <thread>
+#include <map>
 
 #include "Kvdb_Impl.h"
 #include "KeyDigestHandle.h"
@@ -441,7 +442,6 @@ namespace kvdb {
                 {
                     uint32_t free_size = seg->GetFreeSize();
                     res = seg->WriteSegToDevice(seg_id);
-                    seg->Notify(res);
                     if ( res )
                     {
                         //Update Superblock
@@ -453,6 +453,7 @@ namespace kvdb {
                         //Free the segment if write failed
                         segMgr_->FreeForFailed(seg_id);
                     }
+                    seg->Notify(res);
 
                     __DEBUG("Segment thread write seg to device, seg_id:%d %s",
                             seg_id, res==true? "Success":"Failed");
@@ -502,13 +503,32 @@ namespace kvdb {
         __DEBUG("Segment write thread stop!!");
     }
 
-    void KvdbDS::GCThdEntry()
+    void KvdbDS::Do_GC()
     {
         __INFO("Now Free Segment total %d before do GC",segMgr_->GetTotalFreeSegs());
 
-        vector<uint32_t> cands;
-        segMgr_->FindGCSegs(cands);
+        //vector<uint32_t> cands;
+        //segMgr_->FindGCSegs(cands);
 
+        multimap<uint32_t, uint32_t > segs_map;
+        segMgr_->SortSegsByUtils(segs_map);
+
+        //find out seg candidates for gc
+        uint32_t used_size = 0;
+        uint32_t seg_size = segMgr_->GetSegmentSize();
+        vector<uint32_t> cands;
+        for (std::multimap<uint32_t, uint32_t>::iterator iter = segs_map.begin(); iter != segs_map.end(); iter++)
+        {
+            __DEBUG("seg index=%d, used_size = %d need do GC", iter->second, iter->first);
+            cands.push_back(iter->second);
+            used_size += iter->first;
+            if (used_size > seg_size)
+            {
+                break;
+            }
+        }
+
+        //do_gc
         GCSegment *seg_gc = new GCSegment(segMgr_, idxMgr_, bdev_);
         seg_gc->MergeSeg(cands);
 
@@ -524,10 +544,11 @@ namespace kvdb {
         ret = seg_gc->WriteSegToDevice(seg_id);
         if (ret)
         {
-            seg_gc->UpdateToIndex();
-            seg_gc->FreeSegs();
             uint32_t free_size = seg_gc->GetFreeSize();
             segMgr_->Use(seg_id, free_size);
+
+            seg_gc->UpdateToIndex();
+            seg_gc->FreeSegs();
         }
         else
         {
@@ -539,9 +560,9 @@ namespace kvdb {
         __INFO("Now Free Segment total %d after do GC",segMgr_->GetTotalFreeSegs());
     }
 
-    void KvdbDS::Do_GC()
+    void KvdbDS::GCThdEntry()
     {
-        GCThdEntry();
+        ;
     }
 }
 

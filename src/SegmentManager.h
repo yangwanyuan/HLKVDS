@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <vector>
 #include <mutex>
+#include <map>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -102,10 +103,9 @@ namespace kvdb{
         void FreeForFailed(uint32_t seg_id);
         void FreeForGC(uint32_t seg_id);
         void Use(uint32_t seg_id, uint32_t free_size);
-        //void Reserved(uint32_t seg_id);
         void ModifyDeathEntry(HashEntry &entry);
 
-        bool FindGCSegs(std::vector<uint32_t> &gc_list);
+        void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, float utils = 1.0);
 
         uint32_t GetTotalFreeSegs();
 

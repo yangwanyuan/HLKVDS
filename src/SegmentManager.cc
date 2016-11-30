@@ -1,6 +1,5 @@
 #include "SegmentManager.h"
 #include <math.h>
-#include <map>
 
 namespace kvdb{
 
@@ -285,45 +284,23 @@ namespace kvdb{
         return freed_;
     }
 
-    bool SegmentManager::FindGCSegs(std::vector<uint32_t> &gc_list)
+    void SegmentManager::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, float utils)
     {
-        std::multimap<uint32_t, uint32_t> cand_map;
+        std::lock_guard<std::mutex> lck(mtx_);
         uint32_t used_size;
-        std::unique_lock<std::mutex> lck(mtx_, std::defer_lock);
+        uint32_t thld = (uint32_t)(segSize_ * utils);
+
         for(uint32_t index = 0; index < segNum_; index++)
         {
-            lck.lock();
             if (segTable_[index].state == SegUseStat::USED)
             {
                 used_size = segSize_ - ( segTable_[index].free_size + segTable_[index].death_size + SegmentManager::SizeOfSegOnDisk());
-                cand_map.insert( std::pair<uint32_t, uint32_t> (used_size, index) );
-            }
-            lck.unlock();
-        }
-
-        for (std::multimap<uint32_t, uint32_t>::iterator iter = cand_map.begin(); iter != cand_map.end(); iter++)
-        {
-            __DEBUG("cand_map index=%d, used_size = %d", iter->second, iter->first);
-        }
-        used_size = 0;
-        for (std::multimap<uint32_t, uint32_t>::iterator iter = cand_map.begin(); iter != cand_map.end(); iter++)
-        {
-            __DEBUG("seg index=%d, used_size = %d need do GC", iter->second, iter->first);
-            gc_list.push_back(iter->second);
-            used_size += iter->first;
-            if (used_size > segSize_)
-            {
-                break;
+                if (used_size < thld)
+                {
+                    cand_map.insert( std::pair<uint32_t, uint32_t> (used_size, index) );
+                }
             }
         }
-        __DEBUG("total gc seg_num = %d", (int)gc_list.size());
-
-        if (used_size < segSize_)
-        {
-            return false;
-        }
-        return true;
-
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev) : 
