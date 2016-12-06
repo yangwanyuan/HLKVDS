@@ -185,6 +185,18 @@ namespace kvdb{
 
     bool SegmentManager::Alloc(uint32_t& seg_id)
     {
+        std::unique_lock<std::mutex> l(mtx_);
+        if ( freed_  < 10 || freed_ < (segNum_ * 0.01) )
+        {
+            return false;
+        }
+
+        l.unlock();
+        return AllocForGC(seg_id);
+    }
+
+    bool SegmentManager::AllocForGC(uint32_t& seg_id)
+    {
         //for first use !!
         std::lock_guard<std::mutex> l(mtx_);
         if (segTable_[curSegId_].state == SegUseStat::FREE)

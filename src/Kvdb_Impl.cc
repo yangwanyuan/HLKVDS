@@ -1,4 +1,4 @@
-/* -*- Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/* -*- Mode: C++; c-basic-offset: 3; indent-tabs-mode: nil -*- */
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
@@ -247,6 +247,8 @@ namespace kvdb {
         segReaperT_stop_.store(false);
         segReaperT_ = std::thread(&KvdbDS::SegReaperThdEntry, this);
 
+        gcT_stop_.store(false);
+        gcT_ = std::thread(&KvdbDS::GCThdEntry, this);
     }
 
     void KvdbDS::stopThds()
@@ -266,11 +268,15 @@ namespace kvdb {
         segReaperT_stop_.store(true);
         segReaperT_.join();
 
+        gcT_stop_.store(true);
+        gcT_.join();
+
     }
 
     KvdbDS::~KvdbDS()
     {
         closeDB();
+        delete gcMgr_;
         delete idxMgr_;
         delete sbMgr_;
         delete segMgr_;
@@ -285,13 +291,14 @@ namespace kvdb {
         reqMergeT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
-        segReaperT_stop_(false)
+        segReaperT_stop_(false),
+        gcT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
         segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
         idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_);
-
+        gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_);
     }
 
 
@@ -433,6 +440,16 @@ namespace kvdb {
             {
                 uint32_t seg_id = 0;
                 bool res = segMgr_->Alloc(seg_id);
+                //if (!res)
+                //{
+                //    __ERROR("Cann't get a new Empty Segment.\n");
+                //    seg->Notify(res);
+                //}
+                if ( !res )
+                {
+                    doForeGC();
+                    res = segMgr_->Alloc(seg_id);
+                }
                 if (!res)
                 {
                     __ERROR("Cann't get a new Empty Segment.\n");
@@ -505,64 +522,41 @@ namespace kvdb {
 
     void KvdbDS::Do_GC()
     {
-        __INFO("Now Free Segment total %d before do GC",segMgr_->GetTotalFreeSegs());
+        __INFO("Application call GC!!!!!");
+        gcMgr_->FullGC();
+    }
 
-        //vector<uint32_t> cands;
-        //segMgr_->FindGCSegs(cands);
+    void KvdbDS::doForeGC()
+    {
+        gcMgr_->ForeGC();
+    }
 
-        multimap<uint32_t, uint32_t > segs_map;
-        segMgr_->SortSegsByUtils(segs_map);
+    void KvdbDS::doBackGC(float utils)
+    {
+        gcMgr_->BackGC(utils);
+    }
 
-        //find out seg candidates for gc
-        uint32_t used_size = 0;
-        uint32_t seg_size = segMgr_->GetSegmentSize();
-        vector<uint32_t> cands;
-        for (std::multimap<uint32_t, uint32_t>::iterator iter = segs_map.begin(); iter != segs_map.end(); iter++)
-        {
-            __DEBUG("seg index=%d, used_size = %d need do GC", iter->second, iter->first);
-            cands.push_back(iter->second);
-            used_size += iter->first;
-            if (used_size > seg_size)
-            {
-                break;
-            }
-        }
-
-        //do_gc
-        GCSegment *seg_gc = new GCSegment(segMgr_, idxMgr_, bdev_);
-        seg_gc->MergeSeg(cands);
-
-        bool ret;
-        uint32_t seg_id;
-        ret = segMgr_->Alloc(seg_id);
-        if ( !ret )
-        {
-            __ERROR("Cann't get a new Empty Segment, GC FAILED!\n");
-            return;
-        }
-
-        ret = seg_gc->WriteSegToDevice(seg_id);
-        if (ret)
-        {
-            uint32_t free_size = seg_gc->GetFreeSize();
-            segMgr_->Use(seg_id, free_size);
-
-            seg_gc->UpdateToIndex();
-            seg_gc->FreeSegs();
-        }
-        else
-        {
-            segMgr_->FreeForFailed(seg_id);
-        }
-
-        delete seg_gc;
-
-        __INFO("Now Free Segment total %d after do GC",segMgr_->GetTotalFreeSegs());
+    void KvdbDS::doFullGC()
+    {
+        gcMgr_->FullGC();
     }
 
     void KvdbDS::GCThdEntry()
     {
-        ;
+        __DEBUG("GC thread start!!");
+        while (!gcT_stop_)
+        {
+            uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
+            uint32_t seg_num = segMgr_->GetNumberOfSeg();
+            float utils = 1 - (float)free_seg_num / (float)seg_num;
+            if (utils > 0.3)
+            {
+                doBackGC(utils/2);
+            }
+
+            usleep(1000);
+        }
+        __DEBUG("GC thread stop!!");
     }
 }
 

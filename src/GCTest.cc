@@ -115,7 +115,7 @@
 #define KEY_LEN 10
 
 #define TEST_BS 4096
-//#define TEST_THREAD_NUM 64
+//#define TEST_THREAD_NUM 2
 #define TEST_THREAD_NUM 512
 
 using namespace std;
@@ -184,8 +184,8 @@ void* fun_insert(void *arg)
 
     for (int i = key_start; i < key_end + 1;  i++)
     {
-        //string key = key_list[i];
-        string key = key_list[key_start];
+        string key = key_list[i];
+        //string key = key_list[key_start];
         if (!db->Insert(key.c_str(), key_len, value->c_str(), value_size))
         {
             cout << "Insert key=" << key << "to DB failed!" << endl;
@@ -315,7 +315,7 @@ void Bench(string file_path, int db_size, int record_num)
     for (int i=0; i < 10; i++)
     {
         Bench_Insert(db, record_num, key_list);
-        db->Do_GC();
+        //db->Do_GC();
     }
     //Bench_Get_Seq(db, record_num, key_list);
 

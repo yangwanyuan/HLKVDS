@@ -100,6 +100,7 @@ namespace kvdb{
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
         bool Alloc(uint32_t& seg_id);
+        bool AllocForGC(uint32_t& seg_id);
         void FreeForFailed(uint32_t seg_id);
         void FreeForGC(uint32_t seg_id);
         void Use(uint32_t seg_id, uint32_t free_size);

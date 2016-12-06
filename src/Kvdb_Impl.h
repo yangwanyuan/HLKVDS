@@ -15,6 +15,7 @@
 #include "IndexManager.h"
 #include "DataHandle.h"
 #include "SegmentManager.h"
+#include "GcManager.h"
 #include "WorkQueue.h"
 
 namespace kvdb {
@@ -54,6 +55,7 @@ namespace kvdb {
         IndexManager* idxMgr_;
         BlockDevice* bdev_;
         SegmentManager* segMgr_;
+        GcManager* gcMgr_;
         string fileName_;
 
         SegmentSlice *seg_;
@@ -88,8 +90,13 @@ namespace kvdb {
 
     //GC thread
     private:
-        void GCThdEntry();
+        std::thread gcT_;
+        std::atomic<bool> gcT_stop_;
 
+        void GCThdEntry();
+        void doForeGC();
+        void doBackGC(float utils);
+        void doFullGC();
     };
 
 
