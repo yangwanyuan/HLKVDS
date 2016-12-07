@@ -439,43 +439,35 @@ namespace kvdb {
             if ( seg )
             {
                 uint32_t seg_id = 0;
-                bool res = segMgr_->Alloc(seg_id);
-                //if (!res)
-                //{
-                //    __ERROR("Cann't get a new Empty Segment.\n");
-                //    seg->Notify(res);
-                //}
-                if ( !res )
+                bool res;
+                while ( !segMgr_->Alloc(seg_id) )
                 {
-                    doForeGC();
-                    res = segMgr_->Alloc(seg_id);
+                    res = doForeGC();
+                    if (!res)
+                    {
+                        __ERROR("Cann't get a new Empty Segment.\n");
+                        seg->Notify(res);
+                    }
                 }
-                if (!res)
+
+                uint32_t free_size = seg->GetFreeSize();
+                res = seg->WriteSegToDevice(seg_id);
+                if ( res )
                 {
-                    __ERROR("Cann't get a new Empty Segment.\n");
-                    seg->Notify(res);
+                    //Update Superblock
+                    sbMgr_->SetCurSegId(seg_id);
+                    segMgr_->Use(seg_id, free_size);
                 }
                 else
                 {
-                    uint32_t free_size = seg->GetFreeSize();
-                    res = seg->WriteSegToDevice(seg_id);
-                    if ( res )
-                    {
-                        //Update Superblock
-                        sbMgr_->SetCurSegId(seg_id);
-                        segMgr_->Use(seg_id, free_size);
-                    }
-                    else
-                    {
-                        //Free the segment if write failed
-                        segMgr_->FreeForFailed(seg_id);
-                    }
-                    seg->Notify(res);
-
-                    __DEBUG("Segment thread write seg to device, seg_id:%d %s",
-                            seg_id, res==true? "Success":"Failed");
-
+                    //Free the segment if write failed
+                    segMgr_->FreeForFailed(seg_id);
                 }
+                seg->Notify(res);
+
+                __DEBUG("Segment thread write seg to device, seg_id:%d %s",
+                        seg_id, res==true? "Success":"Failed");
+
             }
         }
         __DEBUG("Segment write thread stop!!");
@@ -523,22 +515,22 @@ namespace kvdb {
     void KvdbDS::Do_GC()
     {
         __INFO("Application call GC!!!!!");
-        gcMgr_->FullGC();
+        return gcMgr_->FullGC();
     }
 
-    void KvdbDS::doForeGC()
+    bool KvdbDS::doForeGC()
     {
-        gcMgr_->ForeGC();
+        return gcMgr_->ForeGC();
     }
 
     void KvdbDS::doBackGC(float utils)
     {
-        gcMgr_->BackGC(utils);
+        return gcMgr_->BackGC(utils);
     }
 
     void KvdbDS::doFullGC()
     {
-        gcMgr_->FullGC();
+        return gcMgr_->FullGC();
     }
 
     void KvdbDS::GCThdEntry()

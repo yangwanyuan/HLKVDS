@@ -94,7 +94,7 @@ namespace kvdb {
         std::atomic<bool> gcT_stop_;
 
         void GCThdEntry();
-        void doForeGC();
+        bool doForeGC();
         void doBackGC(float utils);
         void doFullGC();
     };
