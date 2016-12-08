@@ -8,6 +8,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Utils.h"
 
@@ -110,7 +111,7 @@ namespace kvdb{
 
         uint32_t GetTotalFreeSegs();
 
-        SegmentManager(BlockDevice* bdev);
+        SegmentManager(BlockDevice* bdev, SuperBlockManager* sbMgr_);
         ~SegmentManager();
 
 
@@ -123,12 +124,12 @@ namespace kvdb{
         uint32_t segSizeBit_;
         uint32_t segNum_;
         uint32_t curSegId_;
-        bool isFull_;
-        uint32_t used_;
-        uint32_t freed_;
-        uint32_t reserved_;
+        uint32_t usedCounter_;
+        uint32_t freedCounter_;
+        uint32_t reservedCounter_;
         
         BlockDevice* bdev_;
+        SuperBlockManager* sbMgr_;
         mutable std::mutex mtx_;
 
     };

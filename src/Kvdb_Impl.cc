@@ -26,9 +26,10 @@ namespace kvdb {
         uint64_t db_index_size = 0;
         uint64_t db_seg_table_size =0;
         uint64_t db_meta_size = 0;
-        uint64_t db_data_size = 0;
+        uint64_t db_data_region_size = 0;
         uint64_t db_size = 0;
         uint64_t device_capacity = 0;
+        uint64_t data_theory_size = 0;
         
         KvdbDS* ds = new KvdbDS(filename);
         int r = 0;
@@ -75,8 +76,8 @@ namespace kvdb {
         db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
 
         db_meta_size  = db_sb_size + db_index_size + db_seg_table_size;
-        db_data_size = ds->segMgr_->GetDataRegionSize();
-        db_size = db_meta_size + db_data_size;
+        db_data_region_size = ds->segMgr_->GetDataRegionSize();
+        db_size = db_meta_size + db_data_region_size;
 
         r = ds->bdev_->SetNewDBZero(db_meta_size);
         if (r < 0)
@@ -89,7 +90,7 @@ namespace kvdb {
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries,
                         segment_size, number_segments,
                         0, db_sb_size, db_index_size, db_seg_table_size,
-                        db_data_size, device_capacity);
+                        db_data_region_size, device_capacity, data_theory_size);
         ds->sbMgr_->SetSuperBlock(sb);
 
         __INFO("\nCreateKvdbDS table information:\n"
@@ -107,7 +108,7 @@ namespace kvdb {
                hash_table_size, num_entries,
                segment_size, number_segments, db_sb_size, 
                db_index_size, db_seg_table_size, db_meta_size,
-               db_data_size, db_size, device_capacity);
+               db_data_region_size, db_size, device_capacity);
 
         ds->seg_ = new SegmentSlice(ds->segMgr_,ds->idxMgr_, ds->bdev_);
         ds->startThds();
@@ -119,11 +120,6 @@ namespace kvdb {
 
     bool KvdbDS::writeMetaDataToDevice()
     {
-        if (!sbMgr_->WriteSuperBlockToDevice())
-        {
-            return false;
-        }
-
         if (!idxMgr_->WriteIndexToDevice())
         {
             return false;
@@ -133,6 +129,12 @@ namespace kvdb {
         {
             return false;
         }
+
+        if (!sbMgr_->WriteSuperBlockToDevice())
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -176,7 +178,8 @@ namespace kvdb {
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
                "\t Total Device Size         : %ld Bytes\n"
-               "\t Current Segment ID        : %d",
+               "\t Current Segment ID        : %d\n"
+               "\t DB Data Theory Size       : %ld Bytes",
                sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
                sbMgr_->GetSegmentSize(),
                sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
@@ -184,7 +187,7 @@ namespace kvdb {
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize()),
                sbMgr_->GetDataRegionSize(),
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize() + sbMgr_->GetDataRegionSize()),
-               sbMgr_->GetDeviceCapacity(), sbMgr_->GetCurSegmentId());
+               sbMgr_->GetDeviceCapacity(), sbMgr_->GetCurSegmentId(), sbMgr_->GetDataTheorySize());
 
         return true;
     }
@@ -278,8 +281,8 @@ namespace kvdb {
         closeDB();
         delete gcMgr_;
         delete idxMgr_;
-        delete sbMgr_;
         delete segMgr_;
+        delete sbMgr_;
         delete bdev_;
         delete seg_;
 
@@ -295,8 +298,8 @@ namespace kvdb {
         gcT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
-        segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
+        segMgr_ = new SegmentManager(bdev_, sbMgr_);
         idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_);
         gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_);
     }
@@ -454,13 +457,10 @@ namespace kvdb {
                 res = seg->WriteSegToDevice(seg_id);
                 if ( res )
                 {
-                    //Update Superblock
-                    sbMgr_->SetCurSegId(seg_id);
                     segMgr_->Use(seg_id, free_size);
                 }
                 else
                 {
-                    //Free the segment if write failed
                     segMgr_->FreeForFailed(seg_id);
                 }
                 seg->Notify(res);

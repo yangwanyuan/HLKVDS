@@ -25,26 +25,27 @@ namespace kvdb{
         uint64_t db_sb_size;
         uint64_t db_index_size;
         uint64_t db_seg_table_size;
-        uint64_t db_data_size;
+        uint64_t db_data_region_size;
         uint64_t device_capacity;
+        uint64_t data_theory_size;
         
     public:
         DBSuperBlock(uint32_t magic, uint32_t ht_size, uint32_t num_eles,
                 uint32_t seg_size, uint32_t num_seg,
                 uint32_t cur_seg, uint64_t sb_size, uint64_t index_size,
-                uint64_t seg_table_size, uint64_t data_size, uint64_t dev_size) :
+                uint64_t seg_table_size, uint64_t data_region_size, uint64_t dev_size, uint64_t data_size) :
             magic_number(magic), hashtable_size(ht_size),
             number_elements(num_eles),
             segment_size(seg_size), number_segments(num_seg),
             current_segment(cur_seg), db_sb_size(sb_size),
-            db_index_size(index_size), db_seg_table_size(seg_table_size), db_data_size(data_size),
-            device_capacity(dev_size){}
+            db_index_size(index_size), db_seg_table_size(seg_table_size), db_data_region_size(data_region_size),
+            device_capacity(dev_size), data_theory_size(data_size){}
 
         DBSuperBlock() :  
             magic_number(0), hashtable_size(0), number_elements(0),
             segment_size(0), number_segments(0),
             current_segment(0), db_sb_size(0), db_index_size(0),
-            db_seg_table_size(0), db_data_size(0), device_capacity(0){}
+            db_seg_table_size(0), db_data_region_size(0), device_capacity(0), data_theory_size(0){}
 
         uint32_t GetMagic() const { return magic_number; }
         uint32_t GetHTSize() const { return hashtable_size; }
@@ -55,8 +56,9 @@ namespace kvdb{
         uint64_t GetSbSize() const { return db_sb_size; }
         uint64_t GetIndexSize() const { return db_index_size; }
         uint64_t GetSegTableSize() const {return db_seg_table_size;}
-        uint64_t GetDataRegionSize() const { return db_data_size; }
+        uint64_t GetDataRegionSize() const { return db_data_region_size; }
         uint64_t GetDeviceCapacity() const { return device_capacity; }
+        uint64_t GetDataTheorySize() const { return data_theory_size; }
 
         ~DBSuperBlock(){}
     } __attribute__((__packed__));
@@ -84,12 +86,13 @@ namespace kvdb{
         uint64_t GetSbSize() const { return sb_->db_sb_size; }
         uint64_t GetIndexSize() const { return sb_->db_index_size; }
         uint64_t GetSegTableSize() const { return sb_->db_seg_table_size; }
-        uint64_t GetDataRegionSize() const { return sb_->db_data_size; }
+        uint64_t GetDataRegionSize() const { return sb_->db_data_region_size; }
         uint64_t GetDeviceCapacity() const { return sb_->device_capacity; }
+        uint64_t GetDataTheorySize() const { return sb_->data_theory_size; }
 
-        void AddElement();
-        void DeleteElement();
+        void SetElementNum(uint32_t num);
         void SetCurSegId(uint32_t id);
+        void SetDataTheorySize(uint64_t size);
 
         SuperBlockManager(BlockDevice* bdev);
         ~SuperBlockManager();

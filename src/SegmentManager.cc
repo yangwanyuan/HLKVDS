@@ -73,9 +73,9 @@ namespace kvdb{
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
-        freed_ = segNum_;
-        used_ = 0;
-        reserved_ = 0;
+        freedCounter_ = segNum_;
+        usedCounter_ = 0;
+        reservedCounter_ = 0;
 
         //init segment table
         SegmentStat seg_stat;
@@ -93,7 +93,9 @@ namespace kvdb{
         segSize_ = segment_size;
         segSizeBit_ = log2(segSize_);
         segNum_ = num_seg;
-        curSegId_ = current_seg;
+        //curSegId_ = current_seg;
+        curSegId_ = sbMgr_->GetCurSegmentId();
+
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
@@ -113,16 +115,16 @@ namespace kvdb{
             if (segs_stat[seg_index].state == SegUseStat::FREE)
             {
                 seg_stat = segs_stat[seg_index];
-                freed_++;
+                freedCounter_++;
             }
             else if(segs_stat[seg_index].state == SegUseStat::USED)
             {
                 seg_stat = segs_stat[seg_index];
-                used_++;
+                usedCounter_++;
             }
             else if (segs_stat[seg_index].state == SegUseStat::RESERVED)
             {
-                freed_++;
+                freedCounter_++;
             }
             segTable_.push_back(seg_stat);
         }
@@ -154,6 +156,8 @@ namespace kvdb{
                 return false;
         }
         delete[] segs_stat;
+
+        sbMgr_->SetCurSegId(curSegId_);
         return true;
     }
 
@@ -186,7 +190,7 @@ namespace kvdb{
     bool SegmentManager::Alloc(uint32_t& seg_id)
     {
         std::unique_lock<std::mutex> l(mtx_);
-        if ( freed_  < 10 || freed_ < (segNum_ * 0.01) )
+        if ( freedCounter_  < 10 || freedCounter_ < (segNum_ * 0.01) )
         {
             return false;
         }
@@ -204,8 +208,8 @@ namespace kvdb{
             seg_id = curSegId_;
             segTable_[curSegId_].state = SegUseStat::RESERVED;
 
-            reserved_++;
-            freed_--;
+            reservedCounter_++;
+            freedCounter_--;
             return true;
         }
 
@@ -224,8 +228,8 @@ namespace kvdb{
                 curSegId_ = seg_id;
                 segTable_[curSegId_].state = SegUseStat::RESERVED;
 
-                reserved_++;
-                freed_--;
+                reservedCounter_++;
+                freedCounter_--;
                 return true;
             }
             seg_index++;
@@ -240,8 +244,8 @@ namespace kvdb{
         segTable_[seg_id].free_size = 0;
         segTable_[seg_id].death_size = 0;
 
-        reserved_--;
-        freed_++;
+        reservedCounter_--;
+        freedCounter_++;
         __DEBUG("Free Segment seg_id = %d", seg_id);
     }
 
@@ -252,8 +256,8 @@ namespace kvdb{
         segTable_[seg_id].free_size = 0;
         segTable_[seg_id].death_size = 0;
 
-        used_--;
-        freed_++;
+        usedCounter_--;
+        freedCounter_++;
         __DEBUG("Free Segment For GC, seg_id = %d", seg_id);
     }
 
@@ -263,8 +267,8 @@ namespace kvdb{
         segTable_[seg_id].state = SegUseStat::USED;
         segTable_[seg_id].free_size = free_size;
 
-        reserved_--;
-        used_++;
+        reservedCounter_--;
+        usedCounter_++;
         __DEBUG("Used Segment seg_id = %d, free_size = %d", seg_id, free_size);
     }
 
@@ -293,7 +297,7 @@ namespace kvdb{
     uint32_t SegmentManager::GetTotalFreeSegs()
     {
         std::lock_guard<std::mutex> l(mtx_);
-        return freed_;
+        return freedCounter_;
     }
 
     void SegmentManager::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, float utils)
@@ -315,8 +319,10 @@ namespace kvdb{
         }
     }
 
-    SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), used_(0), freed_(0), reserved_(0), bdev_(bdev){}
+    SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm) :
+        dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0),
+        segNum_(0), curSegId_(0), usedCounter_(0), freedCounter_(0),
+        reservedCounter_(0), bdev_(bdev), sbMgr_(sbm) {}
 
     SegmentManager::~SegmentManager()
     {

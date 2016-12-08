@@ -143,13 +143,16 @@ namespace kvdb{
     bool IndexManager::InitIndexForCreateDB(uint64_t offset, uint32_t numObjects)
     {
         htSize_ = ComputeHashSizeForPower2(numObjects);
-        used_ = 0;
+        keyCounter_ = 0;
         startOff_ = offset;
         
         if (!initHashTable(htSize_))
         {
             return false;
         }
+
+        //Update data theory size from superblock
+        dataTheorySize_ = 0;
 
         return true;
     }
@@ -172,6 +175,16 @@ namespace kvdb{
             return false;
         }
         __DEBUG("Rebuild Hashtable Success");
+
+        //Update data theory size from superblock
+        dataTheorySize_ = sbMgr_->GetDataTheorySize();
+        uint32_t key_num = sbMgr_->GetElementNum();
+        if(key_num  != keyCounter_)
+        {
+            __ERROR("The Key Number is conflit between superblock and index!!!!!");
+            return false;
+        }
+
 
         return true;
     }
@@ -207,6 +220,10 @@ namespace kvdb{
             return false;
         }
         __DEBUG("Persist Hashtable Success");
+
+        //Update data theory size to superblock
+        sbMgr_->SetDataTheorySize(dataTheorySize_);
+        sbMgr_->SetElementNum(keyCounter_);
     
         return true;
     }
@@ -244,21 +261,22 @@ namespace kvdb{
             if (data)
             {
                 //It's insert a new entry operation
-                if (used_ == htSize_)
+                if (keyCounter_ == htSize_)
                 {
-                    __DEBUG("UpdateIndex Failed, because the hashtable is full!");
+                    __WARN("UpdateIndex Failed, because the hashtable is full!");
                     return false;
                 }
+
                 entry_list->put(entry);
-                __DEBUG("UpdateIndex request, because this entry is not exist!");
-                used_++;
-                sbMgr_->AddElement();
+                keyCounter_++;
+                dataTheorySize_ += SizeOfDataHeader() + slice->GetDataLen();
+                __DEBUG("UpdateIndex request, because this entry is not exist! Now dataTheorySize_ is %ld", dataTheorySize_);
             }
             else
             {
                 //It's a invalid delete operation
-                __DEBUG("Ignore the UpdateIndex request, because this is a delete operation but not exist in Memory");
                 segMgr_->ModifyDeathEntry(entry);
+                __DEBUG("Ignore the UpdateIndex request, because this is a delete operation but not exist in Memory");
             }
         }
         else
@@ -274,15 +292,27 @@ namespace kvdb{
             }
             else
             {
-                segMgr_->ModifyDeathEntry(*entry_inMem);
                 //this operation is need to do
+                segMgr_->ModifyDeathEntry(*entry_inMem);
+
+                uint16_t data_size = entry.GetDataSize() ;
+                uint16_t data_inMem_size = entry_inMem->GetDataSize();
+
+                if (data_size == 0)
+                {
+                    dataTheorySize_ -= (uint64_t)(SizeOfDataHeader() + data_inMem_size);
+                }
+                else
+                {
+                    dataTheorySize_ += ( data_size > data_inMem_size? ((uint64_t)(data_size - data_inMem_size)): -((uint64_t)(data_inMem_size - data_size)) );
+                }
                 entry_list->put(entry);
-                __DEBUG("UpdateIndex request, because request is new than in memory!");
+
+                __DEBUG("UpdateIndex request, because request is new than in memory!Now dataTheorySize_ is %ld", dataTheorySize_);
             }
             return true;
 
         }
-
 
         __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
                 slice->GetKeyStr().c_str(), slice->GetDataLen(),
@@ -312,8 +342,7 @@ namespace kvdb{
         {
             entry_list->remove(entry);
             segMgr_->ModifyDeathEntry(entry);
-            used_--;
-            sbMgr_->DeleteElement();
+            keyCounter_--;
             __DEBUG("Remove the index entry!");
         }
 
@@ -397,7 +426,7 @@ namespace kvdb{
 
 
     IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr, SegmentManager* segMgr):
-        hashtable_(NULL), htSize_(0), used_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr), segMgr_(segMgr)
+        hashtable_(NULL), htSize_(0), keyCounter_(0), dataTheorySize_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr), segMgr_(segMgr)
     {
         lastTime_ = new KVTime();
         return ;
@@ -547,7 +576,7 @@ namespace kvdb{
                 __DEBUG("read hashtable[%d]=%d", i, entry_num);
             }
         }
-        used_ = entry_index;
+        keyCounter_ = entry_index;
         return true;
     }
 

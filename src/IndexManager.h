@@ -211,7 +211,8 @@ namespace kvdb{
 
         LinkedList<HashEntry>** hashtable_;  
         uint32_t htSize_;
-        uint32_t used_;
+        uint32_t keyCounter_;
+        uint64_t dataTheorySize_;
         uint64_t startOff_;
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
