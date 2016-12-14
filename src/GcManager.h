@@ -10,37 +10,28 @@
 #include "SegmentManager.h"
 
 namespace kvdb{
-
-    class GCSegment{
+    class NewGCSegment{
     public:
-        GCSegment();
-        ~GCSegment();
-        GCSegment(const GCSegment& toBeCopied);
-        GCSegment& operator=(const GCSegment& toBeCopied);
+        NewGCSegment();
+        ~NewGCSegment();
+        NewGCSegment(const NewGCSegment& toBeCopied);
+        NewGCSegment& operator=(const NewGCSegment& toBeCopied);
 
-        GCSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+        NewGCSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
 
-        void MergeSeg(vector<uint32_t> &cands);
+        bool TryPut(KVSlice* slice);
+        void Put(KVSlice* slice);
         bool WriteSegToDevice(uint32_t seg_id);
         void UpdateToIndex();
-        void FreeSegs();
-
-        //uint32_t GetFreeSize() const { return freeSize_; }
         uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
 
     private:
-        void copyHelper(const GCSegment& toBeCopied);
-        bool mergeSeg(uint32_t seg_id);
-        bool readSegFromDevice(uint64_t seg_offset);
-        void loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys, uint64_t phy_offset);
-        bool tryPutBatch(list<KVSlice*> &slice_list);
-        void putBatch(list<KVSlice*> &slice_list);
+        void copyHelper(const NewGCSegment& toBeCopied);
 
-        bool isCanFit(KVSlice *slice, uint32_t head_pos, uint32_t tail_pos);
-        void deleteKVList(list<KVSlice*> &slice_list);
+        bool isCanFit(KVSlice* slice) const;
         void fillSlice();
-        void copyToData();
         bool _writeDataToDevice();
+        void copyToData();
 
     private:
         uint32_t segId_;
@@ -52,37 +43,34 @@ namespace kvdb{
 
         uint32_t headPos_;
         uint32_t tailPos_;
-        //uint32_t freeSize_;
 
         int32_t keyNum_;
         int32_t keyAlignedNum_;
 
         SegmentOnDisk *segOndisk_;
+        std::list<KVSlice *> sliceList_;
 
-        //seg list will do gc.
-        std::vector<uint32_t> segVec_;
-
-        std::list<KVSlice*> sliceList_;
         char *dataBuf_;
-        //char *writeBuf_;
-        //char *tempBuf_;
     };
+
 
     class GcManager {
         public:
-            GcManager();
             ~GcManager();
-            GcManager(const GcManager& toBeCopied);
-            GcManager& operator=(const GcManager& toBeCopied);
-
             GcManager(BlockDevice* bdev, IndexManager* im, SegmentManager* sm);
 
             bool ForeGC();
-            void BackGC(float utils);
+            void BackGC();
             void FullGC();
 
         private:
-            void doGC(std::vector<uint32_t> &candsOD);
+            uint32_t doMerge(std::multimap<uint32_t, uint32_t> &cands_map);
+
+            bool readSegment(uint64_t seg_offset);
+            void loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys, uint64_t phy_offset);
+
+            bool loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list);
+            void cleanKvList(std::list<KVSlice*> &slice_list);
 
         private:
            SegmentManager* segMgr_;
@@ -90,6 +78,8 @@ namespace kvdb{
            BlockDevice* bdev_;
 
            std::mutex gcMtx_;
+
+           char *dataBuf_;
     };
 
 

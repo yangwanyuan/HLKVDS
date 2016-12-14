@@ -157,6 +157,8 @@ namespace kvdb{
 
         std::mutex mtx_;
         std::list<HashEntry> delReqList_;
+
+        char *dataBuf_;
     };
 
 } //end namespace kvdb

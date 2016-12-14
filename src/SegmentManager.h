@@ -42,8 +42,8 @@ namespace kvdb{
     class SegmentStat{
     public:
         SegUseStat state;
-        int free_size;
-        int death_size;
+        uint32_t free_size;
+        uint32_t death_size;
 
     public:
         SegmentStat() : state(SegUseStat::FREE), free_size(0), death_size(0) {}
@@ -107,9 +107,10 @@ namespace kvdb{
         void Use(uint32_t seg_id, uint32_t free_size);
         void ModifyDeathEntry(HashEntry &entry);
 
-        void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, float utils = 1.0);
+        void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils = SEG_FULL_RATE);
 
         uint32_t GetTotalFreeSegs();
+        uint32_t GetTotalUsedSegs();
 
         SegmentManager(BlockDevice* bdev, SuperBlockManager* sbMgr_);
         ~SegmentManager();

@@ -190,7 +190,8 @@ namespace kvdb{
     bool SegmentManager::Alloc(uint32_t& seg_id)
     {
         std::unique_lock<std::mutex> l(mtx_);
-        if ( freedCounter_  < 10 || freedCounter_ < (segNum_ * 0.01) )
+        //if ( freedCounter_  < 10 || freedCounter_ < (segNum_ * 0.01) )
+        if ( freedCounter_  < 3)
         {
             return false;
         }
@@ -300,7 +301,13 @@ namespace kvdb{
         return freedCounter_;
     }
 
-    void SegmentManager::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, float utils)
+    uint32_t SegmentManager::GetTotalUsedSegs()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        return usedCounter_;
+    }
+
+    void SegmentManager::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils)
     {
         std::lock_guard<std::mutex> lck(mtx_);
         uint32_t used_size;
@@ -310,13 +317,14 @@ namespace kvdb{
         {
             if (segTable_[index].state == SegUseStat::USED)
             {
-                used_size = segSize_ - ( segTable_[index].free_size + segTable_[index].death_size + SegmentManager::SizeOfSegOnDisk());
+                used_size = segSize_ - ( segTable_[index].free_size + segTable_[index].death_size + (uint32_t)SegmentManager::SizeOfSegOnDisk());
                 if (used_size < thld)
                 {
                     cand_map.insert( std::pair<uint32_t, uint32_t> (used_size, index) );
                 }
             }
         }
+        __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
     }
 
     SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm) :

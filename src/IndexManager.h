@@ -187,6 +187,8 @@ namespace kvdb{
         void RemoveEntry(HashEntry entry);
 
         uint32_t GetHashTableSize() const { return htSize_; }
+        uint64_t GetDataTheorySize() const ;
+        uint32_t GetKeyCounter() const ;
 
         IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_);
         ~IndexManager();

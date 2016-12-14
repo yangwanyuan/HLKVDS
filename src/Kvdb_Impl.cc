@@ -256,8 +256,14 @@ namespace kvdb {
 
     void KvdbDS::stopThds()
     {
-        reqMergeT_stop_.store(true);
-        reqMergeT_.join();
+        gcT_stop_.store(true);
+        gcT_.join();
+
+        segReaperT_stop_.store(true);
+        segReaperT_.join();
+
+        segTimeoutT_stop_.store(true);
+        segTimeoutT_.join();
 
         segWriteT_stop_.store(true);
         for(auto &th : segWriteTP_)
@@ -265,15 +271,8 @@ namespace kvdb {
             th.join();
         }
 
-        segTimeoutT_stop_.store(true);
-        segTimeoutT_.join();
-
-        segReaperT_stop_.store(true);
-        segReaperT_.join();
-
-        gcT_stop_.store(true);
-        gcT_.join();
-
+        reqMergeT_stop_.store(true);
+        reqMergeT_.join();
     }
 
     KvdbDS::~KvdbDS()
@@ -445,7 +444,8 @@ namespace kvdb {
                 bool res;
                 while ( !segMgr_->Alloc(seg_id) )
                 {
-                    res = doForeGC();
+                    //res = doForeGC();
+                    res = gcMgr_->ForeGC();
                     if (!res)
                     {
                         __ERROR("Cann't get a new Empty Segment.\n");
@@ -518,35 +518,13 @@ namespace kvdb {
         return gcMgr_->FullGC();
     }
 
-    bool KvdbDS::doForeGC()
-    {
-        return gcMgr_->ForeGC();
-    }
-
-    void KvdbDS::doBackGC(float utils)
-    {
-        return gcMgr_->BackGC(utils);
-    }
-
-    void KvdbDS::doFullGC()
-    {
-        return gcMgr_->FullGC();
-    }
-
     void KvdbDS::GCThdEntry()
     {
         __DEBUG("GC thread start!!");
         while (!gcT_stop_)
         {
-            uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
-            uint32_t seg_num = segMgr_->GetNumberOfSeg();
-            float utils = 1 - (float)free_seg_num / (float)seg_num;
-            if (utils > 0.3)
-            {
-                doBackGC(utils/2);
-            }
-
-            usleep(1000);
+            gcMgr_->BackGC();
+            usleep(1000000);
         }
         __DEBUG("GC thread stop!!");
     }

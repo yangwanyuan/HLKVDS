@@ -382,6 +382,18 @@ namespace kvdb{
         return false;
     }
 
+    uint64_t IndexManager::GetDataTheorySize() const
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        return dataTheorySize_;
+    }
+
+    uint32_t IndexManager::GetKeyCounter() const
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        return keyCounter_;
+    }
+
     bool IndexManager::IsSameInMem(HashEntry entry)
     {
         Kvdb_Digest digest = entry.GetKeyDigest();
@@ -628,5 +640,6 @@ namespace kvdb{
         return true;
     
     }
+
 }
 

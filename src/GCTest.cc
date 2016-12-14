@@ -317,7 +317,7 @@ void Bench(string file_path, int db_size, int record_num)
         Bench_Insert(db, record_num, key_list);
         //db->Do_GC();
     }
-    //Bench_Get_Seq(db, record_num, key_list);
+    Bench_Get_Seq(db, record_num, key_list);
 
     delete db;
 }
