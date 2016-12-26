@@ -10,14 +10,14 @@
 #include "SegmentManager.h"
 
 namespace kvdb{
-    class NewGCSegment{
+    class GcSegment{
     public:
-        NewGCSegment();
-        ~NewGCSegment();
-        NewGCSegment(const NewGCSegment& toBeCopied);
-        NewGCSegment& operator=(const NewGCSegment& toBeCopied);
+        GcSegment();
+        ~GcSegment();
+        GcSegment(const GcSegment& toBeCopied);
+        GcSegment& operator=(const GcSegment& toBeCopied);
 
-        NewGCSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+        GcSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
 
         bool TryPut(KVSlice* slice);
         void Put(KVSlice* slice);
@@ -26,7 +26,7 @@ namespace kvdb{
         uint32_t GetFreeSize() const { return tailPos_ - headPos_; }
 
     private:
-        void copyHelper(const NewGCSegment& toBeCopied);
+        void copyHelper(const GcSegment& toBeCopied);
 
         bool isCanFit(KVSlice* slice) const;
         void fillSlice();

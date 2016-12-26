@@ -1,7 +1,7 @@
 #include "GcManager.h"
 
 namespace kvdb{
-    NewGCSegment::NewGCSegment()
+    GcSegment::GcSegment()
         : segId_(0), segMgr_(NULL), idxMgr_(NULL), bdev_(NULL),
           segSize_(0), persistTime_(KVTime()), headPos_(0),
           tailPos_(0), keyNum_(0), keyAlignedNum_(0),
@@ -11,26 +11,26 @@ namespace kvdb{
         dataBuf_ = new char[segSize_];
     }
 
-    NewGCSegment::~NewGCSegment()
+    GcSegment::~GcSegment()
     {
         delete segOndisk_;
         delete[] dataBuf_;
     }
 
-    NewGCSegment::NewGCSegment(const NewGCSegment& toBeCopied)
+    GcSegment::GcSegment(const GcSegment& toBeCopied)
     {
         segOndisk_ = new SegmentOnDisk();
         dataBuf_ = new char[segSize_];
         copyHelper(toBeCopied);
     }
 
-    NewGCSegment& NewGCSegment::operator=(const NewGCSegment& toBeCopied)
+    GcSegment& GcSegment::operator=(const GcSegment& toBeCopied)
     {
         copyHelper(toBeCopied);
         return *this;
     }
 
-    void NewGCSegment::copyHelper(const NewGCSegment& toBeCopied)
+    void GcSegment::copyHelper(const GcSegment& toBeCopied)
     {
         segId_ = toBeCopied.segId_;
         segMgr_ = toBeCopied.segMgr_;
@@ -46,7 +46,7 @@ namespace kvdb{
         memcpy(dataBuf_, toBeCopied.dataBuf_, segSize_);
     }
 
-    NewGCSegment::NewGCSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev)
+    GcSegment::GcSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev)
         : segId_(0), segMgr_(sm), idxMgr_(im), bdev_(bdev),
           segSize_(segMgr_->GetSegmentSize()), persistTime_(KVTime()),
           headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
@@ -56,12 +56,12 @@ namespace kvdb{
         dataBuf_ = new char[segSize_];
     }
 
-    bool NewGCSegment::TryPut(KVSlice* slice)
+    bool GcSegment::TryPut(KVSlice* slice)
     {
         return isCanFit(slice);
     }
 
-    void NewGCSegment::Put(KVSlice* slice)
+    void GcSegment::Put(KVSlice* slice)
     {
         if (slice->IsAlignedData())
         {
@@ -79,7 +79,7 @@ namespace kvdb{
         __DEBUG("Put request key = %s", slice->GetKeyStr().c_str());
     }
 
-    bool NewGCSegment::WriteSegToDevice(uint32_t seg_id)
+    bool GcSegment::WriteSegToDevice(uint32_t seg_id)
     {
         segId_ = seg_id;
         fillSlice();
@@ -88,7 +88,7 @@ namespace kvdb{
         return _writeDataToDevice();
     }
 
-    void NewGCSegment::UpdateToIndex()
+    void GcSegment::UpdateToIndex()
     {
         for(list<KVSlice *>::iterator iter=sliceList_.begin(); iter != sliceList_.end(); iter++)
         {
@@ -98,14 +98,14 @@ namespace kvdb{
         __DEBUG("UpdateToIndex Success!");
     }
 
-    bool NewGCSegment::isCanFit(KVSlice* slice) const
+    bool GcSegment::isCanFit(KVSlice* slice) const
     {
         uint32_t freeSize = tailPos_ - headPos_;
         uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
         return freeSize > needSize;
     }
 
-    void NewGCSegment::fillSlice()
+    void GcSegment::fillSlice()
     {
         uint32_t head_pos = SegmentManager::SizeOfSegOnDisk();
         uint32_t tail_pos = segSize_;
@@ -157,7 +157,7 @@ namespace kvdb{
         }
     }
 
-    bool NewGCSegment::_writeDataToDevice()
+    bool GcSegment::_writeDataToDevice()
     {
         copyToData();
 
@@ -172,7 +172,7 @@ namespace kvdb{
         return true;
     }
 
-    void NewGCSegment::copyToData()
+    void GcSegment::copyToData()
     {
         uint64_t offset = 0;
         segMgr_->ComputeSegOffsetFromId(segId_, offset);
@@ -234,13 +234,13 @@ namespace kvdb{
         uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
         if (free_seg_num > SEG_POOL_SIZE)
         {
-            __INFO("some thread already called doForeGC, ignore this call!");
+            __DEBUG("some thread already called doForeGC, ignore this call!");
             return true;
         }
 
 
         free_seg_num = 0;
-        __INFO("Begin Fore GC !");
+        __DEBUG("Begin Fore GC !");
         while ( !free_seg_num )
         {
             std::multimap<uint32_t, uint32_t> cands_map;
@@ -273,11 +273,9 @@ namespace kvdb{
         }
         double waste_rate = 1 - ((double)theory_seg_num / (double)used_seg_num);
 
-        //__DEBUG("Begin do Background GC! waste_rate is %f, data_theory_size = %lu", waste_rate, data_theory_size);
-        __INFO("Begin do Background GC! waste_rate is %f, data_theory_size = %lu", waste_rate, data_theory_size);
+        __DEBUG("Begin do Background GC! waste_rate is %f, data_theory_size = %lu", waste_rate, data_theory_size);
         if ( waste_rate > GC_UPPER_LEVEL )
         {
-            //__INFO("waste_rate upper the GC_UPPER_LEVEL, begin Background GC! waste_rate = %f", waste_rate);
             while ( waste_rate > GC_LOWER_LEVEL )
             {
                 lck_gc.lock();
@@ -300,10 +298,10 @@ namespace kvdb{
                 used_seg_num = total_seg_num - free_seg_num ;
 
                 waste_rate = 1 - ((double)theory_seg_num / (double)used_seg_num);
-                //__INFO("done once backgroud GC, total free %u segments, data_theory_size = %lu, theory_seg_num = %u, used_seg_num = %u, seg_size = %u, waste_rate is %f",total_free, data_theory_size, theory_seg_num, used_seg_num, seg_size,  waste_rate);
+                __DEBUG("done once backgroud GC, total free %u segments, data_theory_size = %lu, theory_seg_num = %u, used_seg_num = %u, seg_size = %u, waste_rate is %f",total_free, data_theory_size, theory_seg_num, used_seg_num, seg_size,  waste_rate);
                 lck_gc.unlock();
             }
-            __INFO("waste_rate lower than the GC_LOWER_LEVEL, end Background GC! waste_rate = %f", waste_rate);
+            __DEBUG("waste_rate lower than the GC_LOWER_LEVEL, end Background GC! waste_rate = %f", waste_rate);
         }
         __DEBUG("Finsh do Background GC! waste_rate is %f", waste_rate);
     }
@@ -312,9 +310,18 @@ namespace kvdb{
     {
         std::unique_lock<std::mutex> lck_gc(gcMtx_, std::defer_lock);
 
-        //__DEBUG("Begin do Full GC!");
-        __INFO("Begin do Full GC!");
+        __DEBUG("Begin do Full GC!");
         uint32_t free_before = segMgr_->GetTotalFreeSegs();
+        uint32_t free_after = 0;
+        uint32_t used_total = 0;
+
+        uint32_t seg_num = segMgr_->GetNumberOfSeg();
+        uint32_t total_free = 0;
+        uint64_t theory_size = 0;
+        uint32_t free_seg_num = 0;
+        uint32_t used_seg_num = 0;
+        uint64_t used_size = 0;
+
         while ( true )
         {
             lck_gc.lock();
@@ -322,25 +329,23 @@ namespace kvdb{
             segMgr_->SortSegsByUtils(cands_map);
             if ( cands_map.size() < 2 )
             {
-                uint32_t free_after = segMgr_->GetTotalFreeSegs();
-                uint32_t used_total = segMgr_->GetNumberOfSeg() - free_after;
-                //__DEBUG("End do Full GC! There is only %lu segment utils lower %f!!", cands_map.size(), SEG_FULL_RATE);
-                __INFO("End do Full GC! befor have %u segment free, after do full GC now have %u segments free, now used %u segments!", free_before, free_after, used_total);
+                free_after = segMgr_->GetTotalFreeSegs();
+                used_total = segMgr_->GetNumberOfSeg() - free_after;
+                __DEBUG("End do Full GC! befor have %u segment free, after do full GC now have %u segments free, now used %u segments!", free_before, free_after, used_total);
                 break;
             }
-            uint32_t total_free = doMerge(cands_map);
 
-            uint64_t theory_size = idxMgr_->GetDataTheorySize();
-            uint32_t seg_num = segMgr_->GetNumberOfSeg();
-            uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
-            uint32_t used_seg_num = seg_num - free_seg_num;
-            uint64_t used_size = (uint64_t)segMgr_->GetSegmentSize() * (uint64_t)used_seg_num;
-            //double utils_rate = 1 - (double)theory_size / (double)used_size;
-            //__DEBUG("complete once merge, and this merge free %d segments", total_free);
-            __INFO("complete once merge, and this merge free %u segments, theory_size is %lu Byte, used Segments total is %u, occur space is %lu, total seg is %u, free seg is %u", total_free, theory_size, used_seg_num, used_size, seg_num, free_seg_num);
+            total_free = doMerge(cands_map);
+            theory_size = idxMgr_->GetDataTheorySize();
+            free_seg_num = segMgr_->GetTotalFreeSegs();
+            used_seg_num = seg_num - free_seg_num;
+            used_size = (uint64_t)segMgr_->GetSegmentSize() * (uint64_t)used_seg_num;
+
+            __DEBUG("complete once merge, and this merge free %u segments, theory_size is %lu Byte, used Segments total is %u, occur space is %lu, total seg is %u, free seg is %u", total_free, theory_size, used_seg_num, used_size, seg_num, free_seg_num);
             cands_map.clear();
             lck_gc.unlock();
         }
+        __DEBUG("End do Full GC! total free %u segments", free_after - free_before);
     }
 
     uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map)
@@ -363,7 +368,7 @@ namespace kvdb{
         std::list<KVSlice*>::iterator slice_iter;
 
         //handle first segment
-        NewGCSegment *seg_first = new NewGCSegment(segMgr_, idxMgr_, bdev_);
+        GcSegment *seg_first = new GcSegment(segMgr_, idxMgr_, bdev_);
         for(std::multimap<uint32_t, uint32_t>::iterator iter = cands_map.begin(); iter != cands_map.end(); ++iter)
         {
             uint32_t seg_id = iter->second;
@@ -435,7 +440,7 @@ namespace kvdb{
         }
 
         //handle second segment
-        NewGCSegment *seg_second = new NewGCSegment(segMgr_, idxMgr_, bdev_);
+        GcSegment *seg_second = new GcSegment(segMgr_, idxMgr_, bdev_);
         uint32_t seg_second_id;
         segMgr_->AllocForGC(seg_second_id);
 

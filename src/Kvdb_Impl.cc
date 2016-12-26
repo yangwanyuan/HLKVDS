@@ -444,7 +444,6 @@ namespace kvdb {
                 bool res;
                 while ( !segMgr_->Alloc(seg_id) )
                 {
-                    //res = doForeGC();
                     res = gcMgr_->ForeGC();
                     if (!res)
                     {

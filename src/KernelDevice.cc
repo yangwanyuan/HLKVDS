@@ -213,4 +213,9 @@ open_fail:
     {
         return preadv(bufFd_, iov, iovcnt, offset);
     }
+
+    void KernelDevice::ClearReadCache()
+    {
+        posix_fadvise(bufFd_, 0, capacity_, POSIX_FADV_DONTNEED);
+    }
 }

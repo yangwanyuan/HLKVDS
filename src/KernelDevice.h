@@ -16,6 +16,7 @@ namespace kvdb{
         int SetNewDBZero(off_t meta_size, bool clear_data_region) ;
         int Open(string path, bool dsync);
         void Close();
+        void ClearReadCache();
 
         uint64_t GetDeviceCapacity(){ return get_capacity(); }
 

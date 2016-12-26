@@ -33,6 +33,7 @@ namespace kvdb {
         bool Delete(const char* key, uint32_t key_len);
 
         void Do_GC();
+        void ClearReadCache() { bdev_->ClearReadCache(); }
 
         virtual ~KvdbDS();
 

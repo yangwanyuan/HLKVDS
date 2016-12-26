@@ -142,7 +142,6 @@ namespace kvdb{
             if (segTable_[seg_index].state != SegUseStat::RESERVED)
             {
                 segs_stat[seg_index] = segTable_[seg_index];
-                //__INFO("seg_id = %d, stat = %d, free_size = %d, death_size = %d", seg_index, segTable_[seg_index].state, segTable_[seg_index].free_size, segTable_[seg_index].death_size);
             }
             else
             {

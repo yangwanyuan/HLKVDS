@@ -20,8 +20,6 @@
 using namespace std;
 using namespace kvdb;
 
-enum Option{ INSERT, GET };
-
 struct thread_arg{
     KvdbDS *db;
     int key_start;
@@ -76,8 +74,6 @@ void* fun_insert(void *arg)
 
     string *value = t_args->data;
 
-    //string value = string(TEST_BS, 'v');
-    //int value_size = value.length();
     int value_size = TEST_BS;
     int key_len = KEY_LEN;
 
@@ -93,6 +89,7 @@ void* fun_insert(void *arg)
     return NULL;
 
 }
+
 void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
 {
 
@@ -133,33 +130,63 @@ void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
     return;
 }
 
-void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
+void* fun_get(void *arg)
 {
-    cout << "Get Sequential Bench Start, record_num = " << record_num << ", Please wait ..." << endl;
+    thread_arg *t_args = (thread_arg*)arg;
+    KvdbDS *db = t_args->db;
+    int key_start = t_args->key_start;
+    int key_end = t_args->key_end;
+    vector<string> &key_list = *t_args->key_list;
 
-    string value = string(TEST_BS, 'v');
+    string *value = t_args->data;
     int key_len = KEY_LEN;
 
-    KVTime tv_start;
-
-    for (vector<string>::iterator iter = key_list.begin(); iter != key_list.end(); iter++)
+    for(int i = key_start; i< key_end+1; i++)
     {
-        string key = *iter;
+        string key = key_list[i];
         string get_data;
-        //if ( key == "40999kkkkk")
-        //{
-        //    cout << "hello" << endl;
-        //}
-        if (!db->Get(key.c_str(), key_len, get_data))
+        if (!db->Get(key.c_str() ,key_len, get_data))
         {
-            cout << "Get key=" << key << " from DB failed" << endl;
+            cout << "Get key = " << key << "from DB failed!" << endl;
         }
-        if (strcmp(get_data.c_str(), value.c_str()) != 0)
+        if (strcmp(get_data.c_str(), value->c_str()) != 0)
         {
             cout << "Get key=" << key <<"Inconsistent! "<< endl;
             cout << "Value size = " << get_data.length() << endl;
             cout << "value = " << get_data << endl;
         }
+    }
+    return NULL;
+}
+
+void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
+{
+    cout << "Get Sequential Bench Start, record_num = " << record_num << ", Please wait ..." << endl;
+
+    string data = string(TEST_BS, 'v');
+
+    thread_arg arglist[TEST_THREAD_NUM];
+    pthread_t pidlist[TEST_THREAD_NUM];
+    for (int i = 0; i < TEST_THREAD_NUM; i++)
+    {
+        int start = (record_num / TEST_THREAD_NUM) * i ;
+        int end = (record_num / TEST_THREAD_NUM) * (i+1) - 1;
+        arglist[i].db = db;
+        arglist[i].key_start = start;
+        arglist[i].key_end = end;
+        arglist[i].key_list = &key_list;
+        arglist[i].data = &data;
+    }
+
+    KVTime tv_start;
+    for (int i=0; i<TEST_THREAD_NUM; i++)
+    {
+        pthread_create(&pidlist[i], NULL, fun_get, &arglist[i] );
+    }
+
+    for (int i=0; i<TEST_THREAD_NUM; i++)
+    {
+        pthread_join(pidlist[i], NULL);
     }
 
     KVTime tv_end;
@@ -212,6 +239,7 @@ void Bench(string file_path, int db_size, int record_num)
     KvdbDS *db = KvdbDS::Open_KvdbDS(file_path.c_str());
 
     Bench_Insert(db, record_num, key_list);
+    db->ClearReadCache();
     Bench_Get_Seq(db, record_num, key_list);
 
     delete db;
