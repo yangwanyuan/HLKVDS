@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <vector>
 #include <mutex>
+#include <map>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Utils.h"
 
@@ -18,7 +20,7 @@ namespace kvdb{
     class HashEntry;
     class IndexManager;
 
-    enum struct SegUseStat{FREE, USED};
+    enum struct SegUseStat{FREE, USED, RESERVED};
 
     class SegmentOnDisk{
     public:
@@ -40,18 +42,21 @@ namespace kvdb{
     class SegmentStat{
     public:
         SegUseStat state;
-        int inuse_size;
+        uint32_t free_size;
+        uint32_t death_size;
 
     public:
-        SegmentStat() : state(SegUseStat::FREE), inuse_size(0){}
+        SegmentStat() : state(SegUseStat::FREE), free_size(0), death_size(0) {}
         ~SegmentStat() {}
         SegmentStat(const SegmentStat& toBeCopied) :
             state(toBeCopied.state),
-            inuse_size(toBeCopied.inuse_size){}
+            free_size(toBeCopied.free_size),
+            death_size(toBeCopied.death_size){}
         SegmentStat& operator=(const SegmentStat& toBeCopied)
         {
             state = toBeCopied.state;
-            inuse_size = toBeCopied.inuse_size;
+            free_size = toBeCopied.free_size;
+            death_size = toBeCopied.death_size;
             return *this;
         }
     };
@@ -95,10 +100,19 @@ namespace kvdb{
         bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
         bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
 
-        bool AllocSeg(uint32_t& seg_id);
-        void FreeSeg(uint32_t seg_id);
+        bool Alloc(uint32_t& seg_id);
+        bool AllocForGC(uint32_t& seg_id);
+        void FreeForFailed(uint32_t seg_id);
+        void FreeForGC(uint32_t seg_id);
+        void Use(uint32_t seg_id, uint32_t free_size);
+        void ModifyDeathEntry(HashEntry &entry);
 
-        SegmentManager(BlockDevice* bdev);
+        void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils = SEG_FULL_RATE);
+
+        uint32_t GetTotalFreeSegs();
+        uint32_t GetTotalUsedSegs();
+
+        SegmentManager(BlockDevice* bdev, SuperBlockManager* sbMgr_);
         ~SegmentManager();
 
 
@@ -111,9 +125,12 @@ namespace kvdb{
         uint32_t segSizeBit_;
         uint32_t segNum_;
         uint32_t curSegId_;
-        bool isFull_;
+        uint32_t usedCounter_;
+        uint32_t freedCounter_;
+        uint32_t reservedCounter_;
         
         BlockDevice* bdev_;
+        SuperBlockManager* sbMgr_;
         mutable std::mutex mtx_;
 
     };

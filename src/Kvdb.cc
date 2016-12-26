@@ -75,4 +75,9 @@ namespace kvdb{
         return true;
     }
 
+    void DB::Do_GC()
+    {
+        kvdb_->Do_GC();
+    }
+
 }// end namespace kvdb

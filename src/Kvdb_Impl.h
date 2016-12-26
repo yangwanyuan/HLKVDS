@@ -15,6 +15,7 @@
 #include "IndexManager.h"
 #include "DataHandle.h"
 #include "SegmentManager.h"
+#include "GcManager.h"
 #include "WorkQueue.h"
 
 namespace kvdb {
@@ -30,6 +31,9 @@ namespace kvdb {
                     const char* data, uint16_t length);
         bool Get(const char* key, uint32_t key_len, string &data);
         bool Delete(const char* key, uint32_t key_len);
+
+        void Do_GC();
+        void ClearReadCache() { bdev_->ClearReadCache(); }
 
         virtual ~KvdbDS();
 
@@ -52,6 +56,7 @@ namespace kvdb {
         IndexManager* idxMgr_;
         BlockDevice* bdev_;
         SegmentManager* segMgr_;
+        GcManager* gcMgr_;
         string fileName_;
 
         SegmentSlice *seg_;
@@ -84,6 +89,12 @@ namespace kvdb {
         WorkQueue<SegmentSlice*> segReaperQue_;
         void SegReaperThdEntry();
 
+    //GC thread
+    private:
+        std::thread gcT_;
+        std::atomic<bool> gcT_stop_;
+
+        void GCThdEntry();
     };
 
 

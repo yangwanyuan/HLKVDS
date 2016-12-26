@@ -1,8 +1,9 @@
-/* -*- Mode: C++; c-basic-offset: 4; indent-tabs-mode: nil -*- */
+/* -*- Mode: C++; c-basic-offset: 3; indent-tabs-mode: nil -*- */
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
 #include <thread>
+#include <map>
 
 #include "Kvdb_Impl.h"
 #include "KeyDigestHandle.h"
@@ -25,9 +26,10 @@ namespace kvdb {
         uint64_t db_index_size = 0;
         uint64_t db_seg_table_size =0;
         uint64_t db_meta_size = 0;
-        uint64_t db_data_size = 0;
+        uint64_t db_data_region_size = 0;
         uint64_t db_size = 0;
         uint64_t device_capacity = 0;
+        uint64_t data_theory_size = 0;
         
         KvdbDS* ds = new KvdbDS(filename);
         int r = 0;
@@ -74,8 +76,8 @@ namespace kvdb {
         db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
 
         db_meta_size  = db_sb_size + db_index_size + db_seg_table_size;
-        db_data_size = ds->segMgr_->GetDataRegionSize();
-        db_size = db_meta_size + db_data_size;
+        db_data_region_size = ds->segMgr_->GetDataRegionSize();
+        db_size = db_meta_size + db_data_region_size;
 
         r = ds->bdev_->SetNewDBZero(db_meta_size);
         if (r < 0)
@@ -88,7 +90,7 @@ namespace kvdb {
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries,
                         segment_size, number_segments,
                         0, db_sb_size, db_index_size, db_seg_table_size,
-                        db_data_size, device_capacity);
+                        db_data_region_size, device_capacity, data_theory_size);
         ds->sbMgr_->SetSuperBlock(sb);
 
         __INFO("\nCreateKvdbDS table information:\n"
@@ -106,7 +108,7 @@ namespace kvdb {
                hash_table_size, num_entries,
                segment_size, number_segments, db_sb_size, 
                db_index_size, db_seg_table_size, db_meta_size,
-               db_data_size, db_size, device_capacity);
+               db_data_region_size, db_size, device_capacity);
 
         ds->seg_ = new SegmentSlice(ds->segMgr_,ds->idxMgr_, ds->bdev_);
         ds->startThds();
@@ -118,11 +120,6 @@ namespace kvdb {
 
     bool KvdbDS::writeMetaDataToDevice()
     {
-        if (!sbMgr_->WriteSuperBlockToDevice())
-        {
-            return false;
-        }
-
         if (!idxMgr_->WriteIndexToDevice())
         {
             return false;
@@ -132,6 +129,12 @@ namespace kvdb {
         {
             return false;
         }
+
+        if (!sbMgr_->WriteSuperBlockToDevice())
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -175,7 +178,8 @@ namespace kvdb {
                "\t Total DB Data Region Size : %ld Bytes\n"
                "\t Total DB Total Size       : %ld Bytes\n"
                "\t Total Device Size         : %ld Bytes\n"
-               "\t Current Segment ID        : %d",
+               "\t Current Segment ID        : %d\n"
+               "\t DB Data Theory Size       : %ld Bytes",
                sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
                sbMgr_->GetSegmentSize(),
                sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
@@ -183,7 +187,7 @@ namespace kvdb {
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize()),
                sbMgr_->GetDataRegionSize(),
                (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize() + sbMgr_->GetDataRegionSize()),
-               sbMgr_->GetDeviceCapacity(), sbMgr_->GetCurSegmentId());
+               sbMgr_->GetDeviceCapacity(), sbMgr_->GetCurSegmentId(), sbMgr_->GetDataTheorySize());
 
         return true;
     }
@@ -246,12 +250,20 @@ namespace kvdb {
         segReaperT_stop_.store(false);
         segReaperT_ = std::thread(&KvdbDS::SegReaperThdEntry, this);
 
+        gcT_stop_.store(false);
+        gcT_ = std::thread(&KvdbDS::GCThdEntry, this);
     }
 
     void KvdbDS::stopThds()
     {
-        reqMergeT_stop_.store(true);
-        reqMergeT_.join();
+        gcT_stop_.store(true);
+        gcT_.join();
+
+        segReaperT_stop_.store(true);
+        segReaperT_.join();
+
+        segTimeoutT_stop_.store(true);
+        segTimeoutT_.join();
 
         segWriteT_stop_.store(true);
         for(auto &th : segWriteTP_)
@@ -259,20 +271,17 @@ namespace kvdb {
             th.join();
         }
 
-        segTimeoutT_stop_.store(true);
-        segTimeoutT_.join();
-
-        segReaperT_stop_.store(true);
-        segReaperT_.join();
-
+        reqMergeT_stop_.store(true);
+        reqMergeT_.join();
     }
 
     KvdbDS::~KvdbDS()
     {
         closeDB();
+        delete gcMgr_;
         delete idxMgr_;
-        delete sbMgr_;
         delete segMgr_;
+        delete sbMgr_;
         delete bdev_;
         delete seg_;
 
@@ -284,13 +293,14 @@ namespace kvdb {
         reqMergeT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
-        segReaperT_stop_(false)
+        segReaperT_stop_(false),
+        gcT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
-        segMgr_ = new SegmentManager(bdev_);
         sbMgr_ = new SuperBlockManager(bdev_);
-        idxMgr_ = new IndexManager(bdev_, sbMgr_);
-
+        segMgr_ = new SegmentManager(bdev_, sbMgr_);
+        idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_);
+        gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_);
     }
 
 
@@ -303,13 +313,6 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, data, length);
-        res = slice.ComputeDigest();
-
-        if (!res)
-        {
-            __DEBUG("Compute key Digest failed!");
-            return res;
-        }
 
         res = insertKey(slice);
 
@@ -331,12 +334,6 @@ namespace kvdb {
         }
 
         KVSlice slice(key, key_len, NULL, 0);
-        res =  slice.ComputeDigest();
-        if (!res)
-        {
-            __DEBUG("Compute key Digest failed!");
-            return res;
-        }
 
         res = idxMgr_->GetHashEntry(&slice);
         if (!res)
@@ -444,31 +441,32 @@ namespace kvdb {
             if ( seg )
             {
                 uint32_t seg_id = 0;
-                bool res = segMgr_->AllocSeg(seg_id);
-                if (!res)
+                bool res;
+                while ( !segMgr_->Alloc(seg_id) )
                 {
-                    __ERROR("Cann't get a new Empty Segment.\n");
-                    seg->Notify(res);
+                    res = gcMgr_->ForeGC();
+                    if (!res)
+                    {
+                        __ERROR("Cann't get a new Empty Segment.\n");
+                        seg->Notify(res);
+                    }
+                }
+
+                uint32_t free_size = seg->GetFreeSize();
+                res = seg->WriteSegToDevice(seg_id);
+                if ( res )
+                {
+                    segMgr_->Use(seg_id, free_size);
                 }
                 else
                 {
-                    res = seg->WriteSegToDevice(seg_id);
-                    seg->Notify(res);
-                    if ( res )
-                    {
-                        //Update Superblock
-                        sbMgr_->SetCurSegId(seg_id);
-                    }
-                    else
-                    {
-                        //Free the segment if write failed
-                        segMgr_->FreeSeg(seg_id);
-                    }
-
-                    __DEBUG("Segment thread write seg to device, seg_id:%d %s",
-                            seg_id, res==true? "Success":"Failed");
-
+                    segMgr_->FreeForFailed(seg_id);
                 }
+                seg->Notify(res);
+
+                __DEBUG("Segment thread write seg to device, seg_id:%d %s",
+                        seg_id, res==true? "Success":"Failed");
+
             }
         }
         __DEBUG("Segment write thread stop!!");
@@ -511,6 +509,23 @@ namespace kvdb {
             }
         }
         __DEBUG("Segment write thread stop!!");
+    }
+
+    void KvdbDS::Do_GC()
+    {
+        __INFO("Application call GC!!!!!");
+        return gcMgr_->FullGC();
+    }
+
+    void KvdbDS::GCThdEntry()
+    {
+        __DEBUG("GC thread start!!");
+        while (!gcT_stop_)
+        {
+            gcMgr_->BackGC();
+            usleep(1000000);
+        }
+        __DEBUG("GC thread stop!!");
     }
 }
 

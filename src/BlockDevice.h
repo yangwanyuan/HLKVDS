@@ -28,6 +28,7 @@ namespace kvdb{
         virtual ssize_t pWritev(const struct iovec *iov, int iovcnt, off_t offset) = 0;
         virtual ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset) = 0;
 
+        virtual void ClearReadCache() = 0 ;
     };
 }//namespace kvdb
 

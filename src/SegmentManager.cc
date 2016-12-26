@@ -73,7 +73,10 @@ namespace kvdb{
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
-        
+        freedCounter_ = segNum_;
+        usedCounter_ = 0;
+        reservedCounter_ = 0;
+
         //init segment table
         SegmentStat seg_stat;
         for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
@@ -90,7 +93,9 @@ namespace kvdb{
         segSize_ = segment_size;
         segSizeBit_ = log2(segSize_);
         segNum_ = num_seg;
-        curSegId_ = current_seg;
+        //curSegId_ = current_seg;
+        curSegId_ = sbMgr_->GetCurSegmentId();
+
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
@@ -106,7 +111,21 @@ namespace kvdb{
         for(uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
             SegmentStat seg_stat;
-            seg_stat = segs_stat[seg_index];
+            // If state is reserved, need reset segmentstat
+            if (segs_stat[seg_index].state == SegUseStat::FREE)
+            {
+                seg_stat = segs_stat[seg_index];
+                freedCounter_++;
+            }
+            else if(segs_stat[seg_index].state == SegUseStat::USED)
+            {
+                seg_stat = segs_stat[seg_index];
+                usedCounter_++;
+            }
+            else if (segs_stat[seg_index].state == SegUseStat::RESERVED)
+            {
+                freedCounter_++;
+            }
             segTable_.push_back(seg_stat);
         }
         delete[] segs_stat;
@@ -119,7 +138,15 @@ namespace kvdb{
         uint64_t length = sizeof(SegmentStat) * (uint64_t)segNum_;
         for(uint32_t seg_index = 0; seg_index < segNum_; seg_index++)
         {
-            segs_stat[seg_index] = segTable_[seg_index];
+            // If state is reserved, need reset segmentstat
+            if (segTable_[seg_index].state != SegUseStat::RESERVED)
+            {
+                segs_stat[seg_index] = segTable_[seg_index];
+            }
+            else
+            {
+                __WARN("Segment Maybe not write to device! seg_id = %d", seg_index);
+            }
         }
         if (bdev_->pWrite(segs_stat, length, startOff_) != (ssize_t)length)
         {
@@ -128,40 +155,9 @@ namespace kvdb{
                 return false;
         }
         delete[] segs_stat;
+
+        sbMgr_->SetCurSegId(curSegId_);
         return true;
-    }
-
-    bool SegmentManager::AllocSeg(uint32_t& seg_id)
-    {
-        //for first use !!
-        std::lock_guard<std::mutex> l(mtx_);
-        if (segTable_[curSegId_].state == SegUseStat::FREE)
-        {
-            seg_id = curSegId_;
-            segTable_[curSegId_].state = SegUseStat::USED;
-            return true;
-        }
-
-        uint32_t seg_index = curSegId_ + 1; 
-        
-        while(seg_index != curSegId_)
-        {
-            if (segTable_[seg_index].state == SegUseStat::FREE)
-            {
-                seg_id = seg_index;
-                // set seg used
-                curSegId_ = seg_id;
-                segTable_[curSegId_].state = SegUseStat::USED;
-
-                return true;
-            }
-            seg_index++;
-            if ( seg_index == segNum_)
-            {
-                seg_index = 0;
-            }
-        }
-        return false;
     }
 
     bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset)
@@ -190,15 +186,150 @@ namespace kvdb{
         return true;
     }
 
-    void SegmentManager::FreeSeg(uint32_t seg_id)
+    bool SegmentManager::Alloc(uint32_t& seg_id)
+    {
+        std::unique_lock<std::mutex> l(mtx_);
+        //if ( freedCounter_  < 10 || freedCounter_ < (segNum_ * 0.01) )
+        if ( freedCounter_  < 3)
+        {
+            return false;
+        }
+
+        l.unlock();
+        return AllocForGC(seg_id);
+    }
+
+    bool SegmentManager::AllocForGC(uint32_t& seg_id)
+    {
+        //for first use !!
+        std::lock_guard<std::mutex> l(mtx_);
+        if (segTable_[curSegId_].state == SegUseStat::FREE)
+        {
+            seg_id = curSegId_;
+            segTable_[curSegId_].state = SegUseStat::RESERVED;
+
+            reservedCounter_++;
+            freedCounter_--;
+            return true;
+        }
+
+        uint32_t seg_index = curSegId_ + 1; 
+        
+        while(seg_index != curSegId_)
+        {
+            if ( seg_index == segNum_)
+            {
+                seg_index = 0;
+            }
+            if (segTable_[seg_index].state == SegUseStat::FREE)
+            {
+                seg_id = seg_index;
+                // set seg used
+                curSegId_ = seg_id;
+                segTable_[curSegId_].state = SegUseStat::RESERVED;
+
+                reservedCounter_++;
+                freedCounter_--;
+                return true;
+            }
+            seg_index++;
+        }
+        return false;
+    }
+
+    void SegmentManager::FreeForFailed(uint32_t seg_id)
     {
         std::lock_guard<std::mutex> l(mtx_);
         segTable_[seg_id].state = SegUseStat::FREE;
+        segTable_[seg_id].free_size = 0;
+        segTable_[seg_id].death_size = 0;
 
+        reservedCounter_--;
+        freedCounter_++;
+        __DEBUG("Free Segment seg_id = %d", seg_id);
     }
 
-    SegmentManager::SegmentManager(BlockDevice* bdev) : 
-        dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0), isFull_(false), bdev_(bdev){}
+    void SegmentManager::FreeForGC(uint32_t seg_id)
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        segTable_[seg_id].state = SegUseStat::FREE;
+        segTable_[seg_id].free_size = 0;
+        segTable_[seg_id].death_size = 0;
+
+        usedCounter_--;
+        freedCounter_++;
+        __DEBUG("Free Segment For GC, seg_id = %d", seg_id);
+    }
+
+    void SegmentManager::Use(uint32_t seg_id, uint32_t free_size)
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        segTable_[seg_id].state = SegUseStat::USED;
+        segTable_[seg_id].free_size = free_size;
+
+        reservedCounter_--;
+        usedCounter_++;
+        __DEBUG("Used Segment seg_id = %d, free_size = %d", seg_id, free_size);
+    }
+
+    //void SegmentManager::Reserved(uint32_t seg_id)
+    //{
+    //    std::lock_guard<std::mutex> l(mtx_);
+    //    segTable_[seg_id].state = SegUseStat::RESERVED;
+    //}
+
+    void SegmentManager::ModifyDeathEntry(HashEntry &entry)
+    {
+        uint32_t seg_id;
+        uint64_t offset = entry.GetHeaderOffsetPhy();
+        if (!ComputeSegIdFromOffset(offset, seg_id))
+        {
+            __ERROR("Compute Seg Id Wrong!!! offset = %ld", offset);
+        }
+
+        uint16_t data_size = entry.GetDataSize();
+        uint32_t death_size = (uint32_t)data_size + (uint32_t)IndexManager::SizeOfDataHeader();
+
+        std::lock_guard<std::mutex> l(mtx_);
+        segTable_[seg_id].death_size += death_size;
+    }
+
+    uint32_t SegmentManager::GetTotalFreeSegs()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        return freedCounter_;
+    }
+
+    uint32_t SegmentManager::GetTotalUsedSegs()
+    {
+        std::lock_guard<std::mutex> l(mtx_);
+        return usedCounter_;
+    }
+
+    void SegmentManager::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils)
+    {
+        std::lock_guard<std::mutex> lck(mtx_);
+        uint32_t used_size;
+        uint32_t thld = (uint32_t)(segSize_ * utils);
+
+        for(uint32_t index = 0; index < segNum_; index++)
+        {
+            if (segTable_[index].state == SegUseStat::USED)
+            {
+                used_size = segSize_ - ( segTable_[index].free_size + segTable_[index].death_size + (uint32_t)SegmentManager::SizeOfSegOnDisk());
+                if (used_size < thld)
+                {
+                    cand_map.insert( std::pair<uint32_t, uint32_t> (used_size, index) );
+                }
+            }
+        }
+        __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
+    }
+
+    SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm) :
+        dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0),
+        segNum_(0), curSegId_(0), usedCounter_(0), freedCounter_(0),
+        reservedCounter_(0), bdev_(bdev), sbMgr_(sbm) {}
 
     SegmentManager::~SegmentManager()
     {

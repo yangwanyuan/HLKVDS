@@ -6,7 +6,7 @@ INCLUDES = -I ./
 LIBS = -pthread
 
 #PROGNAME = CreateDb ExampleKV DbTest
-PROGNAME = DbTest CreateDb ExampleKV Benchmark libkv.so
+PROGNAME = DbTest CreateDb ExampleKV Benchmark GCTest libkv.so
 
 all: $(PROGNAME)
 
@@ -16,7 +16,7 @@ all: $(PROGNAME)
 %.o : %.c
 	${CC} -c ${C_FLAGS} ${INCLUDES} $< -o $@
 
-OBJECTS =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o DataHandle.o BlockDevice.o KernelDevice.o SegmentManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o
+OBJECTS =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o DataHandle.o BlockDevice.o KernelDevice.o SegmentManager.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o
 
 Benchmark: $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) Benchmark.cc -o Benchmark $(INCLUDES) $(LIBS)
@@ -29,6 +29,9 @@ ExampleKV: $(OBJECTS)
 
 DbTest : $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) DbTest.cc -o DbTest $(INCLUDES) $(LIBS)
+
+GCTest: $(OBJECTS)
+	$(CXX) $(CXX_FLAGS) $(OBJECTS) GCTest.cc -o GCTest $(INCLUDES) $(LIBS)
 
 libkv.so: $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) -shared -o libkv.so $(INCLUDES) $(LIBS)

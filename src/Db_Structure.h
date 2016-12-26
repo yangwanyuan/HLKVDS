@@ -15,6 +15,10 @@ namespace kvdb {
 
 #define SEG_POOL_SIZE 10
 
+#define SEG_FULL_RATE 0.9
+#define GC_UPPER_LEVEL 0.3
+#define GC_LOWER_LEVEL 0.1
+
 //#define DEBUG
 #define INFO
 #define WARN
