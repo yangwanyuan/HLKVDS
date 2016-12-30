@@ -11,14 +11,15 @@
 
 namespace kvdb {
 
-    KvdbDS* KvdbDS::Create_KvdbDS(const char* filename,
-                                    uint32_t hash_table_size,
-                                    uint32_t segment_size)
+    KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts)
     {
         if (filename == NULL)
         {
             return NULL;
         }
+
+        uint32_t hash_table_size = opts.hashtable_size;
+        uint32_t segment_size = opts.segment_size;
 
         uint32_t num_entries = 0;
         uint32_t number_segments = 0;
@@ -40,6 +41,8 @@ namespace kvdb {
             return NULL;
         }
 
+        device_capacity = ds->bdev_->GetDeviceCapacity();
+
         //Init Superblock region
         db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
         if (!ds->sbMgr_->InitSuperBlockForCreateDB(0))
@@ -49,8 +52,14 @@ namespace kvdb {
         }
 
         //Init Index region
+        if (hash_table_size == 0)
+        {
+            hash_table_size = ( device_capacity / opts.data_aligned_size ) * 2;
+        }
+
         hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
         db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
+
         if (!ds->idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size))
         {
             delete ds;
@@ -58,7 +67,6 @@ namespace kvdb {
         }
 
         //Init Segment region
-        device_capacity = ds->bdev_->GetDeviceCapacity();
         uint64_t seg_total_size = device_capacity - db_sb_size - db_index_size;
 
         number_segments = SegmentManager::ComputeSegNum(seg_total_size, segment_size);
@@ -193,7 +201,7 @@ namespace kvdb {
     }
 
 
-    KvdbDS* KvdbDS::Open_KvdbDS(const char* filename)
+    KvdbDS* KvdbDS::Open_KvdbDS(const char* filename, Options opts)
     {
         KvdbDS *instance_ = new KvdbDS(filename);
 
@@ -239,7 +247,7 @@ namespace kvdb {
         reqMergeT_ = std::thread(&KvdbDS::ReqMergeThdEntry,this);
 
         segWriteT_stop_.store(false);
-        for(int i = 0; i<SEG_POOL_SIZE; i++)
+        for(int i = 0; i<SEG_WRITE_THREAD; i++)
         {
             segWriteTP_.push_back(std::thread(&KvdbDS::SegWriteThdEntry, this));
         }

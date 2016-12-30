@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "Db_Structure.h"
+#include "Options.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
@@ -22,10 +23,8 @@ namespace kvdb {
 
     class KvdbDS {
     public:
-        static KvdbDS* Create_KvdbDS(const char* filename,
-                                    uint32_t hash_table_size,
-                                    uint32_t segment_size);
-        static KvdbDS* Open_KvdbDS(const char* filename);
+        static KvdbDS* Create_KvdbDS(const char* filename, Options opts);
+        static KvdbDS* Open_KvdbDS(const char* filename, Options opts);
 
         bool Insert(const char* key, uint32_t key_len,
                     const char* data, uint16_t length);

@@ -232,7 +232,7 @@ namespace kvdb{
         std::lock_guard<std::mutex> lck_gc(gcMtx_);
         //check free segment;
         uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
-        if (free_seg_num > SEG_POOL_SIZE)
+        if (free_seg_num > SEG_RESERVED_FOR_GC)
         {
             __DEBUG("some thread already called doForeGC, ignore this call!");
             return true;
@@ -276,7 +276,7 @@ namespace kvdb{
         __DEBUG("Begin do Background GC! waste_rate is %f, data_theory_size = %lu", waste_rate, data_theory_size);
         if ( waste_rate > GC_UPPER_LEVEL )
         {
-            while ( waste_rate > GC_LOWER_LEVEL )
+            while ( waste_rate > GC_LOWER_LEVEL && used_seg_num > 1)
             {
                 lck_gc.lock();
                 std::multimap<uint32_t, uint32_t> cands_map;

@@ -4,16 +4,18 @@
 #include <iostream>
 #include <string>
 
-#include "Kvdb_Impl.h"
+#include "Options.h"
 
 using namespace std;
 
 namespace kvdb{
 
+    class KvdbDS;
+
     class DB{
         public:
-            static bool CreateDB(string filename, uint32_t hash_table_size, uint32_t segment_size);
-            static bool OpenDB(string filename, DB** db);
+            static bool CreateDB(string filename, Options opts = Options());
+            static bool OpenDB(string filename, DB** db, Options opts = Options());
  
             virtual ~DB();
  

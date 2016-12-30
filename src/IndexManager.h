@@ -20,7 +20,6 @@ using namespace std;
 namespace kvdb{
     class KVSlice;
     class SegmentSlice;
-    //struct OpType;
 
     class DataHeader {
     private:

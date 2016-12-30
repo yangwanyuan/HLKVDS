@@ -189,8 +189,7 @@ namespace kvdb{
     bool SegmentManager::Alloc(uint32_t& seg_id)
     {
         std::unique_lock<std::mutex> l(mtx_);
-        //if ( freedCounter_  < 10 || freedCounter_ < (segNum_ * 0.01) )
-        if ( freedCounter_  < 3)
+        if ( freedCounter_  <= SEG_RESERVED_FOR_GC)
         {
             return false;
         }

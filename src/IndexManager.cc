@@ -5,9 +5,7 @@
 
 #include <iostream>
 
-
 #include "IndexManager.h"
-
 
 namespace kvdb{
 

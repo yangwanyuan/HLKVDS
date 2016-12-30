@@ -10,11 +10,14 @@ namespace kvdb {
 #define RMDsize 160
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
+#define SEG_RESERVED_FOR_GC 2
+
+//default Options
+#define SEGMENT_SIZE 256 * 1024
 #define EXPIRED_TIME 1000 // unit microseconds
 #define ALIGNED_SIZE 4096
 
-#define SEG_POOL_SIZE 10
-
+#define SEG_WRITE_THREAD 10
 #define SEG_FULL_RATE 0.9
 #define GC_UPPER_LEVEL 0.3
 #define GC_LOWER_LEVEL 0.1
