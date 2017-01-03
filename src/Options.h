@@ -10,7 +10,7 @@ namespace kvdb{
         //use in Create DB
         int segment_size;
         int hashtable_size;
-        int data_aligned_size;
+        //int data_aligned_size;
 
         //use in Open DB
         int expired_time;

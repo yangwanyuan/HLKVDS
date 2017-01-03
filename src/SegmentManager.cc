@@ -325,10 +325,10 @@ namespace kvdb{
         __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
     }
 
-    SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm) :
+    SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt) :
         dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0),
         segNum_(0), curSegId_(0), usedCounter_(0), freedCounter_(0),
-        reservedCounter_(0), bdev_(bdev), sbMgr_(sbm) {}
+        reservedCounter_(0), bdev_(bdev), sbMgr_(sbm), options_(opt) {}
 
     SegmentManager::~SegmentManager()
     {

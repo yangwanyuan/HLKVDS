@@ -5,6 +5,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "Options.h"
 #include "Utils.h"
 
 using namespace std;
@@ -94,12 +95,14 @@ namespace kvdb{
         void SetCurSegId(uint32_t id);
         void SetDataTheorySize(uint64_t size);
 
-        SuperBlockManager(BlockDevice* bdev);
+        SuperBlockManager(BlockDevice* bdev, Options &opt);
         ~SuperBlockManager();
 
     private:
         BlockDevice* bdev_;
         DBSuperBlock* sb_;
+
+        Options &options_;
 
         uint64_t startOff_;
 

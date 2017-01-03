@@ -7,6 +7,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "Options.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
@@ -189,7 +190,7 @@ namespace kvdb{
         uint64_t GetDataTheorySize() const ;
         uint32_t GetKeyCounter() const ;
 
-        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_);
+        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_, Options &opt);
         ~IndexManager();
 
         bool IsSameInMem(HashEntry entry);
@@ -218,6 +219,7 @@ namespace kvdb{
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
         SegmentManager* segMgr_;
+        Options &options_;
 
         KVTime* lastTime_;
         mutable std::mutex mtx_;

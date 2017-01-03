@@ -18,8 +18,6 @@ namespace kvdb {
             return NULL;
         }
 
-        uint32_t hash_table_size = opts.hashtable_size;
-        uint32_t segment_size = opts.segment_size;
 
         uint32_t num_entries = 0;
         uint32_t number_segments = 0;
@@ -32,7 +30,11 @@ namespace kvdb {
         uint64_t device_capacity = 0;
         uint64_t data_theory_size = 0;
         
-        KvdbDS* ds = new KvdbDS(filename);
+        KvdbDS* ds = new KvdbDS(filename, opts);
+
+        uint32_t hash_table_size = ds->options_.hashtable_size;
+        uint32_t segment_size = ds->options_.segment_size;
+
         int r = 0;
         r = ds->bdev_->Open(filename);
         if (r < 0)
@@ -54,10 +56,11 @@ namespace kvdb {
         //Init Index region
         if (hash_table_size == 0)
         {
-            hash_table_size = ( device_capacity / opts.data_aligned_size ) * 2;
+            hash_table_size = ( device_capacity / ALIGNED_SIZE ) * 2;
         }
 
         hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
+
         db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
 
         if (!ds->idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size))
@@ -118,7 +121,7 @@ namespace kvdb {
                db_index_size, db_seg_table_size, db_meta_size,
                db_data_region_size, db_size, device_capacity);
 
-        ds->seg_ = new SegmentSlice(ds->segMgr_,ds->idxMgr_, ds->bdev_);
+        ds->seg_ = new SegmentSlice(ds->segMgr_,ds->idxMgr_, ds->bdev_, ds->options_.expired_time);
         ds->startThds();
 
         return ds; 
@@ -172,7 +175,7 @@ namespace kvdb {
             return false;
         }
 
-        seg_ = new SegmentSlice(segMgr_, idxMgr_,  bdev_);
+        seg_ = new SegmentSlice(segMgr_, idxMgr_,  bdev_, options_.expired_time);
 
         __INFO("\nReading meta information from file:\n"
                "\t hashtable_size            : %d\n"
@@ -203,7 +206,7 @@ namespace kvdb {
 
     KvdbDS* KvdbDS::Open_KvdbDS(const char* filename, Options opts)
     {
-        KvdbDS *instance_ = new KvdbDS(filename);
+        KvdbDS *instance_ = new KvdbDS(filename, opts);
 
         if (!instance_->openDB())
         {
@@ -247,7 +250,7 @@ namespace kvdb {
         reqMergeT_ = std::thread(&KvdbDS::ReqMergeThdEntry,this);
 
         segWriteT_stop_.store(false);
-        for(int i = 0; i<SEG_WRITE_THREAD; i++)
+        for(int i = 0; i < options_.seg_write_thread; i++)
         {
             segWriteTP_.push_back(std::thread(&KvdbDS::SegWriteThdEntry, this));
         }
@@ -295,9 +298,10 @@ namespace kvdb {
 
     }
 
-    KvdbDS::KvdbDS(const string& filename) :
+    KvdbDS::KvdbDS(const string& filename, Options opts) :
         fileName_(filename),
         seg_(NULL),
+        options_(opts),
         reqMergeT_stop_(false),
         segWriteT_stop_(false),
         segTimeoutT_stop_(false),
@@ -305,10 +309,10 @@ namespace kvdb {
         gcT_stop_(false)
     {
         bdev_ = BlockDevice::CreateDevice();
-        sbMgr_ = new SuperBlockManager(bdev_);
-        segMgr_ = new SegmentManager(bdev_, sbMgr_);
-        idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_);
-        gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_);
+        sbMgr_ = new SuperBlockManager(bdev_, options_);
+        segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
+        idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_, options_);
+        gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_, options_);
     }
 
 
@@ -430,7 +434,7 @@ namespace kvdb {
                 {
                      seg_->Complete();
                      segWriteQue_.Enqueue_Notify(seg_);
-                     seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
+                     seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_, options_.expired_time);
                      seg_->Put(req);
                 }
                 lck_seg.unlock();
@@ -493,11 +497,11 @@ namespace kvdb {
                 seg_->Complete();
 
                 segWriteQue_.Enqueue_Notify(seg_);
-                seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_);
+                seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_, options_.expired_time);
             }
             lck.unlock();
 
-            usleep(EXPIRED_TIME);
+            usleep(options_.expired_time);
         }
         __DEBUG("Segment Timeout thread stop!!");
     }

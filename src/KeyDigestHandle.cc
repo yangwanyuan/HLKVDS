@@ -133,7 +133,7 @@ namespace kvdb{
         }
         string result = string((const char*)res);
         delete[] res;
-        delete[] temp;
+        //delete[] temp;
         return result;
     }
 }

@@ -6,6 +6,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "Options.h"
 #include "IndexManager.h"
 #include "SegmentManager.h"
 
@@ -57,7 +58,7 @@ namespace kvdb{
     class GcManager {
         public:
             ~GcManager();
-            GcManager(BlockDevice* bdev, IndexManager* im, SegmentManager* sm);
+            GcManager(BlockDevice* bdev, IndexManager* im, SegmentManager* sm, Options &opt);
 
             bool ForeGC();
             void BackGC();
@@ -76,6 +77,7 @@ namespace kvdb{
            SegmentManager* segMgr_;
            IndexManager* idxMgr_;
            BlockDevice* bdev_;
+           Options &options_;
 
            std::mutex gcMtx_;
 

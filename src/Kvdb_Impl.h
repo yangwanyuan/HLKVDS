@@ -37,7 +37,7 @@ namespace kvdb {
         virtual ~KvdbDS();
 
     private:
-        KvdbDS(const string& filename);
+        KvdbDS(const string& filename, Options opts);
         bool openDB();
         bool closeDB();
         bool writeMetaDataToDevice();
@@ -60,6 +60,7 @@ namespace kvdb {
 
         SegmentSlice *seg_;
         std::mutex segMtx_;
+        Options options_;
 
     // Request Merge thread
     private:

@@ -8,6 +8,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "Options.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Utils.h"
@@ -107,12 +108,12 @@ namespace kvdb{
         void Use(uint32_t seg_id, uint32_t free_size);
         void ModifyDeathEntry(HashEntry &entry);
 
-        void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils = SEG_FULL_RATE);
+        void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);
 
         uint32_t GetTotalFreeSegs();
         uint32_t GetTotalUsedSegs();
 
-        SegmentManager(BlockDevice* bdev, SuperBlockManager* sbMgr_);
+        SegmentManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, Options &opt);
         ~SegmentManager();
 
 
@@ -131,6 +132,7 @@ namespace kvdb{
         
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
+        Options &options_;
         mutable std::mutex mtx_;
 
     };
