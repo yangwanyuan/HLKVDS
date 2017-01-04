@@ -5,9 +5,7 @@
 
 #include <iostream>
 
-
 #include "IndexManager.h"
-
 
 namespace kvdb{
 
@@ -437,8 +435,8 @@ namespace kvdb{
     }
 
 
-    IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr, SegmentManager* segMgr):
-        hashtable_(NULL), htSize_(0), keyCounter_(0), dataTheorySize_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr), segMgr_(segMgr)
+    IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr, SegmentManager* segMgr, Options &opt):
+        hashtable_(NULL), htSize_(0), keyCounter_(0), dataTheorySize_(0), startOff_(0), bdev_(bdev), sbMgr_(sbMgr), segMgr_(segMgr), options_(opt)
     {
         lastTime_ = new KVTime();
         return ;

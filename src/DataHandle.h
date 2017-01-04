@@ -111,7 +111,7 @@ namespace kvdb{
         SegmentSlice(const SegmentSlice& toBeCopied);
         SegmentSlice& operator=(const SegmentSlice& toBeCopied);
 
-        SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+        SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
 
         bool TryPut(Request* req);
         void Put(Request* req);
@@ -138,6 +138,7 @@ namespace kvdb{
         SegmentManager* segMgr_;
         IndexManager* idxMgr_;
         BlockDevice* bdev_;
+        uint32_t timeout_;
         uint32_t segSize_;
         KVTime persistTime_;
         KVTime startTime_;

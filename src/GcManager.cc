@@ -219,8 +219,8 @@ namespace kvdb{
         }
     }
 
-    GcManager::GcManager(BlockDevice* bdev, IndexManager* im, SegmentManager* sm)
-        : dataBuf_(NULL)
+    GcManager::GcManager(BlockDevice* bdev, IndexManager* im, SegmentManager* sm, Options &opt)
+        : options_(opt), dataBuf_(NULL)
     {
         bdev_ = bdev;
         idxMgr_ = im;
@@ -232,7 +232,7 @@ namespace kvdb{
         std::lock_guard<std::mutex> lck_gc(gcMtx_);
         //check free segment;
         uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
-        if (free_seg_num > SEG_POOL_SIZE)
+        if (free_seg_num > SEG_RESERVED_FOR_GC)
         {
             __DEBUG("some thread already called doForeGC, ignore this call!");
             return true;
@@ -244,7 +244,7 @@ namespace kvdb{
         while ( !free_seg_num )
         {
             std::multimap<uint32_t, uint32_t> cands_map;
-            segMgr_->SortSegsByUtils(cands_map);
+            segMgr_->SortSegsByUtils(cands_map, options_.seg_full_rate);
             if ( cands_map.empty() )
             {
                 break;
@@ -274,13 +274,13 @@ namespace kvdb{
         double waste_rate = 1 - ((double)theory_seg_num / (double)used_seg_num);
 
         __DEBUG("Begin do Background GC! waste_rate is %f, data_theory_size = %lu", waste_rate, data_theory_size);
-        if ( waste_rate > GC_UPPER_LEVEL )
+        if ( waste_rate > options_.gc_upper_level )
         {
-            while ( waste_rate > GC_LOWER_LEVEL )
+            while ( waste_rate > options_.gc_lower_level && used_seg_num > 1)
             {
                 lck_gc.lock();
                 std::multimap<uint32_t, uint32_t> cands_map;
-                segMgr_->SortSegsByUtils(cands_map);
+                segMgr_->SortSegsByUtils(cands_map, options_.seg_full_rate);
 
                 //TODO: Maybe some bug here!!!!!
                 if ( cands_map.empty() || theory_seg_num > used_seg_num)
@@ -326,8 +326,8 @@ namespace kvdb{
         {
             lck_gc.lock();
             std::multimap<uint32_t, uint32_t> cands_map;
-            segMgr_->SortSegsByUtils(cands_map);
-            if ( cands_map.size() < 2 )
+            segMgr_->SortSegsByUtils(cands_map, options_.seg_full_rate);
+            if ( cands_map.size() < SEG_RESERVED_FOR_GC )
             {
                 free_after = segMgr_->GetTotalFreeSegs();
                 used_total = segMgr_->GetNumberOfSeg() - free_after;

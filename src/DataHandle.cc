@@ -171,6 +171,7 @@ namespace kvdb{
         segMgr_ = toBeCopied.segMgr_;
         idxMgr_ = toBeCopied.idxMgr_;
         bdev_ = toBeCopied.bdev_;
+        timeout_ = toBeCopied.timeout_;
         segSize_ = toBeCopied.segSize_;
         persistTime_ = toBeCopied.persistTime_;
         startTime_ = toBeCopied.startTime_;
@@ -186,8 +187,8 @@ namespace kvdb{
         delReqList_ = toBeCopied.delReqList_;
     }
 
-    SegmentSlice::SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev)
-        : segId_(0), segMgr_(sm), idxMgr_(im), bdev_(bdev),
+    SegmentSlice::SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout)
+        : segId_(0), segMgr_(sm), idxMgr_(im), bdev_(bdev), timeout_(timeout),
         segSize_(segMgr_->GetSegmentSize()), persistTime_(KVTime()),
         startTime_(KVTime()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
@@ -383,7 +384,7 @@ namespace kvdb{
             return false;
         }
         int64_t interval = nowTime - startTime_;
-        return (interval > EXPIRED_TIME);
+        return (interval > timeout_);
     }
 
     bool SegmentSlice::isCanFit(Request* req) const

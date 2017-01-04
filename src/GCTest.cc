@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <vector>
 #include <stdlib.h>
+
+#include "Options.h"
 #include "Kvdb_Impl.h"
 
 #define SEGMENT_SIZE 256 * 1024
@@ -40,8 +42,12 @@ int Create_DB(string filename, int db_size)
     int ht_size = db_size ;
     int segment_size = SEGMENT_SIZE;
 
+    Options opts;
+    opts.hashtable_size = ht_size;
+    opts.segment_size = segment_size;
+
     KVTime tv_start;
-    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, segment_size);
+    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
 
     KVTime tv_end;
     double diff_time = (tv_end - tv_start) / 1000000.0;
@@ -209,7 +215,8 @@ void Bench(string file_path, int db_size, int record_num)
         return;
     }
 
-    KvdbDS *db = KvdbDS::Open_KvdbDS(file_path.c_str());
+    Options opts;
+    KvdbDS *db = KvdbDS::Open_KvdbDS(file_path.c_str(), opts);
 
     for (int i=0; i < 10; i++)
     {

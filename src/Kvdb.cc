@@ -5,14 +5,10 @@ namespace kvdb{
 
     DB* DB::instance_ = NULL;
 
-    bool DB::CreateDB(string filename,
-                    uint32_t hash_table_size,
-                    uint32_t segment_size){
-
+    bool DB::CreateDB(string filename, Options opts)
+    {
         KvdbDS* kvdb_db;
-        kvdb_db = KvdbDS::Create_KvdbDS(filename.c_str(),
-                                        hash_table_size,
-                                        segment_size);
+        kvdb_db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
         if (!kvdb_db)
         {
             std::cout << "CreateDB failed" << std::endl;
@@ -23,13 +19,14 @@ namespace kvdb{
         return true;
     }
 
-    bool DB::OpenDB(string filename, DB** db){
+    bool DB::OpenDB(string filename, DB** db, Options opts)
+    {
         if (instance_ == NULL)
         {
             instance_ = new DB();
         }
 
-        instance_->kvdb_ = KvdbDS::Open_KvdbDS(filename.c_str());
+        instance_->kvdb_ = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
         if (!instance_->kvdb_)
         {
             std::cout << "OpenDB failed" <<std::endl;

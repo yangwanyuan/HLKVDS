@@ -65,8 +65,8 @@ namespace kvdb{
     }
 
 
-    SuperBlockManager::SuperBlockManager(BlockDevice* bdev):
-        bdev_(bdev), sb_(NULL), startOff_(0) {}
+    SuperBlockManager::SuperBlockManager(BlockDevice* bdev, Options &opt):
+        bdev_(bdev), sb_(NULL), options_(opt), startOff_(0) {}
 
     SuperBlockManager::~SuperBlockManager()
     {

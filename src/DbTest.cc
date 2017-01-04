@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "Kvdb_Impl.h"
+#include "Options.h"
 
 using namespace std;
 using namespace kvdb;
@@ -15,13 +16,12 @@ void Create_DB_Test(string filename)
     
     int record_num = 10;
     int ht_size = record_num * 2;
-    //double delete_ratio = 0.9;
-    //double load_ratio = 0.8;
 
-    int segment_size = 256*1024;
+    Options opts;
+    opts.segment_size = 256*1024;
+    opts.hashtable_size = ht_size;
      
-    //KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, delete_ratio, load_ratio, segment_size);
-    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), ht_size, segment_size);
+    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
   
 
     delete db;
@@ -30,7 +30,8 @@ void Create_DB_Test(string filename)
 void Open_DB_Test(string filename)
 {
 
-    KvdbDS *db = KvdbDS::Open_KvdbDS(filename.c_str());
+    Options opts;
+    KvdbDS *db = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
 
     //DB Insert 
     string test_key = "test-key";

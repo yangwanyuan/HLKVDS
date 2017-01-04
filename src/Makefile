@@ -16,7 +16,7 @@ all: $(PROGNAME)
 %.o : %.c
 	${CC} -c ${C_FLAGS} ${INCLUDES} $< -o $@
 
-OBJECTS =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o DataHandle.o BlockDevice.o KernelDevice.o SegmentManager.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o
+OBJECTS =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o DataHandle.o BlockDevice.o KernelDevice.o SegmentManager.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o Options.o
 
 Benchmark: $(OBJECTS)
 	$(CXX) $(CXX_FLAGS) $(OBJECTS) Benchmark.cc -o Benchmark $(INCLUDES) $(LIBS)
