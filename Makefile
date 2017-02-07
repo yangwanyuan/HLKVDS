@@ -1,7 +1,10 @@
 #OPT ?= -g
 OPT ?= -g2
 
-INCLUDES = -I ./src
+INCLUDES =  \
+			-I ./src \
+			-I ./include/hyperds
+
 LIBS = -pthread
 
 CC = gcc
@@ -43,10 +46,10 @@ test: ${TEST}
 	@echo 'make test Done'
 
 $(CORE_CXX_OBJ): %.o: %.cc
-	${CXX} -c ${CXX_FLAGS} $< -o $@
+	${CXX} ${CXX_FLAGS} ${INCLUDES} -c $< -o $@
 
 $(CORE_C_OBJ): %.o: %.c
-	${CC} -c ${C_FLAGS} $< -o $@
+	${CC} ${C_FLAGS} -c $< -o $@
 
 
 src/Benchmark: ${SRC_DIR}/Benchmark.cc ${COMMON_OBJECTS}
