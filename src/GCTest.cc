@@ -9,7 +9,7 @@
 #include <vector>
 #include <stdlib.h>
 
-#include "Options.h"
+#include "hyperds/Options.h"
 #include "Kvdb_Impl.h"
 
 #define SEGMENT_SIZE 256 * 1024

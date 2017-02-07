@@ -1,9 +1,7 @@
 #OPT ?= -g
 OPT ?= -g2
 
-INCLUDES =  \
-			-I ./src \
-			-I ./include/hyperds
+INCLUDES = -I ./src/include
 
 LIBS = -pthread
 
@@ -49,7 +47,7 @@ $(CORE_CXX_OBJ): %.o: %.cc
 	${CXX} ${CXX_FLAGS} ${INCLUDES} -c $< -o $@
 
 $(CORE_C_OBJ): %.o: %.c
-	${CC} ${C_FLAGS} -c $< -o $@
+	${CC} ${C_FLAGS} ${INCLUDES} -c $< -o $@
 
 
 src/Benchmark: ${SRC_DIR}/Benchmark.cc ${COMMON_OBJECTS}
@@ -81,5 +79,10 @@ clean:
 
 .PHONY : install
 install:
-	cp src/*.h /usr/local/include
+	cp -r src/include/hyperds /usr/local/include
 	cp src/libkv.so /usr/local/lib
+
+.PHONY : uninstall
+uninstall:
+	rm -fr /usr/local/include/hyperds
+	rm -f /usr/local/lib/libkv.so
