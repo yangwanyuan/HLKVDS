@@ -7,7 +7,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-#include "Options.h"
+#include "hyperds/Options.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
