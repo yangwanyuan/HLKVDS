@@ -2,6 +2,7 @@
 OPT ?= -g2
 
 INCLUDES = -I ./src/include
+TEST_INCLUDES = -I /usr/local/include/gtest /usr/local/lib/libgtest.a
 
 LIBS = -pthread
 
@@ -26,7 +27,12 @@ UTILS = \
 
 SHARED_LIB = src/libkv.so
 
-TEST = test/rmdtest
+TEST =  test/test_block_manager \
+	    test/test_gc \
+	    test/test_index_manager \
+	    test/test_operations \
+	    test/test_rmd \
+	    test/test_segment_manager
 
 PROGNAME := ${UTILS} ${SHARED_LIB}
 
@@ -68,8 +74,18 @@ src/GCTest: ${SRC_DIR}/GCTest.cc ${COMMON_OBJECTS}
 src/libkv.so: ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -shared -o $@ ${LIBS}
 
-test/rmdtest: test/rmdtest.cc ${COMMON_OBJECTS} 
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+test/test_rmd: test/test_rmd.cc ${COMMON_OBJECTS} 
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
+test/test_block_manager: test/test_block_manager.cc ${COMMON_OBJECTS} 
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
+test/test_gc: test/test_gc.cc ${COMMON_OBJECTS} 
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
+test/test_index_manager: test/test_index_manager.cc ${COMMON_OBJECTS} 
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
+test/test_operations: test/test_operations.cc ${COMMON_OBJECTS} 
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
+test/test_segment_manager: test/test_segment_manager.cc ${COMMON_OBJECTS} 
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
 
 .PHONY : clean
 clean:

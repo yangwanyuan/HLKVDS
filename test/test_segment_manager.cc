@@ -1,7 +1,7 @@
 #include <string>
 #include <iostream>
 
-#include "../src/Kvdb_Impl.h"
+#include "Kvdb_Impl.h"
 #include "gtest/gtest.h"
 
 using namespace std;
@@ -9,26 +9,24 @@ using namespace kvdb;
 
 #define FILENAME  "/dev/loop2"
 
-class SegmentTest : public ::testing::Test{
+class test_segment_manager : public ::testing::Test{
 
 };
-
 
 SuperBlockManager* sbMgr_;
 BlockDevice* bdev_;
 SegmentManager* segMgr_;
-
 Options opts;
-
 
 void init()
 {
 	 bdev_ = BlockDevice::CreateDevice();
 	 sbMgr_ = new SuperBlockManager(bdev_,opts);
 	 segMgr_ = new SegmentManager(bdev_, sbMgr_,opts);
+	 bdev_->Open(FILENAME);
 }
 
-TEST_F(SegmentTest,ComputeSegTableSizeOnDisk)
+TEST_F(test_segment_manager,ComputeSegTableSizeOnDisk)
 {
 	uint32_t seg_num=10;
 	EXPECT_EQ(4096,SegmentManager::ComputeSegTableSizeOnDisk(seg_num));
@@ -36,7 +34,7 @@ TEST_F(SegmentTest,ComputeSegTableSizeOnDisk)
 }
 
 
-TEST_F(SegmentTest, ComputeSegNum)
+TEST_F(test_segment_manager, ComputeSegNum)
 {
 	 uint64_t total_size=40960;
 	 uint64_t seg_size=4096;
@@ -46,7 +44,7 @@ TEST_F(SegmentTest, ComputeSegNum)
 	 
 }
 
-/*TEST_F(SegmentTest, ZeroSegSize)
+/*TEST_F(test_segment_manager, ZeroSegSize)
 {
 	 uint64_t total_size=40960;
 	 uint64_t seg_size=0;
@@ -54,83 +52,62 @@ TEST_F(SegmentTest, ComputeSegNum)
 	 std::cout<<"segment number:"<<seg_num<<std::endl;
 }*/
 
-TEST_F(SegmentTest, LargerSegSize)
+TEST_F(test_segment_manager, LargerSegSize)
 {
 	 uint64_t total_size=40960;
 	 uint64_t seg_size=50000;
 	 uint32_t seg_num=SegmentManager::ComputeSegNum(total_size,seg_size);
-	 std::cout<<"segment number:"<<seg_num<<std::endl;
+	 EXPECT_EQ(0,seg_num);
 }
 
-
-
-TEST_F(SegmentTest, InitSegment)
+TEST_F(test_segment_manager, InitSegment)
 {
 	init();	 
-	 uint64_t total_size=40960;
-	 uint64_t seg_size=4096;
-	 uint32_t seg_num=SegmentManager::ComputeSegNum(total_size,seg_size);
-	 std::cout<<"segment number:"<<seg_num<<std::endl;
+	uint64_t total_size=40960;
+	uint64_t seg_size=4096;
+	uint32_t seg_num=SegmentManager::ComputeSegNum(total_size,seg_size);
+	std::cout<<"segment number:"<<seg_num<<std::endl;
 
-	 uint64_t segtable_offset=0;
+	uint64_t segtable_offset=0;
 	
-	 if(segMgr_->InitSegmentForCreateDB(segtable_offset,seg_size,seg_num)){
-		 std::cout<<"true"<<std::endl;
+	EXPECT_TRUE(segMgr_->InitSegmentForCreateDB(segtable_offset,seg_size,seg_num));
+	EXPECT_EQ(9,segMgr_->GetTotalFreeSegs());
+	EXPECT_EQ(0,segMgr_->GetTotalUsedSegs());
 
-
-		EXPECT_EQ(9,segMgr_->GetTotalFreeSegs());
-		EXPECT_EQ(0,segMgr_->GetTotalUsedSegs());
-		//EXPECT_EQ(0,segMgr_->LoadSegmentTableFromDevice(start_offset,uint32_t segment_size,uint32_t num_seg,uint32_t current_seg)):
-	 }
-
-
-}
-
-TEST_F(SegmentTest, LoadSegmentTableFromDevice)
-{
-	init();
-	uint64_t start_offset=0;
-	uint32_t segment_size=4096;
-	uint32_t num_seg=9;
-	uint32_t current_seg=1;
+	/*uint32_t start_offset=0;
+	uint32_t num_seg=7;
+	uint32_t current_seg=0;
 	
-	 EXPECT_TRUE(segMgr_->LoadSegmentTableFromDevice(start_offset,segment_size,num_seg,current_seg));
-	 
+	std::cout<<"load segment table from device."<<std::endl;
+	EXPECT_TRUE(segMgr_->LoadSegmentTableFromDevice(start_offset,seg_size,num_seg,current_seg));
+
+	std::cout<<"write segment table to device."<<std::endl;
+	EXPECT_TRUE(segMgr_->WriteSegmentTableToDevice());*/
+
 }
 
-
-TEST_F(SegmentTest, WriteSegmentTableToDevice)
-{
-	init();
-	 EXPECT_TRUE(segMgr_->WriteSegmentTableToDevice());
-	 
-}
-
-TEST_F(SegmentTest, ComputeSegOffsetFromOffset)
+/*TEST_F(test_segment_manager, ComputeSegOffsetFromOffset)
 {
 	init();
 	uint64_t offset=1;
 	uint64_t seg_offset=2;
-	 EXPECT_TRUE(segMgr_->ComputeSegOffsetFromOffset(offset,seg_offset));
+	EXPECT_TRUE(segMgr_->ComputeSegOffsetFromOffset(offset,seg_offset));
 	 
 }
 
-TEST_F(SegmentTest, ComputeDataOffsetPhyFromEntry)
+TEST_F(test_segment_manager, ComputeDataOffsetPhyFromEntry)
 {
 	init();
-
 	HashEntry *entry;
 	entry=new HashEntry();
 	uint64_t data_offset=1;
 	EXPECT_TRUE(segMgr_->ComputeDataOffsetPhyFromEntry(entry,data_offset));
 	 
-}
-
-
+}*/
 
 int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }
 
 

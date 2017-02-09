@@ -6,7 +6,8 @@
 #include <set>
 #include <iomanip>
 
-#include "../src/KeyDigestHandle.h"
+#include "KeyDigestHandle.h"
+#include "gtest/gtest.h"
 
 using namespace kvdb;
 using namespace std;
@@ -15,7 +16,7 @@ class test_rmd: public ::testing::Test{
 
 };
 
-TEST_F(rmdtest, IntKeyTest)
+TEST_F(test_rmd, IntKeyTest)
 {
     uint32_t conflict = 0;
     set<string> result_set;
@@ -58,7 +59,7 @@ TEST_F(rmdtest, IntKeyTest)
     return ;
 }
 
-TEST_F(rmdtest, RegularTest)
+TEST_F(test_rmd, RegularTest)
 {
     //char* key_raw = "";
     //char* key_raw = "a";

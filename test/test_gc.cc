@@ -9,8 +9,9 @@
 #include <vector>
 #include <stdlib.h>
 
-#include "../src/Options.h"
-#include "../src/Kvdb_Impl.h"
+#include "hyperds/Options.h"
+#include "Kvdb_Impl.h"
+#include "gtest/gtest.h"
 
 #define SEGMENT_SIZE 256 * 1024
 #define KEY_LEN 10
@@ -18,9 +19,14 @@
 #define TEST_BS 4096
 //#define TEST_THREAD_NUM 2
 #define TEST_THREAD_NUM 512
+#define FILENAME  "/dev/loop2"
 
 using namespace std;
 using namespace kvdb;
+
+class test_gc : public ::testing::Test{
+
+};
 
 enum Option{ INSERT, GET };
 
@@ -229,28 +235,15 @@ void Bench(string file_path, int db_size, int record_num)
 }
 
 int main(int argc, char** argv){
-    string file_path;
-    int db_size;
-    int record_num;
-
-    if(Parse_Option(argc, argv, file_path, db_size, record_num) < 0)
-    {
-        usage();
-        return -1;
-    }
-
-    Bench(file_path, db_size, record_num);
-
-    return 0;
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }
 
 
-TEST_F(test_operations,foregroundgc)
+TEST_F(test_gc,foregroundgc)
 {
-	//insert 
-
-	//do gc
-	//compare database status after gc
+	int records=1000;
+	Bench(FILENAME,records*2,records);
 
 }
 
