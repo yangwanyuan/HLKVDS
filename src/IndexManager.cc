@@ -332,6 +332,11 @@ namespace kvdb{
 
         std::lock_guard<std::mutex> l(mtx_);
         HashEntry *entry_inMem = entry_list->getRef(entry);
+        if ( !entry_inMem )
+        {
+            __DEBUG("Already remove the index entry");
+            return;
+        }
         HashEntry::LogicStamp *lts = entry.GetLogicStamp();
         HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
         KVTime &t = lts->GetSegTime();
