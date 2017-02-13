@@ -77,6 +77,7 @@ namespace kvdb{
         uint32_t GetNumberOfSeg(){ return segNum_; }
         uint64_t GetDataRegionSize(){ return (uint64_t)segNum_ << segSizeBit_; }
         uint32_t GetSegmentSize(){ return segSize_; }
+        uint32_t GetMaxValueLength() { return maxValueLen_;}
 
         inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset)
         {
@@ -129,6 +130,7 @@ namespace kvdb{
         uint32_t usedCounter_;
         uint32_t freedCounter_;
         uint32_t reservedCounter_;
+        uint32_t maxValueLen_;
         
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;

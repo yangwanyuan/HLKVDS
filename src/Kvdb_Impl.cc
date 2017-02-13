@@ -324,6 +324,11 @@ namespace kvdb {
             return res;
         }
 
+        if (length > segMgr_->GetMaxValueLength())
+        {
+            return res;
+        }
+
         KVSlice slice(key, key_len, data, length);
 
         res = insertKey(slice);
