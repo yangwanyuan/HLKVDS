@@ -73,6 +73,9 @@ namespace kvdb{
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
 
+        maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk()
+                        - IndexManager::SizeOfHashEntryOnDisk();
+
         freedCounter_ = segNum_;
         usedCounter_ = 0;
         reservedCounter_ = 0;
@@ -98,6 +101,9 @@ namespace kvdb{
 
         dataStartOff_ = start_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
         dataEndOff_ = dataStartOff_ + ((uint64_t)segNum_ << segSizeBit_);
+
+        maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk()
+                        - IndexManager::SizeOfHashEntryOnDisk();
 
         uint64_t offset = startOff_;
         SegmentStat* segs_stat = new SegmentStat[segNum_];
@@ -328,7 +334,7 @@ namespace kvdb{
     SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt) :
         dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0),
         segNum_(0), curSegId_(0), usedCounter_(0), freedCounter_(0),
-        reservedCounter_(0), bdev_(bdev), sbMgr_(sbm), options_(opt) {}
+        reservedCounter_(0), maxValueLen_(0), bdev_(bdev), sbMgr_(sbm), options_(opt) {}
 
     SegmentManager::~SegmentManager()
     {
