@@ -1,39 +1,27 @@
 #include <string>
 #include <iostream>
+#include "test_base.h"
 
-#include "Kvdb_Impl.h"
-#include "hyperds/Options.h"
-#include "gtest/gtest.h"
+class IndexManagerTest : public TestBase{
+public:
+	IndexManager* idxMgr_;
+	SuperBlockManager* sbMgr_;
+	BlockDevice* bdev_;
+	SegmentManager* segMgr_;
 
-using namespace std;
-using namespace kvdb;
+	Options opts;
 
-#define FILENAME  "/dev/loop2"
-
-class IndexManagerTest : public ::testing::Test{
-
+	virtual void SetUp(){
+		bdev_ = BlockDevice::CreateDevice();
+		sbMgr_ = new SuperBlockManager(bdev_,opts);
+		segMgr_ = new SegmentManager(bdev_, sbMgr_,opts);
+		idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_,opts);
+		bdev_->Open(FILENAME);
+	}
 };
-
-IndexManager* idxMgr_;
-SuperBlockManager* sbMgr_;
-BlockDevice* bdev_;
-SegmentManager* segMgr_;
-
-Options opts;
-
-void init()
-{
-	bdev_ = BlockDevice::CreateDevice();
-    sbMgr_ = new SuperBlockManager(bdev_,opts);
-    segMgr_ = new SegmentManager(bdev_, sbMgr_,opts);
-    idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_,opts);
-    bdev_->Open(FILENAME);
-}
-
 
 TEST_F(IndexManagerTest, InitIndexForCreateDB)
 {
-	init();
 	uint64_t offset=0;
 	uint32_t numObjects=10;
 	uint32_t ht_size=20;
@@ -51,7 +39,6 @@ TEST_F(IndexManagerTest, InitIndexForCreateDB)
 
 TEST_F(IndexManagerTest, RemoveEntry)
 {
-	init();
 	HashEntry entry;
 	 
 	idxMgr_->RemoveEntry(entry);//TODO Expection
@@ -60,7 +47,6 @@ TEST_F(IndexManagerTest, RemoveEntry)
 }
 TEST_F(IndexManagerTest, GetHashEntry)
 {
-	init();
 	KVSlice* kvslice;
 	 
 	EXPECT_TRUE(idxMgr_->GetHashEntry(kvslice));

@@ -8,23 +8,14 @@
 #include <stdlib.h>
 #include <vector>
 #include <stdlib.h>
-
-#include "hyperds/Options.h"
-#include "Kvdb_Impl.h"
-#include "gtest/gtest.h"
+#include "test_base.h"
 
 #define SEGMENT_SIZE 256 * 1024
 #define KEY_LEN 10
-
 #define TEST_BS 4096
-//#define TEST_THREAD_NUM 2
 #define TEST_THREAD_NUM 512
-#define FILENAME  "/dev/loop2"
 
-using namespace std;
-using namespace kvdb;
-
-class test_gc : public ::testing::Test{
+class test_gc : public TestBase{
 
 };
 

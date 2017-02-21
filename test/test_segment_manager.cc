@@ -1,30 +1,21 @@
 #include <string>
 #include <iostream>
+#include "test_base.h"
 
-#include "Kvdb_Impl.h"
-#include "gtest/gtest.h"
+class test_segment_manager : public TestBase{
+public:
+	SuperBlockManager* sbMgr_;
+	BlockDevice* bdev_;
+	SegmentManager* segMgr_;
+	Options opts;
 
-using namespace std;
-using namespace kvdb;
-
-#define FILENAME  "/dev/loop2"
-
-class test_segment_manager : public ::testing::Test{
-
+	virtual void SetUp(){
+		 bdev_ = BlockDevice::CreateDevice();
+		 sbMgr_ = new SuperBlockManager(bdev_,opts);
+		 segMgr_ = new SegmentManager(bdev_, sbMgr_,opts);
+		 bdev_->Open(FILENAME);
+	}
 };
-
-SuperBlockManager* sbMgr_;
-BlockDevice* bdev_;
-SegmentManager* segMgr_;
-Options opts;
-
-void init()
-{
-	 bdev_ = BlockDevice::CreateDevice();
-	 sbMgr_ = new SuperBlockManager(bdev_,opts);
-	 segMgr_ = new SegmentManager(bdev_, sbMgr_,opts);
-	 bdev_->Open(FILENAME);
-}
 
 TEST_F(test_segment_manager,ComputeSegTableSizeOnDisk)
 {
@@ -32,7 +23,6 @@ TEST_F(test_segment_manager,ComputeSegTableSizeOnDisk)
 	EXPECT_EQ(4096,SegmentManager::ComputeSegTableSizeOnDisk(seg_num));
 	
 }
-
 
 TEST_F(test_segment_manager, ComputeSegNum)
 {
@@ -62,7 +52,6 @@ TEST_F(test_segment_manager, LargerSegSize)
 
 TEST_F(test_segment_manager, InitSegment)
 {
-	init();	 
 	uint64_t total_size=40960;
 	uint64_t seg_size=4096;
 	uint32_t seg_num=SegmentManager::ComputeSegNum(total_size,seg_size);
@@ -88,7 +77,6 @@ TEST_F(test_segment_manager, InitSegment)
 
 /*TEST_F(test_segment_manager, ComputeSegOffsetFromOffset)
 {
-	init();
 	uint64_t offset=1;
 	uint64_t seg_offset=2;
 	EXPECT_TRUE(segMgr_->ComputeSegOffsetFromOffset(offset,seg_offset));
@@ -97,7 +85,6 @@ TEST_F(test_segment_manager, InitSegment)
 
 TEST_F(test_segment_manager, ComputeDataOffsetPhyFromEntry)
 {
-	init();
 	HashEntry *entry;
 	entry=new HashEntry();
 	uint64_t data_offset=1;

@@ -5,14 +5,10 @@
 #include <string>
 #include <set>
 #include <iomanip>
-
+#include "test_base.h"
 #include "KeyDigestHandle.h"
-#include "gtest/gtest.h"
 
-using namespace kvdb;
-using namespace std;
-
-class test_rmd: public ::testing::Test{
+class test_rmd: public TestBase{
 
 };
 

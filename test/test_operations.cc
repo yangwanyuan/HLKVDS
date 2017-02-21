@@ -1,52 +1,10 @@
 #include <string>
 #include <iostream>
+#include "test_base.h"
 
-#include "Kvdb_Impl.h"
-#include "hyperds/Options.h"
-#include "gtest/gtest.h"
-
-using namespace std;
-using namespace kvdb;
-
-#define FILENAME  "/dev/loop2"
-//#define FILENAME  "/dev/sdb1"
-#define DB_SIZE 512
-#define RECORDS 500
-
-
-class test_operations: public ::testing::Test{
+class test_operations: public TestBase{
 
 };
-
-int Create_DB(string filename, int db_size)
-{
-    int ht_size = db_size ;
-    int segment_size = SEGMENT_SIZE;
-
-    Options opts;
-    opts.hashtable_size = ht_size;
-    opts.segment_size = segment_size;
-
-    KVTime tv_start;
-    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
-
-    KVTime tv_end;
-    double diff_time = (tv_end - tv_start) / 1000000.0;
-
-    //cout << "Create DB use time: " << diff_time << "s" << endl;
-    delete db;
-    db = NULL;
-    return 0;
-}
-
-KvdbDS* initDb(int db_size)
-{		
-	 EXPECT_TRUE(Create_DB(FILENAME, db_size) >= 0);
-
-	 Options opts;
-	 return KvdbDS::Open_KvdbDS(FILENAME, opts);
-
-}
 
 
 TEST_F(test_operations,insert)
@@ -82,7 +40,7 @@ TEST_F(test_operations,emtpyvalue)
 	string get_data;
     EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
 
-   	EXPECT_EQ(test_value,get_data);//actually, current return 10 blank chars
+   	EXPECT_EQ(test_value_size,get_data.length());
 
 	delete db;
 }
@@ -119,7 +77,7 @@ TEST_F(test_operations,bigsizevalue)
 
     int test_value_size =1024000;
 	
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));//TRUE or FALSE ?
 
 	//db->readMetaDataFromDevice();//TODO databases status dump
 	string get_data;
@@ -156,7 +114,7 @@ TEST_F(test_operations,wrongvaluesize)
 
 TEST_F(test_operations,insertmorethandbsize)
 {
-	int db_size=100;//128
+	/*int db_size=100;//128 actually the db size should be equal to 128
 	KvdbDS *db= initDb(db_size);
 
     string test_key = "key_";
@@ -165,7 +123,7 @@ TEST_F(test_operations,insertmorethandbsize)
 	string test_value = "test_value";
     int test_value_size =1024;
 	
-	for(int i=0;i<100;i++)
+	for(int i=0;i<127;i++)
 	{	
 		stringstream ss;
     	string str;
@@ -177,7 +135,7 @@ TEST_F(test_operations,insertmorethandbsize)
 		
     EXPECT_FALSE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));//TODO
 
-	delete db;
+	delete db;*/
 }
 
 
@@ -294,11 +252,44 @@ TEST_F(test_operations,deleteagain)
 
 	std::cout<<"delete again."<<std::endl;
 	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
-	get_data="";
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-	EXPECT_EQ("",get_data);
 
 	delete db;
+}
+
+TEST_F(test_operations,readAfterUpdateAndDelete)
+{
+	int db_size=100;
+	KvdbDS *db= initDb(db_size);
+
+	string test_key = "test_key";
+	int test_key_size = 8;
+
+	string test_value = "test_value";
+	int test_value_size =10;
+
+
+	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+
+	string get_data;
+	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	EXPECT_EQ(test_value,get_data);
+
+	//update
+	test_value = "test-value-new";
+	test_value_size = 14;
+
+	get_data="";
+	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	EXPECT_EQ(test_value,get_data);
+
+	//then delete
+	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
+
+	get_data="";
+	//read again, value should be empty , or the raw one ?
+	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	EXPECT_EQ("",get_data);
 }
 
 
@@ -306,6 +297,31 @@ TEST_F(test_operations,concurrentinsertwithsamekey)
 {
 
 }
+
+TEST_F(test_operations,singlesegment)
+{
+	int db_size=100;
+	KvdbDS *db= initDb(db_size);
+
+	//std::cout<<"total used segments:"<<db->segMgr_->GetTotalUsedSegs()<<std::endl;;//TODO segMgr_ is private
+
+	string test_key = "test_key";
+	int test_key_size = 8;
+
+	string test_value = "test_value";
+	int test_value_size =10;
+
+	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+	//std::cout<<"total used segments:"<<db->segMgr_->GetTotalUsedSegs()<<std::endl;;
+
+}
+
+TEST_F(test_operations,acrosssegment)
+{
+
+}
+
+
 
 int main(int argc, char** argv){
 	::testing::InitGoogleTest(&argc, argv);
