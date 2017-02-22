@@ -42,17 +42,26 @@ namespace kvdb {
             delete ds;
             return NULL;
         }
+        __DEBUG("Open device success.");
 
         device_capacity = ds->bdev_->GetDeviceCapacity();
+        //device capacity should be larger than size of (sb+index)
+        if(device_capacity<8192){
+        	__ERROR("The capacity of device is too small.");
+        	delete ds;
+        	return NULL;
+        }
 
         //Init Superblock region
         db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
+        __DEBUG("super block size; %ld",db_sb_size);
         if (!ds->sbMgr_->InitSuperBlockForCreateDB(0))
         {
             delete ds;
             return NULL;
         }
 
+        __DEBUG("Init super block region success.");
         //Init Index region
         if (hash_table_size == 0)
         {
@@ -62,28 +71,38 @@ namespace kvdb {
         hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
 
         db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
+        __DEBUG("index region size; %ld",db_index_size);
 
         if (!ds->idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size))
         {
             delete ds;
             return NULL;
         }
+        __DEBUG("Init index region success.");
 
         //Init Segment region
         uint64_t seg_total_size = device_capacity - db_sb_size - db_index_size;
 
+        if(segment_size<=0 || segment_size>seg_total_size){
+        	__ERROR("Improper segment size, %d",segment_size);
+        	//delete ds;
+        	return NULL;
+        }
+
         number_segments = SegmentManager::ComputeSegNum(seg_total_size, segment_size);
+
         uint64_t segtable_offset = db_sb_size + db_index_size;
 
         if (!ds->segMgr_->InitSegmentForCreateDB(segtable_offset,
                                                 segment_size,
                                                 number_segments))
         {
+        	__ERROR("Segment region init failed.");
             delete ds;
             return NULL;
         }
 
-
+        __DEBUG("Init segment region success.");
         db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
 
         db_meta_size  = db_sb_size + db_index_size + db_seg_table_size;
@@ -96,7 +115,6 @@ namespace kvdb {
             delete ds;
             return NULL;
         }
-
 
         DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries,
                         segment_size, number_segments,
@@ -323,6 +341,8 @@ namespace kvdb {
         {
             return res;
         }
+           
+	//__INFO("!!!%d", segMgr_->GetMaxValueLength());
 
         if (length > segMgr_->GetMaxValueLength())
         {
