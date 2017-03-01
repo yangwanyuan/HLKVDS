@@ -18,6 +18,7 @@
 #include "SegmentManager.h"
 #include "GcManager.h"
 #include "WorkQueue.h"
+#include "status.h"
 
 namespace kvdb {
 
@@ -26,29 +27,30 @@ namespace kvdb {
         static KvdbDS* Create_KvdbDS(const char* filename, Options opts);
         static KvdbDS* Open_KvdbDS(const char* filename, Options opts);
 
-        bool Insert(const char* key, uint32_t key_len,
+        Status Insert(const char* key, uint32_t key_len,
                     const char* data, uint16_t length);
-        bool Get(const char* key, uint32_t key_len, string &data);
-        bool Delete(const char* key, uint32_t key_len);
+        Status Get(const char* key, uint32_t key_len, string &data);
+        Status Delete(const char* key, uint32_t key_len);
 
         void Do_GC();
         void ClearReadCache() { bdev_->ClearReadCache(); }
+        void printDbStates();
 
         virtual ~KvdbDS();
 
     private:
         KvdbDS(const string& filename, Options opts);
-        bool openDB();
-        bool closeDB();
+        Status openDB();
+        Status closeDB();
         bool writeMetaDataToDevice();
         bool readMetaDataFromDevice();
         void startThds();
         void stopThds();
 
-        bool insertKey(KVSlice& slice);
-        bool updateMeta(Request *req);
+        Status insertKey(KVSlice& slice);
+        Status updateMeta(Request *req);
 
-        bool readData(KVSlice& slice, string &data);
+        Status readData(KVSlice& slice, string &data);
 
     private:
         SuperBlockManager* sbMgr_;

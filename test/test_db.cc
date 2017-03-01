@@ -19,7 +19,8 @@ public:
 		int test_value_size = 10;
 
 		KVTime tv_start;
-		EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+		Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+		EXPECT_TRUE(s.ok());
 		KVTime tv_end;
 		double diff_time = (tv_end - tv_start) / 1000.0;
 

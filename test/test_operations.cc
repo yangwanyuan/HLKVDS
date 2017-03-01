@@ -10,16 +10,20 @@ class test_operations: public TestBase{
 TEST_F(test_operations,insert)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
  
     string test_key = "test-key";
     int test_key_size = 8;
     string test_value = "test-value";
     int test_value_size = 10;
 
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+
+    db->printDbStates();
+    EXPECT_TRUE(s.ok());
 	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
 
    	EXPECT_EQ(test_value,get_data);
 
@@ -29,16 +33,18 @@ TEST_F(test_operations,insert)
 TEST_F(test_operations,emtpyvalue)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "";
     int test_key_size = 8;
     string test_value = "";
     int test_value_size = 10;
 
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
 
    	EXPECT_EQ(test_value_size,get_data.length());
 
@@ -48,16 +54,18 @@ TEST_F(test_operations,emtpyvalue)
 TEST_F(test_operations,zerosize)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "";
     int test_key_size = 0;
     string test_value = "";
     int test_value_size = 0;
 
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
 
    	EXPECT_EQ(test_value,get_data);
 
@@ -68,7 +76,7 @@ TEST_F(test_operations,zerosize)
 TEST_F(test_operations,bigsizevalue)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -77,14 +85,16 @@ TEST_F(test_operations,bigsizevalue)
 
     int test_value_size =1024000;
 	
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));//TRUE or FALSE ?
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());//TRUE or FALSE ?
 
 	//db->readMetaDataFromDevice();//TODO databases status dump
 	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
 
-    std::cout<<"length:"<<get_data.length()<<std::endl;
-   	//EXPECT_EQ(test_value,get_data);
+    //std::cout<<"length:"<<get_data.length()<<std::endl;
+   	EXPECT_GT(test_value_size,get_data.length());
 
 	delete db;
 }
@@ -92,7 +102,7 @@ TEST_F(test_operations,bigsizevalue)
 TEST_F(test_operations,wrongvaluesize)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -101,12 +111,12 @@ TEST_F(test_operations,wrongvaluesize)
 
     int test_value_size =1024;
 	
-
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 
 	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
    	EXPECT_EQ(test_value_size,get_data.length());
 
 	delete db;
@@ -114,28 +124,36 @@ TEST_F(test_operations,wrongvaluesize)
 
 TEST_F(test_operations,insertmorethandbsize)
 {
-	/*int db_size=100;//128 actually the db size should be equal to 128
-	KvdbDS *db= initDb(db_size);
+	int db_size=100;//128 actually the db size should be equal to 128
+	KvdbDS *db= Create_DB(db_size);
 
-    string test_key = "key_";
+	string test_key = "key_";
     int test_key_size = 8;
+    int test_value_size =102400;
+    string test_value = string(test_value_size, 'v');
 
-	string test_value = "test_value";
-    int test_value_size =1024;
-	
-	for(int i=0;i<127;i++)
+    Status s;
+
+	for(int i=0;i<30;i++)
 	{	
 		stringstream ss;
     	string str;
     	ss<<i;
     	ss>>str;
 		test_key=test_key+str;
-		EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-	}
-		
-    EXPECT_FALSE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));//TODO
+		std::cout<<"key:"<<test_key<<std::endl;
+		s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+		EXPECT_TRUE(s.ok());
+		db->printDbStates();
 
-	delete db;*/
+		test_key = "key_";
+	}
+
+	s=db->Insert("key_last", test_key_size, test_value.c_str(), test_value_size);
+	db->printDbStates();
+    EXPECT_TRUE(s.ok());//TODO
+
+	delete db;
 }
 
 
@@ -143,7 +161,7 @@ TEST_F(test_operations,insertmorethandbsize)
 TEST_F(test_operations,updatevalue)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -151,21 +169,19 @@ TEST_F(test_operations,updatevalue)
 	string test_value = "test_value";
     int test_value_size =10;
 	
-
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-
-	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-
-   	EXPECT_EQ(test_value,get_data);
-
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 
 	test_value = "test-value-new";
     test_value_size = 14;
 
-	get_data="";
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+
+	s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
+
+	string get_data="";
+    s=db->Get(test_key.c_str(), test_key_size, get_data);
+	EXPECT_TRUE(s.ok());
 	EXPECT_EQ(test_value,get_data);
     
 
@@ -175,23 +191,21 @@ TEST_F(test_operations,updatevalue)
 TEST_F(test_operations,deletekey)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
 	string test_value = "test_value";
     int test_value_size =10;
 	
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-
-	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-   	EXPECT_EQ(test_value,get_data);
-
-	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
-	get_data="";
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+    s=db->Delete(test_key.c_str(), test_key_size);
+	EXPECT_TRUE(s.ok());
+	string get_data="";
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+	EXPECT_TRUE(s.ok());
 	EXPECT_EQ("",get_data);
 	//std::cout<<"deleted key value:"<<get_data<<std::endl;
 
@@ -202,27 +216,24 @@ TEST_F(test_operations,deletekey)
 TEST_F(test_operations,updateafterdelete)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
 	string test_value = "test_value";
     int test_value_size =10;
 	
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+    s=db->Delete(test_key.c_str(), test_key_size);
+	EXPECT_TRUE(s.ok());
 
-	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-   	EXPECT_EQ(test_value,get_data);
-
-	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
-	get_data="";
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-
-	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-	get_data="";
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+	EXPECT_TRUE(s.ok());
+	string get_data="";
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
    	EXPECT_EQ(test_value,get_data);
 	
 	delete db;
@@ -231,27 +242,22 @@ TEST_F(test_operations,updateafterdelete)
 TEST_F(test_operations,deleteagain)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
 	string test_value = "test_value";
     int test_value_size =10;
 	
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    EXPECT_TRUE(s.ok());
 
-    EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-
-	string get_data;
-    EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-   	EXPECT_EQ(test_value,get_data);
-
-	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
-	get_data="";
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
-	EXPECT_EQ("",get_data);
+    s=db->Delete(test_key.c_str(), test_key_size);
+	EXPECT_TRUE(s.ok());
 
 	std::cout<<"delete again."<<std::endl;
-	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
+	s=db->Delete(test_key.c_str(), test_key_size);
+	EXPECT_TRUE(s.ok());
 
 	delete db;
 }
@@ -259,7 +265,7 @@ TEST_F(test_operations,deleteagain)
 TEST_F(test_operations,readAfterUpdateAndDelete)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
 	string test_key = "test_key";
 	int test_key_size = 8;
@@ -267,11 +273,12 @@ TEST_F(test_operations,readAfterUpdateAndDelete)
 	string test_value = "test_value";
 	int test_value_size =10;
 
-
-	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+	Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+	EXPECT_TRUE(s.ok());
 
 	string get_data;
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+	EXPECT_TRUE(s.ok());
 	EXPECT_EQ(test_value,get_data);
 
 	//update
@@ -279,16 +286,21 @@ TEST_F(test_operations,readAfterUpdateAndDelete)
 	test_value_size = 14;
 
 	get_data="";
-	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+	EXPECT_TRUE(s.ok());
+
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+	EXPECT_TRUE(s.ok());
 	EXPECT_EQ(test_value,get_data);
 
 	//then delete
-	EXPECT_TRUE(db->Delete(test_key.c_str(), test_key_size));
+	s=db->Delete(test_key.c_str(), test_key_size);
+	EXPECT_TRUE(s.ok());
 
 	get_data="";
 	//read again, value should be empty , or the raw one ?
-	EXPECT_TRUE(db->Get(test_key.c_str(), test_key_size, get_data));
+	s=db->Get(test_key.c_str(), test_key_size, get_data);
+	EXPECT_TRUE(s.ok());
 	EXPECT_EQ("",get_data);
 }
 
@@ -301,7 +313,7 @@ TEST_F(test_operations,concurrentinsertwithsamekey)
 TEST_F(test_operations,singlesegment)
 {
 	int db_size=100;
-	KvdbDS *db= initDb(db_size);
+	KvdbDS *db= Create_DB(db_size);
 
 	//std::cout<<"total used segments:"<<db->segMgr_->GetTotalUsedSegs()<<std::endl;;//TODO segMgr_ is private
 
@@ -311,7 +323,8 @@ TEST_F(test_operations,singlesegment)
 	string test_value = "test_value";
 	int test_value_size =10;
 
-	EXPECT_TRUE(db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size));
+	Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+	EXPECT_TRUE(s.ok());
 	//std::cout<<"total used segments:"<<db->segMgr_->GetTotalUsedSegs()<<std::endl;;
 
 }
