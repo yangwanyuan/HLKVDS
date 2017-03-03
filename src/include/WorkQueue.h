@@ -58,6 +58,11 @@ public:
         return dataQueue_.empty();
     }
 
+    uint32_t length()
+       {
+       	return dataQueue_.size();
+       }
+
 
 private:
     std::queue<QueueType> dataQueue_;

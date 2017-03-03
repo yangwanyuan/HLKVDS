@@ -152,9 +152,7 @@ namespace kvdb {
     	uint32_t num_entries=idxMgr_->GetKeyCounter();
     	uint32_t segment_size=sbMgr_->GetSegmentSize();
     	uint32_t number_segments=sbMgr_->GetSegmentNum();
-    	uint32_t curr_segment=segMgr_->GetNowSegId(); //start from 0
-    	//free segment
-
+    	uint32_t free_segment=segMgr_->GetTotalFreeSegs();
     	uint64_t db_sb_size=sbMgr_->GetSbSize();
     	uint64_t db_index_size=sbMgr_->GetIndexSize();
     	uint64_t db_seg_table_size=sbMgr_->GetSegTableSize();
@@ -164,23 +162,27 @@ namespace kvdb {
     	uint64_t device_capacity=sbMgr_->GetDeviceCapacity();
 
     	__INFO("\nDB state information:\n"
-    	               "\t hashtable_size            : %d\n"
-    	               "\t num_entries               : %d\n"
-    	               "\t segment_size              : %d Bytes\n"
-    	               "\t number_segments           : %d\n"
-    			 	   "\t currrent segment id       : %d\n"
+    	               "\t HashTable size            : %d\n"
+    	               "\t # of entries              : %d\n"
+    	               "\t Segment size              : %d Bytes\n"
+    	               "\t # of total segments       : %d\n"
+    			 	   "\t # of free segments        : %d\n"
     	               "\t Database Superblock Size  : %ld Bytes\n"
     	               "\t Database Index Size       : %ld Bytes\n"
     	               "\t Database Seg Table Size   : %ld Bytes\n"
     	               "\t Total DB Meta Region Size : %ld Bytes\n"
     	               "\t Total DB Data Region Size : %ld Bytes\n"
     	               "\t Total DB Total Size       : %ld Bytes\n"
-    	               "\t Total Device Size         : %ld Bytes",
+    	               "\t Total Device Size         : %ld Bytes\n"
+    				   "\t Request Queue Size        : %d\n"
+    				   "\t Segment Reaper Queue Size : %d\n"
+    				   "\t Segment Write Queue Size  : %d",
     	               hash_table_size, num_entries,
-    	               segment_size, number_segments,curr_segment, db_sb_size,
+    	               segment_size, number_segments,free_segment, db_sb_size,
     	               db_index_size, db_seg_table_size, db_meta_size,
-    	               db_data_region_size, db_size, device_capacity);
+    	               db_data_region_size, db_size, device_capacity,getReqQueSize(),getSegReaperQueSize(),getSegWriteQueSize());
     }
+
 
     bool KvdbDS::writeMetaDataToDevice()
     {

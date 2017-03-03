@@ -1,9 +1,3 @@
-/*
- * test_db.cc
- *
- *  Created on: Feb 20, 2017
- *      Author: yongfu
- */
 
 #include <string>
 #include <iostream>

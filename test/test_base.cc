@@ -1,9 +1,4 @@
-/*
- * test_base.cc
- *
- *  Created on: Feb 20, 2017
- *      Author: yongfu
- */
+
 #include "test_base.h"
 
 using namespace std;

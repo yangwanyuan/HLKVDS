@@ -36,6 +36,19 @@ namespace kvdb {
         void ClearReadCache() { bdev_->ClearReadCache(); }
         void printDbStates();
 
+        uint32_t getReqQueSize()
+        {
+        	return reqQue_.length();
+        }
+        uint32_t getSegWriteQueSize()
+        {
+        	return segWriteQue_.length();
+        }
+        uint32_t getSegReaperQueSize()
+        {
+        	return segReaperQue_.length();
+        }
+
         virtual ~KvdbDS();
 
     private:
