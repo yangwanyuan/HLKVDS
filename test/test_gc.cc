@@ -9,6 +9,7 @@
 #include <vector>
 #include <stdlib.h>
 #include "test_base.h"
+#include "gtest/gtest.h"
 
 #define SEGMENT_SIZE 256 * 1024
 #define KEY_LEN 10
@@ -88,7 +89,8 @@ void* fun_insert(void *arg)
     {
         string key = key_list[i];
         //string key = key_list[key_start];
-        if (!db->Insert(key.c_str(), key_len, value->c_str(), value_size))
+        Status s =db->Insert(key.c_str(), key_len, value->c_str(), value_size);
+        if (!s.ok())
         {
             cout << "Insert key=" << key << "to DB failed!" << endl;
         }
@@ -153,7 +155,8 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
         //{
         //    cout << "hello" << endl;
         //}
-        if (!db->Get(key.c_str(), key_len, get_data))
+        Status s=db->Get(key.c_str(), key_len, get_data);
+        if (!s.ok())
         {
             cout << "Get key=" << key << " from DB failed" << endl;
         }

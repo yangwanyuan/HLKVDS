@@ -46,16 +46,17 @@ namespace kvdb{
     }
 
     bool DB::Insert(const char* key, uint32_t key_len,const char* data, uint16_t length){
-        if (!kvdb_->Insert(key, key_len, data, length))
-        {
-            std::cout << "DB Insert failed" <<std::endl;
-            return false;
-        }
+    	Status s=kvdb_->Insert(key, key_len, data, length);
+    	if(!s.ok()){
+    		std::cout << "DB Insert failed" <<std::endl;
+    		return false;
+    	}
         return true;
     }
 
     bool DB::Delete(const char* key, uint32_t key_len){
-        if (!kvdb_->Delete(key, key_len))
+    	Status s=kvdb_->Delete(key, key_len);
+        if (!s.ok())
         {
             std::cout << "DB Delete failed" <<std::endl;
             return false;
@@ -64,7 +65,8 @@ namespace kvdb{
     }
 
     bool DB::Get(const char* key, uint32_t key_len, string &data){
-        if (!kvdb_->Get(key, key_len, data))
+    	Status s=kvdb_->Get(key, key_len, data);
+        if (!s.ok())
         {
             std::cout << "DB Get failed" <<std::endl;
             return false;

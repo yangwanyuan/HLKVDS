@@ -39,7 +39,8 @@ void Open_DB_Test(string filename)
     string test_value = "test-value";
     int test_value_size = 10;
 
-    if (!db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size))
+    Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    if (!s.ok())
     {
         std::cout << "Insert Failed" << std::endl; 
     }
@@ -50,7 +51,8 @@ void Open_DB_Test(string filename)
     
     test_value = "test-value-new";
     test_value_size = 14;
-    if (!db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size))
+    s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+    if (!s.ok())
     {
         std::cout << "Insert Failed" << std::endl;
     }
@@ -61,7 +63,8 @@ void Open_DB_Test(string filename)
 
     //DB Get
     string get_data;
-    if (!db->Get(test_key.c_str(), test_key_size, get_data))
+    s=db->Get(test_key.c_str(), test_key_size, get_data);
+    if (!s.ok())
     {
         std::cout << "Get Failed" << std::endl;
     }
@@ -72,7 +75,8 @@ void Open_DB_Test(string filename)
 
 
     //DB Delete
-    if (!db->Delete(test_key.c_str(), test_key_size))
+    s=db->Delete(test_key.c_str(), test_key_size);
+    if (!s.ok())
     {
       std::cout << "Delete Failed" << std::endl;
     }
