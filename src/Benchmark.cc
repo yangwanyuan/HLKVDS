@@ -11,12 +11,10 @@
 #include "Kvdb_Impl.h"
 #include "hyperds/Options.h"
 
-#define SEGMENT_SIZE 256 * 1024
+#define SEG_UNIT_SIZE 1024
 #define KEY_LEN 10
 
 #define TEST_BS 4096
-//#define TEST_THREAD_NUM 2
-#define TEST_THREAD_NUM 512
 
 using namespace std;
 using namespace kvdb;
@@ -31,13 +29,13 @@ struct thread_arg{
 
 void usage()
 {
-    fprintf(stderr, "Usage: Benchmark -f dbfile -s db_size -n num_records\n");
+    fprintf(stderr, "Usage: Benchmark -f dbfile -s db_size -n num_records -t thread_num -seg segment_size(KB)\n");
 }
 
-int Create_DB(string filename, int db_size)
+int Create_DB(string filename, int db_size, int segment_K)
 {
     int ht_size = db_size ;
-    int segment_size = SEGMENT_SIZE;
+    int segment_size = SEG_UNIT_SIZE * segment_K;
 
     Options opts;
     opts.hashtable_size = ht_size;
@@ -97,19 +95,19 @@ void* fun_insert(void *arg)
 
 }
 
-void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
+void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list, int thread_num)
 {
 
     cout << "Insert Bench Start, record_num = " << record_num << ", Please wait ..." << endl;
 
     string data = string(TEST_BS, 'v');
 
-    thread_arg arglist[TEST_THREAD_NUM];
-    pthread_t pidlist[TEST_THREAD_NUM];
-    for (int i = 0; i < TEST_THREAD_NUM; i++)
+    thread_arg arglist[thread_num];
+    pthread_t pidlist[thread_num];
+    for (int i = 0; i < thread_num; i++)
     {
-        int start = (record_num / TEST_THREAD_NUM) * i ;
-        int end = (record_num / TEST_THREAD_NUM) * (i+1) - 1;
+        int start = (record_num / thread_num) * i ;
+        int end = (record_num / thread_num) * (i+1) - 1;
         arglist[i].db = db;
         arglist[i].key_start = start;
         arglist[i].key_end = end;
@@ -118,13 +116,13 @@ void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list)
     }
 
     KVTime tv_start;
-    for (int i=0; i<TEST_THREAD_NUM; i++)
+    for (int i=0; i<thread_num; i++)
     {
         pthread_create(&pidlist[i], NULL, fun_insert, &arglist[i] );
     }
     db->printDbStates();
 
-    for (int i=0; i<TEST_THREAD_NUM; i++)
+    for (int i=0; i<thread_num; i++)
     {
         pthread_join(pidlist[i], NULL);
     }
@@ -169,18 +167,18 @@ void* fun_get(void *arg)
     return NULL;
 }
 
-void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
+void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list, int thread_num)
 {
     cout << "Get Sequential Bench Start, record_num = " << record_num << ", Please wait ..." << endl;
 
     string data = string(TEST_BS, 'v');
 
-    thread_arg arglist[TEST_THREAD_NUM];
-    pthread_t pidlist[TEST_THREAD_NUM];
-    for (int i = 0; i < TEST_THREAD_NUM; i++)
+    thread_arg arglist[thread_num];
+    pthread_t pidlist[thread_num];
+    for (int i = 0; i < thread_num; i++)
     {
-        int start = (record_num / TEST_THREAD_NUM) * i ;
-        int end = (record_num / TEST_THREAD_NUM) * (i+1) - 1;
+        int start = (record_num / thread_num) * i ;
+        int end = (record_num / thread_num) * (i+1) - 1;
         arglist[i].db = db;
         arglist[i].key_start = start;
         arglist[i].key_end = end;
@@ -189,15 +187,32 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
     }
 
     KVTime tv_start;
-    for (int i=0; i<TEST_THREAD_NUM; i++)
+    for (int i=0; i<thread_num; i++)
     {
         pthread_create(&pidlist[i], NULL, fun_get, &arglist[i] );
     }
     db->printDbStates();
-    for (int i=0; i<TEST_THREAD_NUM; i++)
+    for (int i=0; i<thread_num; i++)
     {
         pthread_join(pidlist[i], NULL);
     }
+
+    //int key_len = KEY_LEN;
+    //for (int i=0; i<record_num; i++)
+    //{
+    //    string key = key_list[i];
+    //    string get_data;
+    //    if (!db->Get(key.c_str() ,key_len, get_data))
+    //    {
+    //        cout << "Get key = " << key << "from DB failed!" << endl;
+    //    }
+    //    //if (strcmp(get_data.c_str(), value->c_str()) != 0)
+    //    //{
+    //    //    cout << "Get key=" << key <<"Inconsistent! "<< endl;
+    //    //    cout << "Value size = " << get_data.length() << endl;
+    //    //    cout << "value = " << get_data << endl;
+    //    //}
+    //}
 
     KVTime tv_end;
     double get_time = (tv_end - tv_start) / 1000000.0;
@@ -208,9 +223,9 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
     return;
 }
 
-int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &record_num){
+int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &record_num, int &thread_num, int &segment_K){
 
-    if (argc != 7)  
+    if (argc != 11)
     {
         return -1;
     }
@@ -218,7 +233,9 @@ int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &reco
     string str_f = "-f";
     string str_s = "-s";
     string str_n = "-n";
-    if (strcmp(argv[1], str_f.c_str()) !=0 || strcmp(argv[3], str_s.c_str()) != 0 || strcmp(argv[5], str_n.c_str()) != 0)
+    string str_t = "-t";
+    string str_seg = "-seg";
+    if (strcmp(argv[1], str_f.c_str()) !=0 || strcmp(argv[3], str_s.c_str()) != 0 || strcmp(argv[5], str_n.c_str()) != 0 || strcmp(argv[7], str_t.c_str()) != 0 || strcmp(argv[9], str_seg.c_str()) != 0)
     {
         return -1;
     }
@@ -226,8 +243,10 @@ int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &reco
     filename = argv[2];
     db_size = atoi(argv[4]);
     record_num = atoi(argv[6]);
+    thread_num = atoi(argv[8]);
+    segment_K = atoi(argv[10]);
     
-    if (db_size < 0 ||  record_num < 0 )
+    if (db_size < 0 ||  record_num < 0 || thread_num < 0 || segment_K < 0)
     {
         return -1;
     }
@@ -236,12 +255,12 @@ int Parse_Option(int argc, char** argv,string &filename, int &db_size, int &reco
 }
 
 
-void Bench(string file_path, int db_size, int record_num)
+void Bench(string file_path, int db_size, int record_num, int thread_num, int segment_K)
 {
 
     vector<string> key_list;
     Create_Keys(record_num, key_list);
-    if (Create_DB(file_path, db_size) < 0)
+    if (Create_DB(file_path, db_size, segment_K) < 0)
     {
         return;
     }
@@ -249,9 +268,9 @@ void Bench(string file_path, int db_size, int record_num)
     Options opts;
     KvdbDS *db = KvdbDS::Open_KvdbDS(file_path.c_str(), opts);
 
-    Bench_Insert(db, record_num, key_list);
+    Bench_Insert(db, record_num, key_list, thread_num);
     db->ClearReadCache();
-    Bench_Get_Seq(db, record_num, key_list);
+    Bench_Get_Seq(db, record_num, key_list, thread_num);
 
     delete db;
 }
@@ -260,14 +279,16 @@ int main(int argc, char** argv){
     string file_path;
     int db_size; 
     int record_num;
+    int thread_num;
+    int segment_K;
 
-    if(Parse_Option(argc, argv, file_path, db_size, record_num) < 0)
+    if(Parse_Option(argc, argv, file_path, db_size, record_num, thread_num, segment_K) < 0)
     {
         usage();
         return -1;
     }
 
-    Bench(file_path, db_size, record_num);
-
+    Bench(file_path, db_size, record_num, thread_num, segment_K);
     return 0;
 }
+
