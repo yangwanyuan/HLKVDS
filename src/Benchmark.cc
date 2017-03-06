@@ -79,12 +79,14 @@ void* fun_insert(void *arg)
 
     int value_size = TEST_BS;
     int key_len = KEY_LEN;
+    Status s;
 
     for (int i = key_start; i < key_end + 1;  i++)
     {
         string key = key_list[i];
         //string key = key_list[key_start];
-        if (!db->Insert(key.c_str(), key_len, value->c_str(), value_size))
+        s=db->Insert(key.c_str(), key_len, value->c_str(), value_size);
+        if (!s.ok())
         {
             cout << "Insert key=" << key << "to DB failed!" << endl;
         }
@@ -118,6 +120,7 @@ void Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list, int thre
     {
         pthread_create(&pidlist[i], NULL, fun_insert, &arglist[i] );
     }
+    db->printDbStates();
 
     for (int i=0; i<thread_num; i++)
     {
@@ -143,12 +146,14 @@ void* fun_get(void *arg)
 
     string *value = t_args->data;
     int key_len = KEY_LEN;
+    Status s;
 
     for(int i = key_start; i< key_end+1; i++)
     {
         string key = key_list[i];
         string get_data;
-        if (!db->Get(key.c_str() ,key_len, get_data))
+        s=db->Get(key.c_str() ,key_len, get_data);
+        if (!s.ok())
         {
             cout << "Get key = " << key << "from DB failed!" << endl;
         }
@@ -186,7 +191,7 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list, int thr
     {
         pthread_create(&pidlist[i], NULL, fun_get, &arglist[i] );
     }
-
+    db->printDbStates();
     for (int i=0; i<thread_num; i++)
     {
         pthread_join(pidlist[i], NULL);

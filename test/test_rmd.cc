@@ -5,13 +5,14 @@
 #include <string>
 #include <set>
 #include <iomanip>
-
+#include "test_base.h"
 #include "KeyDigestHandle.h"
 
-using namespace kvdb;
-using namespace std;
+class test_rmd: public TestBase{
 
-void IntKeyTest()
+};
+
+TEST_F(test_rmd, IntKeyTest)
 {
     uint32_t conflict = 0;
     set<string> result_set;
@@ -54,7 +55,7 @@ void IntKeyTest()
     return ;
 }
 
-void RegularTest()
+TEST_F(test_rmd, RegularTest)
 {
     //char* key_raw = "";
     //char* key_raw = "a";
@@ -81,9 +82,7 @@ void RegularTest()
     
 }
 
-int main(){
-    RegularTest();
-    //IntKeyTest();
-   
-    return 0;   
+int main(int argc, char **argv){
+   ::testing::InitGoogleTest(&argc, argv);
+   return RUN_ALL_TESTS();
 }

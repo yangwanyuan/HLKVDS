@@ -262,7 +262,7 @@ namespace kvdb{
 
         uint32_t seg_size = segMgr_->GetSegmentSize();
         uint64_t data_theory_size = idxMgr_->GetDataTheorySize();
-        uint32_t theory_seg_num = data_theory_size / seg_size;
+        uint32_t theory_seg_num = data_theory_size / seg_size+1;
 
         uint32_t free_seg_num = segMgr_->GetTotalFreeSegs();
         uint32_t total_seg_num = segMgr_->GetNumberOfSeg();
@@ -292,10 +292,9 @@ namespace kvdb{
                 cands_map.clear();
 
                 data_theory_size = idxMgr_->GetDataTheorySize();
-                theory_seg_num = data_theory_size / seg_size;
+                theory_seg_num = data_theory_size / seg_size+1;
 
-                free_seg_num = segMgr_->GetTotalFreeSegs();
-                used_seg_num = total_seg_num - free_seg_num ;
+                used_seg_num=segMgr_->GetTotalUsedSegs();
 
                 waste_rate = 1 - ((double)theory_seg_num / (double)used_seg_num);
                 __DEBUG("done once backgroud GC, total free %u segments, data_theory_size = %lu, theory_seg_num = %u, used_seg_num = %u, seg_size = %u, waste_rate is %f",total_free, data_theory_size, theory_seg_num, used_seg_num, seg_size,  waste_rate);

@@ -8,19 +8,17 @@
 #include <stdlib.h>
 #include <vector>
 #include <stdlib.h>
-
-#include "hyperds/Options.h"
-#include "Kvdb_Impl.h"
+#include "test_base.h"
+#include "gtest/gtest.h"
 
 #define SEGMENT_SIZE 256 * 1024
 #define KEY_LEN 10
-
 #define TEST_BS 4096
-//#define TEST_THREAD_NUM 2
 #define TEST_THREAD_NUM 512
 
-using namespace std;
-using namespace kvdb;
+class test_gc : public TestBase{
+
+};
 
 enum Option{ INSERT, GET };
 
@@ -86,13 +84,12 @@ void* fun_insert(void *arg)
     //int value_size = value.length();
     int value_size = TEST_BS;
     int key_len = KEY_LEN;
-    Status s;
 
     for (int i = key_start; i < key_end + 1;  i++)
     {
         string key = key_list[i];
         //string key = key_list[key_start];
-        s=db->Insert(key.c_str(), key_len, value->c_str(), value_size);
+        Status s =db->Insert(key.c_str(), key_len, value->c_str(), value_size);
         if (!s.ok())
         {
             cout << "Insert key=" << key << "to DB failed!" << endl;
@@ -149,7 +146,6 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
     int key_len = KEY_LEN;
 
     KVTime tv_start;
-    Status s;
 
     for (vector<string>::iterator iter = key_list.begin(); iter != key_list.end(); iter++)
     {
@@ -159,7 +155,7 @@ void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list)
         //{
         //    cout << "hello" << endl;
         //}
-        s=db->Get(key.c_str(), key_len, get_data);
+        Status s=db->Get(key.c_str(), key_len, get_data);
         if (!s.ok())
         {
             cout << "Get key=" << key << " from DB failed" << endl;
@@ -233,17 +229,15 @@ void Bench(string file_path, int db_size, int record_num)
 }
 
 int main(int argc, char** argv){
-    string file_path;
-    int db_size;
-    int record_num;
-
-    if(Parse_Option(argc, argv, file_path, db_size, record_num) < 0)
-    {
-        usage();
-        return -1;
-    }
-
-    Bench(file_path, db_size, record_num);
-
-    return 0;
+	::testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }
+
+
+TEST_F(test_gc,foregroundgc)
+{
+	int records=1000;
+	Bench(FILENAME,records*2,records);
+
+}
+
