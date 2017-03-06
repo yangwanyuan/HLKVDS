@@ -35,7 +35,8 @@ TEST =  test/test_block_manager \
 	    test/test_operations \
 	    test/test_rmd \
 	    test/test_segment_manager \
-	    test/test_db
+	    test/test_db \
+	    test/test_status
 
 PROGNAME := ${UTILS} ${SHARED_LIB}
 
@@ -94,6 +95,8 @@ test/test_operations: test/test_operations.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 test/test_segment_manager: test/test_segment_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
 test/test_db: test/test_db.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
+test/test_status: test/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${TEST_INCLUDES}
 .PHONY : clean
 clean:

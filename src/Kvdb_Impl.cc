@@ -371,16 +371,14 @@ namespace kvdb {
         gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_, options_);
     }
 
-
     Status KvdbDS::Insert(const char* key, uint32_t key_len, const char* data, uint16_t length)
     {
-        //bool res = false;
         if (key == NULL)
         {
             return Status::InvalidArgument("Key is null.");
         }
            
-	//__INFO("!!!%d", segMgr_->GetMaxValueLength());
+        //__INFO("!!!%d", segMgr_->GetMaxValueLength());
 
         if (length > segMgr_->GetMaxValueLength())
         {
