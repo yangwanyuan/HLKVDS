@@ -195,10 +195,24 @@ namespace kvdb{
 
         bool IsSameInMem(HashEntry entry);
 
-    private:
-        void createListIfNotExist(uint32_t index);
+    public:
+        struct HashtableSlot
+        {
+            LinkedList<HashEntry> *entryList_;
+            std::mutex slotMtx_;
+            HashtableSlot()
+            {
+                entryList_ = new LinkedList<HashEntry>;
+            }
+            ~HashtableSlot()
+            {
+                delete entryList_;
+            }
+        };
 
-        bool initHashTable(uint32_t size);
+    private:
+
+        void initHashTable(uint32_t size);
         void destroyHashTable();
 
         bool rebuildHashTable(uint64_t offset);
@@ -210,8 +224,7 @@ namespace kvdb{
         bool persistTime(uint64_t offset);
         bool writeDataToDevice(void* data, uint64_t length, uint64_t offset);
 
-
-        LinkedList<HashEntry>** hashtable_;  
+        HashtableSlot *hashtable_;
         uint32_t htSize_;
         uint32_t keyCounter_;
         uint64_t dataTheorySize_;
