@@ -132,7 +132,7 @@ void Request::Wait() {
 
 void Request::Signal() {
     std::unique_lock < std::mutex > l(mtx_);
-    cv_.notify_all();
+    cv_.notify_one();
 }
 
 SegmentSlice::SegmentSlice() :
