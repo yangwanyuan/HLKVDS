@@ -170,7 +170,7 @@ private:
 
     uint64_t startOff_;
 
-    mutable std::mutex mtx_;
+    std::mutex mtx_;
 
 };
 }// namespace kvdb
