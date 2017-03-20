@@ -71,10 +71,10 @@ namespace kvdb{
 
     class Request{
     public:
-        struct ReqStat{
-            bool writed;
-            bool write_stat;
-            ReqStat(): writed(false), write_stat(false){}
+        enum ReqStat{
+            INIT = 0,
+            FAIL,
+            SUCCESS
         };
 
     public:
@@ -86,7 +86,7 @@ namespace kvdb{
 
         KVSlice& GetSlice() const { return *slice_; }
 
-        bool GetWriteStat() const { return stat_.write_stat; }
+        bool GetWriteStat() const { return stat_ == ReqStat::SUCCESS; }
         void SetWriteStat(bool stat);
 
         void SetSeg(SegmentSlice *seg) { segPtr_ = seg; }
@@ -96,6 +96,7 @@ namespace kvdb{
         void Signal();
 
     private:
+        bool done_;
         ReqStat stat_;
         KVSlice *slice_;
         mutable std::mutex mtx_;

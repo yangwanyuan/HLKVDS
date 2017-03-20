@@ -379,8 +379,6 @@ namespace kvdb {
         {
             return Status::InvalidArgument("Key is null.");
         }
-           
-	//__INFO("!!!%d", segMgr_->GetMaxValueLength());
 
         if (length > segMgr_->GetMaxValueLength())
         {

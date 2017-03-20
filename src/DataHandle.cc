@@ -101,17 +101,18 @@ namespace kvdb{
     }
 
 
-    Request::Request(): slice_(NULL), segPtr_(NULL){}
+    Request::Request(): done_(false), stat_(ReqStat::INIT), slice_(NULL), segPtr_(NULL){}
 
     Request::~Request(){}
 
 
     Request::Request(const Request& toBeCopied) :
-        stat_(toBeCopied.stat_), slice_(toBeCopied.slice_),
+        done_(false), stat_(toBeCopied.stat_), slice_(toBeCopied.slice_),
         segPtr_(toBeCopied.segPtr_){}
 
     Request& Request::operator=(const Request& toBeCopied)
     {
+        done_ = toBeCopied.done_;
         stat_ = toBeCopied.stat_;
         slice_ = toBeCopied.slice_;
         segPtr_ = toBeCopied.segPtr_;
@@ -123,22 +124,25 @@ namespace kvdb{
     void Request::SetWriteStat(bool stat)
     {
         std::lock_guard<std::mutex> l(mtx_);
-        stat_.writed = true;
-        stat_.write_stat = stat;
+        stat_ = stat? ReqStat::SUCCESS : ReqStat::FAIL ;
     }
 
     void Request::Wait()
     {
         std::unique_lock<std::mutex> l(mtx_);
-        cv_.wait(l);
+        while(!done_)
+        {
+            cv_.wait(l);
+        }
     }
 
     void Request::Signal()
     {
         std::unique_lock<std::mutex> l(mtx_);
-        //cv_.notify_all();
+        done_ = true;
         cv_.notify_one();
     }
+
 
     SegmentSlice::SegmentSlice()
         :segId_(0), segMgr_(NULL), idxMgr_(NULL), bdev_(NULL), segSize_(0),
