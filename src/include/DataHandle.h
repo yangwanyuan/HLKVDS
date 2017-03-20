@@ -99,7 +99,7 @@ namespace kvdb{
         bool done_;
         ReqStat stat_;
         KVSlice *slice_;
-        mutable std::mutex mtx_;
+        std::mutex mtx_;
         std::condition_variable cv_;
 
         SegmentSlice *segPtr_;

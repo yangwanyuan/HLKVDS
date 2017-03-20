@@ -135,7 +135,7 @@ namespace kvdb{
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
         Options &options_;
-        mutable std::mutex mtx_;
+        std::mutex mtx_;
 
     };
 

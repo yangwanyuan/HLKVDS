@@ -235,7 +235,7 @@ namespace kvdb{
         Options &options_;
 
         KVTime* lastTime_;
-        mutable std::mutex mtx_;
+        std::mutex mtx_;
 
     };
 
