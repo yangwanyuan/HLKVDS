@@ -33,6 +33,7 @@ class IndexManager;
 class SegmentManager;
 class SegmentSlice;
 
+
 class KVSlice {
 public:
     KVSlice();
@@ -46,34 +47,41 @@ public:
     const Kvdb_Digest& GetDigest() const {
         return *digest_;
     }
+
     const char* GetKey() const {
         return key_;
     }
+
     const char* GetData() const {
         return data_;
     }
+
     string GetKeyStr() const;
     string GetDataStr() const;
     uint32_t GetKeyLen() const {
         return keyLength_;
     }
+
     uint16_t GetDataLen() const {
         return dataLength_;
     }
-    bool IsAlignedData() const {
+
+    bool IsAlignedData() const{
         return GetDataLen() == ALIGNED_SIZE;
     }
+
     HashEntry& GetHashEntry() const {
         return *entry_;
     }
+
     uint32_t GetSegId() const {
         return segId_;
     }
 
-    void SetKeyValue(const char* key, int key_len, const char* data,
-                     int data_len);
+    void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
     void SetHashEntry(const HashEntry *hash_entry);
     void SetSegId(uint32_t seg_id);
+
 
 private:
     const char* key_;
@@ -91,12 +99,10 @@ private:
 
 class Request {
 public:
-    struct ReqStat {
-        bool writed;
-        bool write_stat;
-        ReqStat() :
-            writed(false), write_stat(false) {
-        }
+    enum ReqStat {
+        INIT = 0,
+        FAIL,
+        SUCCESS
     };
 
 public:
@@ -111,13 +117,15 @@ public:
     }
 
     bool GetWriteStat() const {
-        return stat_.write_stat;
+        return stat_ == ReqStat::SUCCESS;
     }
+
     void SetWriteStat(bool stat);
 
     void SetSeg(SegmentSlice *seg) {
         segPtr_ = seg;
     }
+
     SegmentSlice* GetSeg() {
         return segPtr_;
     }
@@ -126,6 +134,7 @@ public:
     void Signal();
 
 private:
+    bool done_;
     ReqStat stat_;
     KVSlice *slice_;
     mutable std::mutex mtx_;

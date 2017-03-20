@@ -318,6 +318,7 @@ void KvdbDS::stopThds() {
     reqMergeT_.join();
 }
 
+//<<<<<<< HEAD
 KvdbDS::~KvdbDS() {
     closeDB();
     delete gcMgr_;
