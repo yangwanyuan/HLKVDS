@@ -342,8 +342,8 @@ KvdbDS::KvdbDS(const string& filename, Options opts) :
 
 Status KvdbDS::Insert(const char* key, uint32_t key_len, const char* data,
                       uint16_t length) {
-    if (key == NULL) {
-        return Status::InvalidArgument("Key is null.");
+    if (key == NULL || key[0] == '\0') {
+        return Status::InvalidArgument("Key is null or empty.");
     }
 
     //__INFO("!!!%d", segMgr_->GetMaxValueLength());

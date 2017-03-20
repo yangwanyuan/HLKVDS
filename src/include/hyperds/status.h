@@ -37,7 +37,7 @@ public:
     }
 
     static Status OK() {
-        return Status(kOk, "");
+        return Status();
     }
     static Status NotFound(const char* msg) {
         return Status(kNotFound, msg);
