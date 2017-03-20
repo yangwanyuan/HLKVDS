@@ -30,27 +30,22 @@ TEST_F(test_operations,insert)
     EXPECT_TRUE(s.ok());
 
     EXPECT_EQ(test_value,get_data);
-
+    get_data.clear();
     delete db;
 }
 
-TEST_F(test_operations,emtpyvalue)
+TEST_F(test_operations,emptykey)
 {
     int db_size=100;
     KvdbDS *db= Create_DB(db_size);
 
     string test_key = "";
     int test_key_size = 8;
-    string test_value = "";
+    string test_value = "test-value";
     int test_value_size = 10;
 
     Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
-    EXPECT_TRUE(s.ok());
-    string get_data;
-    s=db->Get(test_key.c_str(), test_key_size, get_data);
-    EXPECT_TRUE(s.ok());
-
-    EXPECT_EQ(test_value_size,get_data.length());
+    EXPECT_FALSE(s.ok());
 
     delete db;
 }
@@ -60,8 +55,8 @@ TEST_F(test_operations,zerosize)
     int db_size=100;
     KvdbDS *db= Create_DB(db_size);
 
-    string test_key = "";
-    int test_key_size = 0;
+    string test_key = "test_key";
+    int test_key_size = 8;
     string test_value = "";
     int test_value_size = 0;
 
@@ -89,9 +84,9 @@ TEST_F(test_operations,bigsizevalue)
     int test_value_size =1024000;
 
     Status s=db->Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
-    EXPECT_TRUE(s.ok());//TRUE or FALSE ?
+    EXPECT_TRUE(s.ok());
 
-    //db->readMetaDataFromDevice();//TODO databases status dump
+    db->printDbStates();
     string get_data;
     s=db->Get(test_key.c_str(), test_key_size, get_data);
     EXPECT_TRUE(s.ok());
