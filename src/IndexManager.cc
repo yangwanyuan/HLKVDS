@@ -133,9 +133,7 @@ bool IndexManager::InitIndexForCreateDB(uint64_t offset, uint32_t numObjects) {
     keyCounter_ = 0;
     startOff_ = offset;
 
-    if (!initHashTable(htSize_)) {
-        return false;
-    }
+    initHashTable(htSize_);
 
     //Update data theory size from superblock
     dataTheorySize_ = 0;
@@ -217,65 +215,71 @@ bool IndexManager::UpdateIndex(KVSlice* slice) {
     HashEntry entry = slice->GetHashEntry();
     const char* data = slice->GetData();
 
-    std::lock_guard < std::mutex > l(mtx_);
-
     uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
-    createListIfNotExist(hash_index);
-    LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
+
+    std::unique_lock<std::mutex> meta_lck(mtx_, std::defer_lock);
+
+    std::lock_guard<std::mutex> l(hashtable_[hash_index].slotMtx_);
+    LinkedList<HashEntry> *entry_list = hashtable_[hash_index].entryList_;
 
     bool is_exist = entry_list->search(entry);
     if (!is_exist) {
         if (data) {
             //It's insert a new entry operation
+            meta_lck.lock();
             if (keyCounter_ == htSize_) {
                 __WARN("UpdateIndex Failed, because the hashtable is full!");
                 return false;
             }
+            meta_lck.unlock();
 
             entry_list->put(entry);
+
+            meta_lck.lock();
             keyCounter_++;
             dataTheorySize_ += SizeOfDataHeader() + slice->GetDataLen();
+            meta_lck.unlock();
+
             __DEBUG("UpdateIndex request, because this entry is not exist! Now dataTheorySize_ is %ld", dataTheorySize_);
-        } else {
+        }
+        else {
             //It's a invalid delete operation
             segMgr_->ModifyDeathEntry(entry);
             __DEBUG("Ignore the UpdateIndex request, because this is a delete operation but not exist in Memory");
         }
-    } else {
+    }
+    else {
         HashEntry *entry_inMem = entry_list->getRef(entry);
         HashEntry::LogicStamp *lts = entry.GetLogicStamp();
         HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
 
-        if (*lts < *lts_inMem) {
+        if ( *lts < *lts_inMem) {
             segMgr_->ModifyDeathEntry(entry);
             __DEBUG("Ignore the UpdateIndex request, because request is expired!");
-        } else {
+        }
+        else {
             //this operation is need to do
             segMgr_->ModifyDeathEntry(*entry_inMem);
 
-            uint16_t data_size = entry.GetDataSize();
+            uint16_t data_size = entry.GetDataSize() ;
             uint16_t data_inMem_size = entry_inMem->GetDataSize();
 
+            meta_lck.lock();
             if (data_size == 0) {
-                dataTheorySize_ -= (uint64_t)(
-                                              SizeOfDataHeader()
-                                                      + data_inMem_size);
-            } else {
-                dataTheorySize_
-                        += (data_size > data_inMem_size
-                                                        ? ((uint64_t)(
-                                                                      data_size
-                                                                              - data_inMem_size))
-                                                        : -((uint64_t)(
-                                                                       data_inMem_size
-                                                                               - data_size)));
+                dataTheorySize_ -= (uint64_t)(SizeOfDataHeader() + data_inMem_size);
             }
+            else {
+                dataTheorySize_ += ( data_size > data_inMem_size? 
+                        ((uint64_t)(data_size - data_inMem_size)) : 
+                        -((uint64_t)(data_inMem_size - data_size)) );
+            }
+            meta_lck.unlock();
+
             entry_list->put(entry);
 
             __DEBUG("UpdateIndex request, because request is new than in memory!Now dataTheorySize_ is %ld", dataTheorySize_);
         }
         return true;
-
     }
 
     __DEBUG("Update Index: key:%s, data_len:%u, seg_id:%u, data_offset:%u",
@@ -289,12 +293,11 @@ void IndexManager::RemoveEntry(HashEntry entry) {
     Kvdb_Digest digest = entry.GetKeyDigest();
 
     uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;
-    LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
-    if (!entry_list) {
-        return;
-    }
 
-    std::lock_guard < std::mutex > l(mtx_);
+    std::unique_lock<std::mutex> meta_lck(mtx_, std::defer_lock);
+    std::lock_guard<std::mutex> l(hashtable_[hash_index].slotMtx_);
+    LinkedList<HashEntry> *entry_list = hashtable_[hash_index].entryList_;
+
     HashEntry *entry_inMem = entry_list->getRef(entry);
     if (!entry_inMem) {
         __DEBUG("Already remove the index entry");
@@ -307,29 +310,27 @@ void IndexManager::RemoveEntry(HashEntry entry) {
     if (t_inMem == t && entry_inMem->GetDataSize() == 0) {
         entry_list->remove(entry);
         segMgr_->ModifyDeathEntry(entry);
+
+        meta_lck.lock();
         keyCounter_--;
+        meta_lck.unlock();
+
         __DEBUG("Remove the index entry!");
     }
-
 }
 
 bool IndexManager::GetHashEntry(KVSlice *slice) {
     const Kvdb_Digest *digest = &slice->GetDigest();
     uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
-
-    LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
-    if (!entry_list) {
-        return false;
-    }
-
     HashEntry entry;
     entry.SetKeyDigest(*digest);
 
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard<std::mutex> l(hashtable_[hash_index].slotMtx_);
+    LinkedList<HashEntry> *entry_list = hashtable_[hash_index].entryList_;
+
     if (entry_list->search(entry)) {
         vector<HashEntry> tmp_vec = entry_list->get();
-        for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter
-                != tmp_vec.end(); iter++) {
+        for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++) {
             if (iter->GetKeyDigest() == *digest) {
                 entry = *iter;
                 slice->SetHashEntry(&entry);
@@ -344,26 +345,22 @@ bool IndexManager::GetHashEntry(KVSlice *slice) {
 }
 
 uint64_t IndexManager::GetDataTheorySize() const {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard<std::mutex> l(mtx_);
     return dataTheorySize_;
 }
 
 uint32_t IndexManager::GetKeyCounter() const {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard<std::mutex> l(mtx_);
     return keyCounter_;
 }
 
-bool IndexManager::IsSameInMem(HashEntry entry) {
+bool IndexManager::IsSameInMem(HashEntry entry)
+{
     Kvdb_Digest digest = entry.GetKeyDigest();
-
-    std::lock_guard < std::mutex > l(mtx_);
-
     uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;
-    LinkedList<HashEntry> *entry_list = hashtable_[hash_index];
-    if (!entry_list) {
-        __DEBUG("Not Same, because linkedlist is not created!");
-        return false;
-    }
+
+    std::lock_guard<std::mutex> l(hashtable_[hash_index].slotMtx_);
+    LinkedList<HashEntry> *entry_list = hashtable_[hash_index].entryList_;
 
     bool is_exist = entry_list->search(entry);
     if (!is_exist) {
@@ -419,29 +416,12 @@ uint32_t IndexManager::ComputeHashSizeForPower2(uint32_t number) {
     return number;
 }
 
-void IndexManager::createListIfNotExist(uint32_t index) {
-    if (!hashtable_[index]) {
-        LinkedList<HashEntry> *entry_list = new LinkedList<HashEntry> ;
-        hashtable_[index] = entry_list;
-    }
-}
-
-bool IndexManager::initHashTable(uint32_t size) {
-    hashtable_ = new LinkedList<HashEntry>*[htSize_];
-
-    for (uint32_t i = 0; i < size; i++) {
-        hashtable_[i] = NULL;
-    }
-    return true;
+void IndexManager::initHashTable(uint32_t size) {
+    hashtable_ = new HashtableSlot[htSize_];
+    return;
 }
 
 void IndexManager::destroyHashTable() {
-    for (uint32_t i = 0; i < htSize_; i++) {
-        if (hashtable_[i]) {
-            delete hashtable_[i];
-            hashtable_[i] = NULL;
-        }
-    }
     delete[] hashtable_;
     hashtable_ = NULL;
     return;
@@ -449,9 +429,7 @@ void IndexManager::destroyHashTable() {
 
 bool IndexManager::rebuildHashTable(uint64_t offset) {
     //Init hashtable
-    if (!initHashTable(htSize_)) {
-        return false;
-    }
+    initHashTable(htSize_);
 
     __DEBUG("initHashTable success");
 
@@ -476,11 +454,11 @@ bool IndexManager::rebuildHashTable(uint64_t offset) {
     //Convert hashtable from device to memory
     if (!convertHashEntryFromDiskToMem(counter, entry_ondisk)) {
         return false;
-    } __DEBUG("rebuild hash_table success");
+    } 
+    __DEBUG("rebuild hash_table success");
 
     delete[] entry_ondisk;
     delete[] counter;
-
     return true;
 }
 
@@ -512,8 +490,7 @@ bool IndexManager::convertHashEntryFromDiskToMem(int* counter,
         for (int j = 0; j < entry_num; j++) {
             HashEntry entry(entry_ondisk[entry_index], *lastTime_, 0);
 
-            createListIfNotExist(i);
-            hashtable_[i]->put(entry);
+            hashtable_[i].entryList_->put(entry);
             entry_index++;
         }
         if (entry_num > 0) {
@@ -524,17 +501,20 @@ bool IndexManager::convertHashEntryFromDiskToMem(int* counter,
     return true;
 }
 
-bool IndexManager::persistHashTable(uint64_t offset) {
+bool IndexManager::persistHashTable(uint64_t offset)
+{
     uint32_t entry_total = 0;
 
     //write hashtable to device
     uint64_t table_length = sizeof(int) * htSize_;
     int* counter = new int[htSize_];
     for (uint32_t i = 0; i < htSize_; i++) {
-        counter[i] = (hashtable_[i] ? hashtable_[i]->get_size() : 0);
+        //counter[i] = (hashtable_[i].entryList_? hashtable_[i].entryList_->get_size(): 0);
+        counter[i] = hashtable_[i].entryList_->get_size();
         entry_total += counter[i];
     }
-    if (!writeDataToDevice((void*) counter, table_length, offset)) {
+
+    if (!writeDataToDevice((void*)counter, table_length, offset)) {
         return false;
     }
     offset += table_length;
@@ -546,17 +526,13 @@ bool IndexManager::persistHashTable(uint64_t offset) {
     HashEntryOnDisk *entry_ondisk = new HashEntryOnDisk[entry_total];
     int entry_index = 0;
     for (uint32_t i = 0; i < htSize_; i++) {
-        if (!hashtable_[i]) {
-            continue;
-        }
-        vector<HashEntry> tmp_vec = hashtable_[i]->get();
-        for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter
-                != tmp_vec.end(); iter++) {
+        vector<HashEntry> tmp_vec = hashtable_[i].entryList_->get();
+        for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter!=tmp_vec.end(); iter++) {
             entry_ondisk[entry_index++] = (iter->GetEntryOnDisk());
         }
     }
 
-    if (!writeDataToDevice((void *) entry_ondisk, length, offset)) {
+    if (!writeDataToDevice((void *)entry_ondisk, length, offset)) {
         return false;
     }
     delete[] entry_ondisk;
@@ -565,6 +541,5 @@ bool IndexManager::persistHashTable(uint64_t offset) {
     return true;
 
 }
-
 }
 
