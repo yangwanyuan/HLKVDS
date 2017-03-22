@@ -23,7 +23,6 @@
 
 using namespace std;
 
-<<<<<<< HEAD
 namespace kvdb {
 
 class SegmentOnDisk;
@@ -138,7 +137,7 @@ private:
     bool done_;
     ReqStat stat_;
     KVSlice *slice_;
-    std::mutex mtx_;
+    mutable std::mutex mtx_;
     std::condition_variable cv_;
 
     SegmentSlice *segPtr_;
@@ -203,7 +202,7 @@ private:
     std::list<Request *> reqList_;
     SegmentOnDisk *segOndisk_;
 
-    std::mutex mtx_;
+    mutable std::mutex mtx_;
     std::list<HashEntry> delReqList_;
 
     char *dataBuf_;

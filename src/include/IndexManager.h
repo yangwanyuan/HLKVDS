@@ -305,7 +305,7 @@ public:
         Options &options_;
 
         KVTime* lastTime_;
-        std::mutex mtx_;
+        mutable std::mutex mtx_;
 
     };
 

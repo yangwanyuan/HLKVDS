@@ -158,7 +158,7 @@ private:
     BlockDevice* bdev_;
     SuperBlockManager* sbMgr_;
     Options &options_;
-    std::mutex mtx_;
+    mutable std::mutex mtx_;
 
 };
 

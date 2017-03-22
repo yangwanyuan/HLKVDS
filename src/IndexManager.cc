@@ -345,12 +345,12 @@ bool IndexManager::GetHashEntry(KVSlice *slice) {
 }
 
 uint64_t IndexManager::GetDataTheorySize() const {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard<std::mutex> l(mtx_);
     return dataTheorySize_;
 }
 
 uint32_t IndexManager::GetKeyCounter() const {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard<std::mutex> l(mtx_);
     return keyCounter_;
 }
 
@@ -490,7 +490,7 @@ bool IndexManager::convertHashEntryFromDiskToMem(int* counter,
         for (int j = 0; j < entry_num; j++) {
             HashEntry entry(entry_ondisk[entry_index], *lastTime_, 0);
 
-            hashtable_[i]->put(entry);
+            hashtable_[i].entryList_->put(entry);
             entry_index++;
         }
         if (entry_num > 0) {

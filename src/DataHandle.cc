@@ -145,6 +145,10 @@ SegmentSlice::SegmentSlice() :
     segOndisk_ = new SegmentOnDisk();
 }
 
+SegmentSlice::~SegmentSlice() {
+    delete segOndisk_;
+}
+
 SegmentSlice::SegmentSlice(const SegmentSlice& toBeCopied) {
     segOndisk_ = new SegmentOnDisk();
     copyHelper(toBeCopied);
