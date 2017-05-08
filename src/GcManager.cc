@@ -11,7 +11,8 @@ GcSegment::GcSegment() :
             persistTime_(KVTime()), headPos_(0), tailPos_(0), keyNum_(0),
             keyAlignedNum_(0), segOndisk_(NULL) {
     segOndisk_ = new SegmentOnDisk();
-    dataBuf_ = new char[segSize_];
+    //dataBuf_ = new char[segSize_];
+    posix_memalign((void **)&dataBuf_, 4096, segSize_);
 }
 
 GcSegment::~GcSegment() {
@@ -21,7 +22,8 @@ GcSegment::~GcSegment() {
 
 GcSegment::GcSegment(const GcSegment& toBeCopied) {
     segOndisk_ = new SegmentOnDisk();
-    dataBuf_ = new char[segSize_];
+    //dataBuf_ = new char[segSize_];
+    posix_memalign((void **)&dataBuf_, 4096, segSize_);
     copyHelper(toBeCopied);
 }
 
@@ -51,7 +53,8 @@ GcSegment::GcSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev) :
             headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
             keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL) {
     segOndisk_ = new SegmentOnDisk();
-    dataBuf_ = new char[segSize_];
+    //dataBuf_ = new char[segSize_];
+    posix_memalign((void **)&dataBuf_, 4096, segSize_);
 }
 
 bool GcSegment::TryPut(KVSlice* slice) {
@@ -315,7 +318,8 @@ void GcManager::FullGC() {
 uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     if (!dataBuf_) {
         uint32_t seg_size = segMgr_->GetSegmentSize();
-        dataBuf_ = new char[seg_size];
+        //dataBuf_ = new char[seg_size];
+        posix_memalign((void **)&dataBuf_, 4096, seg_size);
     }
 
     bool ret;
