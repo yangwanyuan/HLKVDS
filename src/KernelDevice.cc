@@ -111,7 +111,7 @@ int KernelDevice::Open(string path, bool dsync) {
 
     int r = 0;
 
-    directFd_ = open(path_.c_str(), O_RDWR | O_DIRECT, 0666);
+    directFd_ = open(path_.c_str(), O_RDWR | O_DIRECT | O_DSYNC, 0666);
     if (directFd_ < 0) {
         __ERROR("Could not open file: %s\n", strerror(errno));
         goto open_fail;
@@ -168,6 +168,13 @@ void KernelDevice::Close() {
 }
 
 ssize_t KernelDevice::pWrite(const void* buf, size_t count, off_t offset) {
+    if (IsPageAligned(buf) &&
+        IsSectorAligned(count) &&
+        IsSectorAligned(offset)) {
+        return DirectWriteAligned(buf, count, offset);
+    }
+    __INFO("Buffered FD Pwrite, write size = %ld, block_size = %d",
+            count, get_blocksize());
     return pwrite(bufFd_, buf, count, offset);
 }
 
@@ -186,4 +193,10 @@ ssize_t KernelDevice::pReadv(const struct iovec *iov, int iovcnt, off_t offset) 
 void KernelDevice::ClearReadCache() {
     posix_fadvise(bufFd_, 0, capacity_, POSIX_FADV_DONTNEED);
 }
+
+ssize_t KernelDevice::DirectWriteAligned(const void* buf, size_t count, off_t offset) {
+    //__INFO("Direct FD Pwrite");
+    return pwrite(directFd_, buf, count, offset);
+}
+
 }

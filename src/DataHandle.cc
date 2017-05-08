@@ -221,7 +221,10 @@ void SegmentSlice::Put(Request* req) {
 }
 
 bool SegmentSlice::_writeDataToDevice() {
-    char *data_buff = new char[segSize_];
+    //char *data_buff = new char[segSize_];
+    char *data_buff;
+    posix_memalign((void **)&data_buff, 4096, segSize_);
+
     copyToData(data_buff);
 
     uint64_t offset = 0;

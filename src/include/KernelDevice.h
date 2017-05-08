@@ -55,6 +55,16 @@ private:
         return blockSize_;
     }
 
+    ssize_t DirectWriteAligned(const void* buf, size_t count, off_t offset);
+
+    bool IsSectorAligned(const size_t off) {
+        return off % (get_blocksize()) == 0;
+    }
+
+    bool IsPageAligned(const void* ptr) {
+        return (uint64_t)ptr % (get_pagesize()) == 0;
+    }
+
 };
 
 }//namespace kvdb
