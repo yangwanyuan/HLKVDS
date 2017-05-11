@@ -381,6 +381,51 @@ Status KvdbDS::Get(const char* key, uint32_t key_len, string &data) {
 
 }
 
+Status KvdbDS::InsertBatch(WriteBatch *batch)
+{
+    if (batch->batch_.empty()) {
+        return Status::OK();
+    }
+
+    uint32_t seg_id = 0;
+    bool ret;
+    //TODO: use GcSegment first, need abstract segment.
+    while (!segMgr_->Alloc(seg_id)) {
+        ret = gcMgr_->ForeGC();
+        if (!ret) {
+            __ERROR("Cann't get a new Empty Segment.\n");
+            return Status::Aborted("Can't allocate a Empty Segment.");
+        }
+    }
+
+    GcSegment *seg = new GcSegment(segMgr_, idxMgr_, bdev_);
+    for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
+            iter != batch->batch_.end(); iter++) {
+        if (seg->TryPut(*iter)) {
+            seg->Put(*iter);
+        }
+        else {
+            __ERROR("The Batch is too large, can't put in one segment");
+            delete seg;
+            return Status::Aborted("Batch is too large.");
+        }
+    }
+
+    ret = seg->WriteSegToDevice(seg_id);
+    if(!ret) {
+        __ERROR("Write batch segment to device failed");
+        segMgr_->FreeForFailed(seg_id);
+        delete seg;
+        return Status::IOError("could not write batch segment to device ");
+    }
+
+    uint32_t free_size = seg->GetFreeSize();
+    segMgr_->Use(seg_id, free_size);
+    seg->UpdateToIndex();
+    delete seg;
+    return Status::OK();
+}
+
 Status KvdbDS::insertKey(KVSlice& slice) {
     Request *req = new Request(slice);
     reqQue_.Enqueue_Notify(req);
