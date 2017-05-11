@@ -16,6 +16,7 @@
 #include "Db_Structure.h"
 #include "hyperds/Options.h"
 #include "hyperds/status.h"
+#include "hyperds/Write_batch.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
@@ -35,6 +36,8 @@ public:
                   uint16_t length);
     Status Get(const char* key, uint32_t key_len, string &data);
     Status Delete(const char* key, uint32_t key_len);
+
+    Status InsertBatch(WriteBatch *batch);
 
     void Do_GC();
     void ClearReadCache() {
