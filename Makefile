@@ -45,7 +45,7 @@ SRC_OBJ =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o DataHandle.o BlockDevi
 SRC_OBJECTS = $(addprefix ${SRC_DIR}/, ${SRC_OBJ})
 COMMON_OBJECTS = ${SRC_OBJECTS}
 TEST_OBJECTS = test/test_base.o
-ALL_OBJECTS = $(CORE_C_OBJ) $(CORE_CXX_OBJ)
+ALL_OBJECTS = $(CORE_C_OBJ) $(CORE_CXX_OBJ) $(TEST_CXX_OBJ)
 
 .PHONY : all
 all: ${PROGNAME}
