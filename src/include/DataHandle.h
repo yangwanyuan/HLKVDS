@@ -32,6 +32,7 @@ class HashEntry;
 class IndexManager;
 class SegmentManager;
 class SegmentSlice;
+class SegSlice;
 
 
 class KVSlice {
@@ -122,11 +123,13 @@ public:
 
     void SetWriteStat(bool stat);
 
-    void SetSeg(SegmentSlice *seg) {
+    //void SetSeg(SegmentSlice *seg) {
+    void SetSeg(SegSlice *seg) {
         segPtr_ = seg;
     }
 
-    SegmentSlice* GetSeg() {
+    //SegmentSlice* GetSeg() {
+    SegSlice* GetSeg() {
         return segPtr_;
     }
 
@@ -140,7 +143,97 @@ private:
     mutable std::mutex mtx_;
     std::condition_variable cv_;
 
-    SegmentSlice *segPtr_;
+    //SegmentSlice *segPtr_;
+    SegSlice *segPtr_;
+};
+
+class SegBuffer {
+public:
+    SegBuffer();
+    ~SegBuffer();
+    SegBuffer(const SegBuffer& toBeCopied);
+    SegBuffer& operator=(const SegBuffer& toBeCopied);
+    SegBuffer(SegmentManager* sm, BlockDevice* bdev);
+
+    bool TryPut(KVSlice* slice);
+    void Put(KVSlice* slice);
+    bool WriteSegToDevice();
+    uint32_t GetFreeSize() const {
+        return tailPos_ - headPos_;
+    }
+
+    int32_t GetSegId() const {
+        return segId_;
+    }
+    void SetSegId(int32_t seg_id) {
+        segId_ = seg_id;
+    }
+
+    int32_t GetKeyNum() const {
+        return keyNum_;
+    }
+
+private:
+    void copyHelper(const SegBuffer& toBeCopied);
+    void fillEntryToSlice();
+    bool _writeDataToDevice();
+    void copyToDataBuf();
+    bool newDataBuffer();
+
+private:
+    int32_t segId_;
+    SegmentManager* segMgr_;
+    BlockDevice* bdev_;
+    int32_t segSize_;
+    KVTime persistTime_;
+
+    uint32_t headPos_;
+    uint32_t tailPos_;
+
+    int32_t keyNum_;
+    int32_t keyAlignedNum_;
+
+    std::list<KVSlice *> sliceList_;
+
+    SegmentOnDisk *segOndisk_;
+    char *dataBuf_;
+};
+
+class SegSlice : public SegBuffer {
+public:
+    SegSlice();
+    ~SegSlice();
+    SegSlice(const SegSlice& toBeCopied);
+    SegSlice& operator=(const SegSlice& toBeCopied);
+
+    SegSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+
+    bool TryPut(Request* req);
+    void Put(Request* req);
+    void Complete();
+    void Notify(bool stat);
+    bool IsExpired();
+
+    int32_t CommitedAndGetNum() {
+        return --reqCommited_;
+    }
+
+    void CleanDeletedEntry();
+
+private:
+    IndexManager* idxMgr_;
+    uint32_t timeout_;
+    KVTime startTime_;
+    KVTime persistTime_;
+
+    bool isCompleted_;
+    bool hasReq_;
+
+    std::atomic<int32_t> reqCommited_;
+    std::list<Request *> reqList_;
+
+    mutable std::mutex mtx_;
+    std::list<HashEntry> delReqList_;
 };
 
 class SegmentSlice {

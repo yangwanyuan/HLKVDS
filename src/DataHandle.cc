@@ -137,6 +137,311 @@ void Request::Signal() {
     cv_.notify_one();
 }
 
+SegBuffer::SegBuffer() :
+    segId_(-1), segMgr_(NULL), bdev_(NULL), segSize_(-1),
+        headPos_(0), tailPos_(0), keyNum_(0),
+        keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
+    segOndisk_ = new SegmentOnDisk();
+}
+
+SegBuffer::~SegBuffer() {
+    if (segOndisk_) {
+        delete segOndisk_;
+    }
+    if (dataBuf_) {
+        delete[] dataBuf_;
+    }
+}
+
+SegBuffer::SegBuffer(const SegBuffer& toBeCopied) {
+    segOndisk_ = new SegmentOnDisk();
+    copyHelper(toBeCopied);
+}
+
+SegBuffer& SegBuffer::operator=(const SegBuffer& toBeCopied) {
+    copyHelper(toBeCopied);
+    return *this;
+}
+
+void SegBuffer::copyHelper(const SegBuffer& toBeCopied) {
+    segId_ = toBeCopied.segId_;
+    segMgr_ = toBeCopied.segMgr_;
+    bdev_ = toBeCopied.bdev_;
+    segSize_ = toBeCopied.segSize_;
+    headPos_ = toBeCopied.headPos_;
+    tailPos_ = toBeCopied.tailPos_;
+    keyNum_ = toBeCopied.keyNum_;
+    keyAlignedNum_ = toBeCopied.keyAlignedNum_;
+    *segOndisk_ = *toBeCopied.segOndisk_;
+    memcpy(dataBuf_, toBeCopied.dataBuf_, segSize_);
+    sliceList_ = toBeCopied.sliceList_;
+}
+
+SegBuffer::SegBuffer(SegmentManager* sm, BlockDevice* bdev) :
+    segId_(-1), segMgr_(sm), bdev_(bdev),
+        segSize_(segMgr_->GetSegmentSize()),
+        headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
+        keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
+    segOndisk_ = new SegmentOnDisk();
+}
+
+bool SegBuffer::TryPut(KVSlice* slice) {
+    uint32_t freeSize = tailPos_ - headPos_;
+    uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
+    return freeSize > needSize;
+}
+
+void SegBuffer::Put(KVSlice* slice) {
+    if (slice->IsAlignedData()) {
+        headPos_ += IndexManager::SizeOfDataHeader();
+        tailPos_ -= ALIGNED_SIZE;
+        keyAlignedNum_++;
+    } else {
+        headPos_ += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
+    }
+    keyNum_++;
+    sliceList_.push_back(slice);
+    __DEBUG("Put request key = %s", slice->GetKeyStr().c_str());
+}
+
+bool SegBuffer::WriteSegToDevice() {
+    if (segId_ < 0)
+    {
+        __ERROR("Not set seg_id to segment");
+        return false;
+    }
+    fillEntryToSlice();
+    __DEBUG("Begin write seg, free size %u, seg id: %d, key num: %d", tailPos_-headPos_ , segId_, keyNum_);
+    return _writeDataToDevice();
+}
+
+void SegBuffer::fillEntryToSlice() {
+    uint32_t head_pos = SegmentManager::SizeOfSegOnDisk();
+    uint32_t tail_pos = segSize_;
+    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
+            != sliceList_.end(); iter++) {
+
+        KVSlice *slice = *iter;
+        slice->SetSegId(segId_);
+        if (slice->IsAlignedData()) {
+            uint32_t data_offset = tail_pos - ALIGNED_SIZE;
+            uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader();
+
+            DataHeader data_header(slice->GetDigest(), slice->GetDataLen(),
+                                   data_offset, next_offset);
+
+            uint64_t seg_offset = 0;
+            segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+            uint64_t header_offset = seg_offset + head_pos;
+
+            HashEntry hash_entry(data_header, header_offset, NULL);
+            slice->SetHashEntry(&hash_entry);
+
+            head_pos += IndexManager::SizeOfDataHeader();
+            tail_pos -= ALIGNED_SIZE;
+            __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
+        } else {
+            uint32_t data_offset = head_pos + IndexManager::SizeOfDataHeader();
+            uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader()
+                    + slice->GetDataLen();
+
+            DataHeader data_header(slice->GetDigest(), slice->GetDataLen(),
+                                   data_offset, next_offset);
+
+            uint64_t seg_offset = 0;
+            segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+            uint64_t header_offset = seg_offset + head_pos;
+
+            HashEntry hash_entry(data_header, header_offset, NULL);
+            slice->SetHashEntry(&hash_entry);
+
+            head_pos += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
+            __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
+
+        }
+    }
+    if (head_pos != headPos_ || tail_pos != tailPos_) {
+        __ERROR("Segment fillEntryToSlice  Failed!!! head_pos= %u, headPos_=%u, tail_pos= %u, tailPos_ = %u", head_pos, headPos_, tail_pos, tailPos_);
+    }
+}
+
+
+bool SegBuffer::_writeDataToDevice() {
+    if (!newDataBuffer()) {
+        __ERROR("Write Segment error cause by cann't alloc memory, seg_id:%u", segId_);
+        return false;
+    }
+
+    copyToDataBuf();
+    uint64_t offset = 0;
+    segMgr_->ComputeSegOffsetFromId(segId_, offset);
+
+    if (bdev_->pWrite(dataBuf_, segSize_, offset) != segSize_) {
+        __ERROR("Write Segment front data error, seg_id:%u", segId_);
+        return false;
+    }
+    return true;
+}
+
+bool SegBuffer::newDataBuffer() {
+    //dataBuf_ = new char[segSize_];
+    posix_memalign((void **)&dataBuf_, 4096, segSize_);
+    return true;
+}
+
+void SegBuffer::copyToDataBuf() {
+    uint64_t offset = 0;
+    segMgr_->ComputeSegOffsetFromId(segId_, offset);
+
+    uint32_t offset_begin = 0;
+    uint32_t offset_end = segSize_;
+
+    offset_begin += SegmentManager::SizeOfSegOnDisk();
+
+    //aggregate iovec
+    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
+            != sliceList_.end(); iter++) {
+        KVSlice *slice = *iter;
+        DataHeader *header =
+                &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
+        char *data = (char *) slice->GetData();
+        uint16_t data_len = slice->GetDataLen();
+
+        memcpy(&(dataBuf_[offset_begin]), header,
+               IndexManager::SizeOfDataHeader());
+        offset_begin += IndexManager::SizeOfDataHeader();
+
+        if (slice->IsAlignedData()) {
+            offset_end -= data_len;
+            memcpy(&(dataBuf_[offset_end]), data, data_len);
+            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_end + offset);
+        } else {
+            memcpy(&(dataBuf_[offset_begin]), data, data_len);
+            offset_begin += data_len;
+            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
+        }
+    }
+
+    //copy segment header to data buffer.
+    //segOndisk_->SetTS(persistTime_);
+    segOndisk_->SetKeyNum(keyNum_);
+    //setOndisk_->SetCrc(crc_num);
+    memcpy(dataBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+
+    //set 0 to free data buffer
+    memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
+}
+
+SegSlice::SegSlice() :
+    SegBuffer(), idxMgr_(NULL), timeout_(0), startTime_(KVTime()), persistTime_(KVTime()),
+        isCompleted_(false), hasReq_(false), reqCommited_(0) {
+}
+
+SegSlice::~SegSlice() {
+}
+
+SegSlice::SegSlice(const SegSlice& toBeCopied) : SegBuffer(toBeCopied) {
+}
+
+SegSlice& SegSlice::operator=(const SegSlice& toBeCopied) {
+    if (this == &toBeCopied) {
+        return *this;
+    }
+
+    SegBuffer::operator=(toBeCopied);
+    idxMgr_ = toBeCopied.idxMgr_;
+    timeout_ = toBeCopied.timeout_;
+    startTime_ = toBeCopied.startTime_;
+    persistTime_ = toBeCopied.persistTime_;
+    isCompleted_ = toBeCopied.isCompleted_;
+    hasReq_ = toBeCopied.hasReq_;
+    reqCommited_.store(toBeCopied.reqCommited_.load());
+    reqList_ = toBeCopied.reqList_;
+    delReqList_ = toBeCopied.delReqList_;
+    return *this;
+}
+
+SegSlice::SegSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout) :
+    SegBuffer(sm, bdev), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
+    isCompleted_(false), hasReq_(false), reqCommited_(0) {
+}
+
+bool SegSlice::TryPut(Request* req) {
+    if (isCompleted_) {
+        return false;
+    }
+    KVSlice *slice= &req->GetSlice();
+    return SegBuffer::TryPut(slice);
+}
+
+void SegSlice::Put(Request* req) {
+    KVSlice *slice = &req->GetSlice();
+    if (GetKeyNum() == 0) {
+        hasReq_ = true;
+        startTime_.Update();
+    }
+    SegBuffer::Put(slice);
+    reqList_.push_back(req);
+    req->SetSeg(this);
+    __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
+}
+
+void SegSlice::Complete() {
+    if (isCompleted_) {
+         return;
+    }
+    isCompleted_ = true;
+}
+
+void SegSlice::Notify(bool stat) {
+    std::lock_guard < std::mutex > l(mtx_);
+
+    //Set logic timestamp to hashentry
+    reqCommited_.store(GetKeyNum());
+
+    int32_t keyNo = 0;
+    persistTime_.Update();
+    for (list<Request *>::iterator iter = reqList_.begin(); iter
+            != reqList_.end(); iter++) {
+        keyNo++;
+        KVSlice *slice = &(*iter)->GetSlice();
+        HashEntry &entry = slice->GetHashEntry();
+        entry.SetLogicStamp(persistTime_, keyNo);
+
+        if (!slice->GetData()) {
+            delReqList_.push_back(entry);
+        }
+    }
+
+    //notify and clean req.
+    while (!reqList_.empty()) {
+        Request *req = reqList_.front();
+        reqList_.pop_front();
+        req->SetWriteStat(stat);
+        req->Signal();
+    }
+
+}
+
+bool SegSlice::IsExpired() {
+    KVTime nowTime;
+    if (!hasReq_) {
+        return false;
+    }
+    int64_t interval = nowTime - startTime_;
+    return (interval > timeout_);
+}
+
+void SegSlice::CleanDeletedEntry() {
+    std::lock_guard < std::mutex > l(mtx_);
+    for (list<HashEntry>::iterator iter = delReqList_.begin(); iter
+            != delReqList_.end(); iter++) {
+        idxMgr_->RemoveEntry(*iter);
+    }
+    delReqList_.clear();
+}
+
+
 SegmentSlice::SegmentSlice() :
     segId_(0), segMgr_(NULL), idxMgr_(NULL), bdev_(NULL), segSize_(0),
         persistTime_(KVTime()), startTime_(KVTime()),
@@ -215,7 +520,7 @@ void SegmentSlice::Put(Request* req) {
     }
     keyNum_++;
     reqList_.push_back(req);
-    req->SetSeg(this);
+    //req->SetSeg(this);
 
     __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
 }
