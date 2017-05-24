@@ -31,7 +31,6 @@ class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
 class SegmentManager;
-class SegmentSlice;
 class SegSlice;
 
 
@@ -123,12 +122,10 @@ public:
 
     void SetWriteStat(bool stat);
 
-    //void SetSeg(SegmentSlice *seg) {
     void SetSeg(SegSlice *seg) {
         segPtr_ = seg;
     }
 
-    //SegmentSlice* GetSeg() {
     SegSlice* GetSeg() {
         return segPtr_;
     }
@@ -143,7 +140,6 @@ private:
     mutable std::mutex mtx_;
     std::condition_variable cv_;
 
-    //SegmentSlice *segPtr_;
     SegSlice *segPtr_;
 };
 
@@ -234,71 +230,6 @@ private:
 
     mutable std::mutex mtx_;
     std::list<HashEntry> delReqList_;
-};
-
-class SegmentSlice {
-public:
-    SegmentSlice();
-    ~SegmentSlice();
-    SegmentSlice(const SegmentSlice& toBeCopied);
-    SegmentSlice& operator=(const SegmentSlice& toBeCopied);
-
-    SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev,
-                 uint32_t timeout);
-
-    bool TryPut(Request* req);
-    void Put(Request* req);
-    bool WriteSegToDevice(uint32_t seg_id);
-    void Complete();
-    void Notify(bool stat);
-    bool IsExpired();
-    uint32_t GetFreeSize() const {
-        return tailPos_ - headPos_;
-    }
-
-    int32_t CommitedAndGetNum() {
-        return --reqCommited_;
-    }
-    void CleanDeletedEntry();
-    uint32_t GetSegId() const {
-        return segId_;
-    }
-
-private:
-    bool isCanFit(Request* req) const;
-    void copyHelper(const SegmentSlice& toBeCopied);
-    void fillSlice();
-    void fillSegHead();
-    void notifyAndClean(bool req_state);
-    bool _writeDataToDevice();
-    void copyToData(char* data_buff);
-
-    uint32_t segId_;
-    SegmentManager* segMgr_;
-    IndexManager* idxMgr_;
-    BlockDevice* bdev_;
-    uint32_t timeout_;
-    uint32_t segSize_;
-    KVTime persistTime_;
-    KVTime startTime_;
-
-    uint32_t headPos_;
-    uint32_t tailPos_;
-
-    int32_t keyNum_;
-    int32_t keyAlignedNum_;
-    bool isCompleted_;
-    bool hasReq_;
-
-    std::atomic<int32_t> reqCommited_;
-
-    std::list<Request *> reqList_;
-    SegmentOnDisk *segOndisk_;
-
-    mutable std::mutex mtx_;
-    std::list<HashEntry> delReqList_;
-
-    char *dataBuf_;
 };
 
 } //end namespace kvdb
