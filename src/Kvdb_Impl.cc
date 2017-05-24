@@ -132,8 +132,6 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
             db_index_size, db_seg_table_size, db_meta_size,
             db_data_region_size, db_size, device_capacity);
 
-    //ds->seg_ = new SegmentSlice(ds->segMgr_, ds->idxMgr_, ds->bdev_,
-    //                            ds->options_.expired_time);
     ds->seg_ = new SegSlice(ds->segMgr_, ds->idxMgr_, ds->bdev_,
                                 ds->options_.expired_time);
     ds->startThds();
@@ -219,7 +217,6 @@ bool KvdbDS::readMetaDataFromDevice() {
         return false;
     }
 
-    //seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_, options_.expired_time);
     seg_ = new SegSlice(segMgr_, idxMgr_, bdev_, options_.expired_time);
 
     __INFO("\nReading meta information from file:\n"
@@ -447,7 +444,6 @@ Status KvdbDS::updateMeta(Request *req) {
     KVSlice *slice = &req->GetSlice();
     res = idxMgr_->UpdateIndex(slice);
     // minus the segment delete counter
-    //SegmentSlice *seg = req->GetSeg();
     SegSlice *seg = req->GetSeg();
     if (!seg->CommitedAndGetNum()) {
         segReaperQue_.Enqueue_Notify(seg);
@@ -491,8 +487,6 @@ void KvdbDS::ReqMergeThdEntry() {
             } else {
                 seg_->Complete();
                 segWriteQue_.Enqueue_Notify(seg_);
-                //seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_,
-                //                        options_.expired_time);
                 seg_ = new SegSlice(segMgr_, idxMgr_, bdev_,
                                     options_.expired_time);
                 seg_->Put(req);
@@ -506,7 +500,6 @@ void KvdbDS::ReqMergeThdEntry() {
 void KvdbDS::SegWriteThdEntry() {
     __DEBUG("Segment write thread start!!");
     while (!segWriteT_stop_) {
-        //SegmentSlice *seg = segWriteQue_.Wait_Dequeue();
         SegSlice *seg = segWriteQue_.Wait_Dequeue();
         if (seg) {
             uint32_t seg_id = 0;
@@ -546,8 +539,6 @@ void KvdbDS::SegTimeoutThdEntry() {
             seg_->Complete();
 
             segWriteQue_.Enqueue_Notify(seg_);
-            //seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_,
-            //                        options_.expired_time);
             seg_ = new SegSlice(segMgr_, idxMgr_, bdev_,
                                 options_.expired_time);
         }
@@ -561,7 +552,6 @@ void KvdbDS::SegReaperThdEntry() {
     __DEBUG("Segment reaper thread start!!");
 
     while (!segReaperT_stop_) {
-        //SegmentSlice *seg = segReaperQue_.Wait_Dequeue();
         SegSlice *seg = segReaperQue_.Wait_Dequeue();
         if (seg) {
             seg->CleanDeletedEntry();
