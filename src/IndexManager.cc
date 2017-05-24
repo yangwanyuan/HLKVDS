@@ -381,6 +381,7 @@ bool IndexManager::IsSameInMem(HashEntry entry)
 
 uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
     uint64_t index_size = sizeof(time_t)
+            + sizeof(int) * ht_size
             + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
     uint64_t index_size_pages = index_size / getpagesize();
     return (index_size_pages + 1) * getpagesize();
