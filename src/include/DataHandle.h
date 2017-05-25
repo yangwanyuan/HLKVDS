@@ -143,13 +143,13 @@ private:
     SegSlice *segPtr_;
 };
 
-class SegBuffer {
+class SegBase {
 public:
-    SegBuffer();
-    ~SegBuffer();
-    SegBuffer(const SegBuffer& toBeCopied);
-    SegBuffer& operator=(const SegBuffer& toBeCopied);
-    SegBuffer(SegmentManager* sm, BlockDevice* bdev);
+    SegBase();
+    ~SegBase();
+    SegBase(const SegBase& toBeCopied);
+    SegBase& operator=(const SegBase& toBeCopied);
+    SegBase(SegmentManager* sm, BlockDevice* bdev);
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
@@ -174,7 +174,7 @@ public:
     }
 
 private:
-    void copyHelper(const SegBuffer& toBeCopied);
+    void copyHelper(const SegBase& toBeCopied);
     void fillEntryToSlice();
     bool _writeDataToDevice();
     void copyToDataBuf();
@@ -199,7 +199,7 @@ private:
     char *dataBuf_;
 };
 
-class SegSlice : public SegBuffer {
+class SegSlice : public SegBase {
 public:
     SegSlice();
     ~SegSlice();

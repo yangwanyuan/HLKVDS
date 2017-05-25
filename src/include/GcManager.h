@@ -17,7 +17,7 @@
 #include "DataHandle.h"
 
 namespace kvdb {
-class GCSeg : public SegBuffer {
+class GCSeg : public SegBase {
 public:
     GCSeg();
     ~GCSeg();

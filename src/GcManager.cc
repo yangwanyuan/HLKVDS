@@ -7,13 +7,13 @@
 
 namespace kvdb {
 GCSeg::GCSeg() :
-    SegBuffer(), idxMgr_(NULL) {
+    SegBase(), idxMgr_(NULL) {
 }
 
 GCSeg::~GCSeg() {
 }
 
-GCSeg::GCSeg(const GCSeg& toBeCopied) : SegBuffer(toBeCopied) {
+GCSeg::GCSeg(const GCSeg& toBeCopied) : SegBase(toBeCopied) {
     idxMgr_ = toBeCopied.idxMgr_;
 }
 
@@ -21,13 +21,13 @@ GCSeg& GCSeg::operator=(const GCSeg& toBeCopied) {
     if (this == &toBeCopied) {
         return *this;
     }
-    SegBuffer::operator=(toBeCopied);
+    SegBase::operator=(toBeCopied);
     idxMgr_ = toBeCopied.idxMgr_;
     return *this;
 }
 
 GCSeg::GCSeg(SegmentManager* sm, IndexManager* im, BlockDevice* bdev) :
-    SegBuffer(sm, bdev), idxMgr_(im) {
+    SegBase(sm, bdev), idxMgr_(im) {
 }
 
 bool GCSeg::UpdateToIndex() {

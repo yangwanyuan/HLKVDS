@@ -137,14 +137,14 @@ void Request::Signal() {
     cv_.notify_one();
 }
 
-SegBuffer::SegBuffer() :
+SegBase::SegBase() :
     segId_(-1), segMgr_(NULL), bdev_(NULL), segSize_(-1),
         headPos_(0), tailPos_(0), keyNum_(0),
         keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
 }
 
-SegBuffer::~SegBuffer() {
+SegBase::~SegBase() {
     if (segOndisk_) {
         delete segOndisk_;
     }
@@ -153,17 +153,17 @@ SegBuffer::~SegBuffer() {
     }
 }
 
-SegBuffer::SegBuffer(const SegBuffer& toBeCopied) {
+SegBase::SegBase(const SegBase& toBeCopied) {
     segOndisk_ = new SegmentOnDisk();
     copyHelper(toBeCopied);
 }
 
-SegBuffer& SegBuffer::operator=(const SegBuffer& toBeCopied) {
+SegBase& SegBase::operator=(const SegBase& toBeCopied) {
     copyHelper(toBeCopied);
     return *this;
 }
 
-void SegBuffer::copyHelper(const SegBuffer& toBeCopied) {
+void SegBase::copyHelper(const SegBase& toBeCopied) {
     segId_ = toBeCopied.segId_;
     segMgr_ = toBeCopied.segMgr_;
     bdev_ = toBeCopied.bdev_;
@@ -177,7 +177,7 @@ void SegBuffer::copyHelper(const SegBuffer& toBeCopied) {
     sliceList_ = toBeCopied.sliceList_;
 }
 
-SegBuffer::SegBuffer(SegmentManager* sm, BlockDevice* bdev) :
+SegBase::SegBase(SegmentManager* sm, BlockDevice* bdev) :
     segId_(-1), segMgr_(sm), bdev_(bdev),
         segSize_(segMgr_->GetSegmentSize()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
@@ -185,13 +185,13 @@ SegBuffer::SegBuffer(SegmentManager* sm, BlockDevice* bdev) :
     segOndisk_ = new SegmentOnDisk();
 }
 
-bool SegBuffer::TryPut(KVSlice* slice) {
+bool SegBase::TryPut(KVSlice* slice) {
     uint32_t freeSize = tailPos_ - headPos_;
     uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
     return freeSize > needSize;
 }
 
-void SegBuffer::Put(KVSlice* slice) {
+void SegBase::Put(KVSlice* slice) {
     if (slice->IsAlignedData()) {
         headPos_ += IndexManager::SizeOfDataHeader();
         tailPos_ -= ALIGNED_SIZE;
@@ -204,7 +204,7 @@ void SegBuffer::Put(KVSlice* slice) {
     __DEBUG("Put request key = %s", slice->GetKeyStr().c_str());
 }
 
-bool SegBuffer::WriteSegToDevice() {
+bool SegBase::WriteSegToDevice() {
     if (segId_ < 0)
     {
         __ERROR("Not set seg_id to segment");
@@ -215,7 +215,7 @@ bool SegBuffer::WriteSegToDevice() {
     return _writeDataToDevice();
 }
 
-void SegBuffer::fillEntryToSlice() {
+void SegBase::fillEntryToSlice() {
     uint32_t head_pos = SegmentManager::SizeOfSegOnDisk();
     uint32_t tail_pos = segSize_;
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -266,7 +266,7 @@ void SegBuffer::fillEntryToSlice() {
 }
 
 
-bool SegBuffer::_writeDataToDevice() {
+bool SegBase::_writeDataToDevice() {
     if (!newDataBuffer()) {
         __ERROR("Write Segment error cause by cann't alloc memory, seg_id:%u", segId_);
         return false;
@@ -283,13 +283,13 @@ bool SegBuffer::_writeDataToDevice() {
     return true;
 }
 
-bool SegBuffer::newDataBuffer() {
+bool SegBase::newDataBuffer() {
     //dataBuf_ = new char[segSize_];
     posix_memalign((void **)&dataBuf_, 4096, segSize_);
     return true;
 }
 
-void SegBuffer::copyToDataBuf() {
+void SegBase::copyToDataBuf() {
     uint64_t offset = 0;
     segMgr_->ComputeSegOffsetFromId(segId_, offset);
 
@@ -333,14 +333,14 @@ void SegBuffer::copyToDataBuf() {
 }
 
 SegSlice::SegSlice() :
-    SegBuffer(), idxMgr_(NULL), timeout_(0), startTime_(KVTime()), persistTime_(KVTime()),
+    SegBase(), idxMgr_(NULL), timeout_(0), startTime_(KVTime()), persistTime_(KVTime()),
         isCompleted_(false), hasReq_(false), reqCommited_(0) {
 }
 
 SegSlice::~SegSlice() {
 }
 
-SegSlice::SegSlice(const SegSlice& toBeCopied) : SegBuffer(toBeCopied) {
+SegSlice::SegSlice(const SegSlice& toBeCopied) : SegBase(toBeCopied) {
 }
 
 SegSlice& SegSlice::operator=(const SegSlice& toBeCopied) {
@@ -348,7 +348,7 @@ SegSlice& SegSlice::operator=(const SegSlice& toBeCopied) {
         return *this;
     }
 
-    SegBuffer::operator=(toBeCopied);
+    SegBase::operator=(toBeCopied);
     idxMgr_ = toBeCopied.idxMgr_;
     timeout_ = toBeCopied.timeout_;
     startTime_ = toBeCopied.startTime_;
@@ -362,7 +362,7 @@ SegSlice& SegSlice::operator=(const SegSlice& toBeCopied) {
 }
 
 SegSlice::SegSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout) :
-    SegBuffer(sm, bdev), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
+    SegBase(sm, bdev), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
     isCompleted_(false), hasReq_(false), reqCommited_(0) {
 }
 
@@ -371,7 +371,7 @@ bool SegSlice::TryPut(Request* req) {
         return false;
     }
     KVSlice *slice= &req->GetSlice();
-    return SegBuffer::TryPut(slice);
+    return SegBase::TryPut(slice);
 }
 
 void SegSlice::Put(Request* req) {
@@ -380,7 +380,7 @@ void SegSlice::Put(Request* req) {
         hasReq_ = true;
         startTime_.Update();
     }
-    SegBuffer::Put(slice);
+    SegBase::Put(slice);
     reqList_.push_back(req);
     req->SetSeg(this);
     __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
