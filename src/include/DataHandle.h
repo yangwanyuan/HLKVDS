@@ -169,6 +169,10 @@ public:
         return keyNum_;
     }
 
+    std::list<KVSlice *>& GetSliceList() {
+        return sliceList_;
+    }
+
 private:
     void copyHelper(const SegBuffer& toBeCopied);
     void fillEntryToSlice();

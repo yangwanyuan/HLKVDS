@@ -14,51 +14,21 @@
 #include "hyperds/Options.h"
 #include "IndexManager.h"
 #include "SegmentManager.h"
+#include "DataHandle.h"
 
 namespace kvdb {
-class GcSegment {
+class GCSeg : public SegBuffer {
 public:
-    GcSegment();
-    ~GcSegment();
-    GcSegment(const GcSegment& toBeCopied);
-    GcSegment& operator=(const GcSegment& toBeCopied);
+    GCSeg();
+    ~GCSeg();
+    GCSeg(const GCSeg& toBeCopied);
+    GCSeg& operator=(const GCSeg& toBeCopied);
 
-    GcSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+    GCSeg(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
 
-    bool TryPut(KVSlice* slice);
-    void Put(KVSlice* slice);
-    bool WriteSegToDevice(uint32_t seg_id);
-    void UpdateToIndex();
-    uint32_t GetFreeSize() const {
-        return tailPos_ - headPos_;
-    }
-
+    bool UpdateToIndex();
 private:
-    void copyHelper(const GcSegment& toBeCopied);
-
-    bool isCanFit(KVSlice* slice) const;
-    void fillSlice();
-    bool _writeDataToDevice();
-    void copyToData();
-
-private:
-    uint32_t segId_;
-    SegmentManager* segMgr_;
     IndexManager* idxMgr_;
-    BlockDevice* bdev_;
-    uint32_t segSize_;
-    KVTime persistTime_;
-
-    uint32_t headPos_;
-    uint32_t tailPos_;
-
-    int32_t keyNum_;
-    int32_t keyAlignedNum_;
-
-    SegmentOnDisk *segOndisk_;
-    std::list<KVSlice *> sliceList_;
-
-    char *dataBuf_;
 };
 
 class GcManager {

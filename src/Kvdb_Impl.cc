@@ -398,7 +398,7 @@ Status KvdbDS::InsertBatch(WriteBatch *batch)
         }
     }
 
-    GcSegment *seg = new GcSegment(segMgr_, idxMgr_, bdev_);
+    GCSeg *seg = new GCSeg(segMgr_, idxMgr_, bdev_);
     for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
             iter != batch->batch_.end(); iter++) {
         if (seg->TryPut(*iter)) {
@@ -411,7 +411,8 @@ Status KvdbDS::InsertBatch(WriteBatch *batch)
         }
     }
 
-    ret = seg->WriteSegToDevice(seg_id);
+    seg->SetSegId(seg_id);
+    ret = seg->WriteSegToDevice();
     if(!ret) {
         __ERROR("Write batch segment to device failed");
         segMgr_->FreeForFailed(seg_id);
@@ -513,7 +514,6 @@ void KvdbDS::SegWriteThdEntry() {
             }
 
             uint32_t free_size = seg->GetFreeSize();
-            //res = seg->WriteSegToDevice(seg_id);
             seg->SetSegId(seg_id);
             res = seg->WriteSegToDevice();
             if (res) {
