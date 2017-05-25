@@ -31,7 +31,7 @@ class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
 class SegmentManager;
-class SegSlice;
+class SegForReq;
 
 
 class KVSlice {
@@ -122,11 +122,11 @@ public:
 
     void SetWriteStat(bool stat);
 
-    void SetSeg(SegSlice *seg) {
+    void SetSeg(SegForReq *seg) {
         segPtr_ = seg;
     }
 
-    SegSlice* GetSeg() {
+    SegForReq* GetSeg() {
         return segPtr_;
     }
 
@@ -140,7 +140,7 @@ private:
     mutable std::mutex mtx_;
     std::condition_variable cv_;
 
-    SegSlice *segPtr_;
+    SegForReq *segPtr_;
 };
 
 class SegBase {
@@ -199,14 +199,14 @@ private:
     char *dataBuf_;
 };
 
-class SegSlice : public SegBase {
+class SegForReq : public SegBase {
 public:
-    SegSlice();
-    ~SegSlice();
-    SegSlice(const SegSlice& toBeCopied);
-    SegSlice& operator=(const SegSlice& toBeCopied);
+    SegForReq();
+    ~SegForReq();
+    SegForReq(const SegForReq& toBeCopied);
+    SegForReq& operator=(const SegForReq& toBeCopied);
 
-    SegSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+    SegForReq(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
 
     bool TryPut(Request* req);
     void Put(Request* req);

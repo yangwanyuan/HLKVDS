@@ -79,7 +79,7 @@ private:
     GcManager* gcMgr_;
     string fileName_;
 
-    SegSlice *seg_;
+    SegForReq *seg_;
     std::mutex segMtx_;
     Options options_;
 
@@ -94,7 +94,7 @@ private:
 private:
     std::vector<std::thread> segWriteTP_;
     std::atomic<bool> segWriteT_stop_;
-    WorkQueue<SegSlice*> segWriteQue_;
+    WorkQueue<SegForReq*> segWriteQue_;
     void SegWriteThdEntry();
 
     // Seg Timeout thread
@@ -107,7 +107,7 @@ private:
 private:
     std::thread segReaperT_;
     std::atomic<bool> segReaperT_stop_;
-    WorkQueue<SegSlice*> segReaperQue_;
+    WorkQueue<SegForReq*> segReaperQue_;
     void SegReaperThdEntry();
 
     //GC thread

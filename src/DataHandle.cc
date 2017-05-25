@@ -332,18 +332,18 @@ void SegBase::copyToDataBuf() {
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
 }
 
-SegSlice::SegSlice() :
+SegForReq::SegForReq() :
     SegBase(), idxMgr_(NULL), timeout_(0), startTime_(KVTime()), persistTime_(KVTime()),
         isCompleted_(false), hasReq_(false), reqCommited_(0) {
 }
 
-SegSlice::~SegSlice() {
+SegForReq::~SegForReq() {
 }
 
-SegSlice::SegSlice(const SegSlice& toBeCopied) : SegBase(toBeCopied) {
+SegForReq::SegForReq(const SegForReq& toBeCopied) : SegBase(toBeCopied) {
 }
 
-SegSlice& SegSlice::operator=(const SegSlice& toBeCopied) {
+SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
     if (this == &toBeCopied) {
         return *this;
     }
@@ -361,12 +361,12 @@ SegSlice& SegSlice::operator=(const SegSlice& toBeCopied) {
     return *this;
 }
 
-SegSlice::SegSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout) :
+SegForReq::SegForReq(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout) :
     SegBase(sm, bdev), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
     isCompleted_(false), hasReq_(false), reqCommited_(0) {
 }
 
-bool SegSlice::TryPut(Request* req) {
+bool SegForReq::TryPut(Request* req) {
     if (isCompleted_) {
         return false;
     }
@@ -374,7 +374,7 @@ bool SegSlice::TryPut(Request* req) {
     return SegBase::TryPut(slice);
 }
 
-void SegSlice::Put(Request* req) {
+void SegForReq::Put(Request* req) {
     KVSlice *slice = &req->GetSlice();
     if (GetKeyNum() == 0) {
         hasReq_ = true;
@@ -386,14 +386,14 @@ void SegSlice::Put(Request* req) {
     __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
 }
 
-void SegSlice::Complete() {
+void SegForReq::Complete() {
     if (isCompleted_) {
          return;
     }
     isCompleted_ = true;
 }
 
-void SegSlice::Notify(bool stat) {
+void SegForReq::Notify(bool stat) {
     std::lock_guard < std::mutex > l(mtx_);
 
     //Set logic timestamp to hashentry
@@ -423,7 +423,7 @@ void SegSlice::Notify(bool stat) {
 
 }
 
-bool SegSlice::IsExpired() {
+bool SegForReq::IsExpired() {
     KVTime nowTime;
     if (!hasReq_) {
         return false;
@@ -432,7 +432,7 @@ bool SegSlice::IsExpired() {
     return (interval > timeout_);
 }
 
-void SegSlice::CleanDeletedEntry() {
+void SegForReq::CleanDeletedEntry() {
     std::lock_guard < std::mutex > l(mtx_);
     for (list<HashEntry>::iterator iter = delReqList_.begin(); iter
             != delReqList_.end(); iter++) {
