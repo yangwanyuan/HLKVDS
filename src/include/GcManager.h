@@ -14,22 +14,9 @@
 #include "hyperds/Options.h"
 #include "IndexManager.h"
 #include "SegmentManager.h"
-#include "DataHandle.h"
+#include "Segment.h"
 
 namespace kvdb {
-class SegForSlice : public SegBase {
-public:
-    SegForSlice();
-    ~SegForSlice();
-    SegForSlice(const SegForSlice& toBeCopied);
-    SegForSlice& operator=(const SegForSlice& toBeCopied);
-
-    SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
-
-    bool UpdateToIndex();
-private:
-    IndexManager* idxMgr_;
-};
 
 class GcManager {
 public:

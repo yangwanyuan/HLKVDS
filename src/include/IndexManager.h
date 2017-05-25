@@ -16,9 +16,9 @@
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
-#include "DataHandle.h"
 #include "SuperBlockManager.h"
 #include "SegmentManager.h"
+#include "Segment.h"
 
 using namespace std;
 

@@ -20,10 +20,10 @@
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
-#include "DataHandle.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
 #include "WorkQueue.h"
+#include "Segment.h"
 
 namespace kvdb {
 

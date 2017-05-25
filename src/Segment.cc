@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-#include "DataHandle.h"
+#include "Segment.h"
 
 namespace kvdb {
 
@@ -439,6 +439,40 @@ void SegForReq::CleanDeletedEntry() {
         idxMgr_->RemoveEntry(*iter);
     }
     delReqList_.clear();
+}
+
+SegForSlice::SegForSlice() :
+    SegBase(), idxMgr_(NULL) {
+}
+
+SegForSlice::~SegForSlice() {
+}
+
+SegForSlice::SegForSlice(const SegForSlice& toBeCopied) : SegBase(toBeCopied) {
+    idxMgr_ = toBeCopied.idxMgr_;
+}
+
+SegForSlice& SegForSlice::operator=(const SegForSlice& toBeCopied) {
+    if (this == &toBeCopied) {
+        return *this;
+    }
+    SegBase::operator=(toBeCopied);
+    idxMgr_ = toBeCopied.idxMgr_;
+    return *this;
+}
+
+SegForSlice::SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev) :
+    SegBase(sm, bdev), idxMgr_(im) {
+}
+
+void SegForSlice::UpdateToIndex() {
+    list<KVSlice *> &slice_list = GetSliceList();
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
+            != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        idxMgr_->UpdateIndex(slice);
+    } __DEBUG("UpdateToIndex Success!");
+
 }
 
 }

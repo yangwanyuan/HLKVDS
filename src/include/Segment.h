@@ -3,8 +3,8 @@
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
 
-#ifndef _KV_DB_DATAHANDLE_H_
-#define _KV_DB_DATAHANDLE_H_
+#ifndef _KV_DB_SEGMENT_H_
+#define _KV_DB_SEGMENT_H_
 
 #include <string>
 #include <sys/types.h>
@@ -32,7 +32,6 @@ class HashEntry;
 class IndexManager;
 class SegmentManager;
 class SegForReq;
-
 
 class KVSlice {
 public:
@@ -236,6 +235,19 @@ private:
     std::list<HashEntry> delReqList_;
 };
 
-} //end namespace kvdb
+class SegForSlice : public SegBase {
+public:
+    SegForSlice();
+    ~SegForSlice();
+    SegForSlice(const SegForSlice& toBeCopied);
+    SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-#endif //#ifndef _KV_DB_DATAHANDLE_H_
+    SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+
+    void UpdateToIndex();
+private:
+    IndexManager* idxMgr_;
+};
+
+}
+#endif //#ifndef _KV_DB_SEGMENT_H_
