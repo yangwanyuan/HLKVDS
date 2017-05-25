@@ -6,18 +6,18 @@
 #include "GcManager.h"
 
 namespace kvdb {
-GCSeg::GCSeg() :
+SegForSlice::SegForSlice() :
     SegBase(), idxMgr_(NULL) {
 }
 
-GCSeg::~GCSeg() {
+SegForSlice::~SegForSlice() {
 }
 
-GCSeg::GCSeg(const GCSeg& toBeCopied) : SegBase(toBeCopied) {
+SegForSlice::SegForSlice(const SegForSlice& toBeCopied) : SegBase(toBeCopied) {
     idxMgr_ = toBeCopied.idxMgr_;
 }
 
-GCSeg& GCSeg::operator=(const GCSeg& toBeCopied) {
+SegForSlice& SegForSlice::operator=(const SegForSlice& toBeCopied) {
     if (this == &toBeCopied) {
         return *this;
     }
@@ -26,11 +26,11 @@ GCSeg& GCSeg::operator=(const GCSeg& toBeCopied) {
     return *this;
 }
 
-GCSeg::GCSeg(SegmentManager* sm, IndexManager* im, BlockDevice* bdev) :
+SegForSlice::SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev) :
     SegBase(sm, bdev), idxMgr_(im) {
 }
 
-bool GCSeg::UpdateToIndex() {
+bool SegForSlice::UpdateToIndex() {
     list<KVSlice *> &slice_list = GetSliceList();
     for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
             != slice_list.end(); iter++) {
@@ -178,7 +178,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     std::list<KVSlice*>::iterator slice_iter;
 
     //handle first segment
-    GCSeg *seg_first = new GCSeg(segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg_first = new SegForSlice(segMgr_, idxMgr_, bdev_);
     for (std::multimap<uint32_t, uint32_t>::iterator iter = cands_map.begin(); iter
             != cands_map.end(); ++iter) {
         uint32_t seg_id = iter->second;
@@ -241,7 +241,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     }
 
     //handle second segment
-    GCSeg *seg_second = new GCSeg(segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg_second = new SegForSlice(segMgr_, idxMgr_, bdev_);
     uint32_t seg_second_id;
     segMgr_->AllocForGC(seg_second_id);
 

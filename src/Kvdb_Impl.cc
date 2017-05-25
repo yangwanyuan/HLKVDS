@@ -398,7 +398,7 @@ Status KvdbDS::InsertBatch(WriteBatch *batch)
         }
     }
 
-    GCSeg *seg = new GCSeg(segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg = new SegForSlice(segMgr_, idxMgr_, bdev_);
     for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
             iter != batch->batch_.end(); iter++) {
         if (seg->TryPut(*iter)) {

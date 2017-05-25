@@ -17,14 +17,14 @@
 #include "DataHandle.h"
 
 namespace kvdb {
-class GCSeg : public SegBase {
+class SegForSlice : public SegBase {
 public:
-    GCSeg();
-    ~GCSeg();
-    GCSeg(const GCSeg& toBeCopied);
-    GCSeg& operator=(const GCSeg& toBeCopied);
+    SegForSlice();
+    ~SegForSlice();
+    SegForSlice(const SegForSlice& toBeCopied);
+    SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-    GCSeg(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+    SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
 
     bool UpdateToIndex();
 private:
