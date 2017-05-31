@@ -8,8 +8,8 @@
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
 
-#ifndef Status_H_
-#define Status_H_
+#ifndef _KV_DB_STATUS_H_
+#define _KV_DB_STATUS_H_
 
 class Status {
 public:
@@ -78,4 +78,4 @@ private:
 
 };
 
-#endif /* Status_H_ */
+#endif //#define _KV_DB_STATUS_H_

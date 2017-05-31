@@ -15,7 +15,7 @@
 
 #include "Db_Structure.h"
 #include "hyperds/Options.h"
-#include "hyperds/status.h"
+#include "hyperds/Status.h"
 #include "hyperds/Write_batch.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"

@@ -41,7 +41,7 @@ TEST =  test/test_block_manager \
 
 PROGNAME := ${UTILS} ${SHARED_LIB}
 
-SRC_OBJ =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o BlockDevice.o KernelDevice.o SegmentManager.o Segment.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o Options.o Write_batch.o status.o
+SRC_OBJ =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o BlockDevice.o KernelDevice.o SegmentManager.o Segment.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o Options.o Write_batch.o Status.o
 SRC_OBJECTS = $(addprefix ${SRC_DIR}/, ${SRC_OBJ})
 COMMON_OBJECTS = ${SRC_OBJECTS}
 TEST_OBJECTS = test/test_base.o
