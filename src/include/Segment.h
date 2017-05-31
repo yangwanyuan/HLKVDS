@@ -57,10 +57,10 @@ public:
 
     string GetKeyStr() const;
     string GetDataStr() const;
-    uint32_t GetKeyLen() const {
+
+    uint16_t GetKeyLen() const {
         return keyLength_;
     }
-
     uint16_t GetDataLen() const {
         return dataLength_;
     }

@@ -29,16 +29,20 @@ class SegmentSlice;
 class DataHeader {
 private:
     Kvdb_Digest key_digest;
+    uint16_t key_size;
     uint16_t data_size;
     uint32_t data_offset;
     uint32_t next_header_offset;
 
 public:
     DataHeader();
-    DataHeader(const Kvdb_Digest &digest, uint16_t data_size,
+    DataHeader(const Kvdb_Digest &digest, uint16_t key_len, uint16_t data_len,
                uint32_t data_offset, uint32_t next_header_offset);
     ~DataHeader();
 
+    uint16_t GetKeySize() const {
+        return key_size;
+    }
     uint16_t GetDataSize() const {
         return data_size;
     }
@@ -53,6 +57,9 @@ public:
     }
 
     void SetDigest(const Kvdb_Digest& digest);
+    void SetKeySize(uint16_t size) {
+        key_size = size;
+    }
     void SetDataSize(uint16_t size) {
         data_size = size;
     }
@@ -99,6 +106,9 @@ public:
 
     uint64_t GetHeaderOffsetPhy() const {
         return header_offset.GetHeaderOffset();
+    }
+    uint16_t GetKeySize() const {
+        return header.GetKeySize();
     }
     uint16_t GetDataSize() const {
         return header.GetDataSize();
@@ -190,6 +200,10 @@ public:
 
         uint64_t GetHeaderOffsetPhy() const {
             return entryPtr_->GetHeaderOffsetPhy();
+        }
+
+        uint16_t GetKeySize() const {
+            return entryPtr_->GetKeySize();
         }
 
         uint16_t GetDataSize() const {
