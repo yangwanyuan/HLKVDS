@@ -11,6 +11,8 @@
 #ifndef _KV_DB_STATUS_H_
 #define _KV_DB_STATUS_H_
 
+#include <string>
+
 class Status {
 public:
     Status() :

@@ -55,8 +55,9 @@ KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len) :
     computeDigest();
 }
 
-KVSlice::KVSlice(Kvdb_Digest *digest, const char* data, int data_len) :
-    key_(NULL), keyLength_(0), data_(data), dataLength_(data_len),
+KVSlice::KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
+                const char* data, int data_len) :
+    key_(key), keyLength_(key_len), data_(data), dataLength_(data_len),
             digest_(NULL), entry_(NULL), segId_(0) {
     digest_ = new Kvdb_Digest(*digest);
 }
@@ -319,11 +320,11 @@ void SegBase::copyToDataBuf() {
         if (slice->IsAlignedData()) {
             offset_end -= data_len;
             memcpy(&(dataBuf_[offset_end]), data, data_len);
-            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_end + offset);
+            __DEBUG("write key = %s, data position: %u", slice->GetKey(), offset_end);
         } else {
             memcpy(&(dataBuf_[offset_begin]), data, data_len);
+            __DEBUG("write key = %s, data position: %u", slice->GetKey(), offset_begin);
             offset_begin += data_len;
-            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
         }
     }
 

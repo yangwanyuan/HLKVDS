@@ -41,7 +41,8 @@ public:
     KVSlice& operator=(const KVSlice& toBeCopied);
 
     KVSlice(const char* key, int key_len, const char* data, int data_len);
-    KVSlice(Kvdb_Digest *digest, const char* data, int data_len);
+    KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
+            const char* data, int data_len);
 
     const Kvdb_Digest& GetDigest() const {
         return *digest_;

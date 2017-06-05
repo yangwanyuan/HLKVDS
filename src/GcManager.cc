@@ -271,7 +271,21 @@ void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                 char* data = new char[data_len];
                 memcpy(data, &dataBuf_[data_offset], data_len);
 
-                KVSlice *slice = new KVSlice(&digest, data, data_len);
+
+                //memcpy key to KVSlice.GetNextHeadOffsetGetNextHeadOffset
+                uint16_t key_len =header.GetKeySize();
+                uint32_t next_head_offset = header.GetNextHeadOffset();
+                uint32_t key_offset;
+                if (ALIGNED_SIZE == data_len) {
+                    key_offset = next_head_offset - key_len;
+                } else {
+                    key_offset = next_head_offset - data_len - key_len;
+                }
+                char* key = new char[key_len+1];
+                memcpy(key, &dataBuf_[key_offset], key_len);
+                key[key_len] = '\0';
+
+                KVSlice *slice = new KVSlice(&digest, key, key_len, data, data_len);
                 slice_list.push_back(slice);
 
                 __DEBUG("the slice key_digest = %s, value = %s, seg_offset = %ld, head_offset = %d is valid, need to write", digest.GetDigest(), data, phy_offset, head_offset);
@@ -304,6 +318,8 @@ void GcManager::cleanKvList(std::list<KVSlice*> &slice_list) {
     while (!slice_list.empty()) {
         KVSlice *slice = slice_list.front();
         slice_list.pop_front();
+        const char* key = slice->GetKey();
+        delete[] key;
         const char* data = slice->GetData();
         delete[] data;
         delete slice;
