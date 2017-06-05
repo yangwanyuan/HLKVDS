@@ -42,7 +42,6 @@ void KvdbIter::SeekToFirst() {
         valid_ = false;
     }
 
-    __INFO("hastTableCur_ = %d, entryListCur_ = %d", hashTableCur_, entryListCur_);
     //status_ = Stats::OK()
 }
 
