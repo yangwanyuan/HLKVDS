@@ -279,6 +279,9 @@ public:
 
         bool IsSameInMem(HashEntry entry);
 
+        LinkedList<HashEntry>* GetEntryListByNo(uint32_t no) {
+            return hashtable_[no].entryList_;
+        }
     public:
         struct HashtableSlot
         {

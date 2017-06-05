@@ -9,6 +9,7 @@
 #include "Kvdb_Impl.h"
 #include "hyperds/Options.h"
 #include "hyperds/Write_batch.h"
+#include "hyperds/Iterator.h"
 
 using namespace std;
 using namespace kvdb;
@@ -94,6 +95,13 @@ void Open_DB_Test(string filename) {
     int test_value2_size = 11;
     batch.put(test_key2.c_str(), test_key2_size, test_value2.c_str(),
                 test_value2_size);
+    batch.put("keykeykey3",10,"value3",6);
+    batch.put("keykeykey4",10,"value4",6);
+    batch.put("keykeykey5",10,"value5",6);
+    batch.put("keykeykey6",10,"value6",6);
+    batch.put("keykeykey7",10,"value7",6);
+    batch.put("keykeykey8",10,"value8",6);
+    batch.put("keykeykey9",10,"value9",6);
     batch.del(test_key.c_str(), test_key_size);
 
     s = db->InsertBatch(&batch);
@@ -119,6 +127,18 @@ void Open_DB_Test(string filename) {
         std::cout << "Get Success: data is " << get_data << std::endl;
     }
 
+
+    Iterator* it = db->NewIterator();
+    cout << "Iterator the db: First to Last" << endl;
+    for(it->SeekToFirst(); it->Valid(); it->Next()) {
+        cout << it->Key() << ": " << it->Value() << endl;
+    }
+    sleep(3);
+    cout << "Iterator the db: Last to First" << endl;
+    for(it->SeekToLast(); it->Valid(); it->Prev()) {
+        cout << it->Key() << ": " << it->Value() << endl;
+    }
+    delete it;
     delete db;
 }
 

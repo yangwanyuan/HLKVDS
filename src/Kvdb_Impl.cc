@@ -11,6 +11,7 @@
 
 #include "Kvdb_Impl.h"
 #include "KeyDigestHandle.h"
+#include "KvdbIter.h"
 
 namespace kvdb {
 
@@ -138,6 +139,10 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
 
     return ds;
 
+}
+
+Iterator* KvdbDS::NewIterator() {
+    return new KvdbIter(idxMgr_, segMgr_, bdev_);
 }
 
 void KvdbDS::printDbStates() {

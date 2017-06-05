@@ -45,6 +45,8 @@ public:
     int get_size() {
         return size_;
     }
+    T* getByNo(int no);
+    int searchNo(T& toBeSearched);
 
 private:
     Node<T>* head_;
@@ -207,6 +209,34 @@ vector<T> LinkedList<T>::get() {
         }
     }
     return tempVector;
+}
+
+template<typename T>
+T* LinkedList<T>::getByNo(int no) {
+    if (no > size_) {
+        return NULL;
+    }
+    Node<T>* node = head_;
+    while(no) {
+        node = node->next;
+        no--;
+    }
+    return &node->data;
+}
+
+template<typename T>
+int LinkedList<T>::searchNo(T& toBeSearched) {
+    int no = 0;
+    Node<T>* curNode = head_;
+
+    while (curNode != NULL) {
+        if (curNode->data == toBeSearched) {
+            return no;
+        }
+        curNode = curNode->next;
+        no++;
+    }
+    return -1;
 }
 
 }

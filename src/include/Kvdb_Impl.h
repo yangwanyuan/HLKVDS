@@ -17,6 +17,7 @@
 #include "hyperds/Options.h"
 #include "hyperds/Status.h"
 #include "hyperds/Write_batch.h"
+#include "hyperds/Iterator.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
@@ -38,6 +39,8 @@ public:
     Status Delete(const char* key, uint32_t key_len);
 
     Status InsertBatch(WriteBatch *batch);
+
+    Iterator* NewIterator();
 
     void Do_GC();
     void ClearReadCache() {
