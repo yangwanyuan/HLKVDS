@@ -37,7 +37,8 @@ TEST =  test/test_block_manager \
 	    test/test_segment_manager \
 	    test/test_db \
 	    test/test_status\
-		test/test_batch
+		test/test_batch\
+		test/test_iterator
 
 PROGNAME := ${UTILS} ${SHARED_LIB}
 
@@ -100,6 +101,8 @@ test/test_db: test/test_db.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 test/test_status: test/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 test/test_batch: test/test_batch.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+test/test_iterator: test/test_iterator.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 
 .PHONY : clean
