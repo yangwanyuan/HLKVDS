@@ -50,6 +50,23 @@ TEST_F(test_operations,emptykey)
     delete db;
 }
 
+TEST_F(test_operations, nonexistkey)
+{
+    int db_size = 100;
+    KvdbDS *db = Create_DB(db_size);
+
+    string test_key = "test-key";
+    int test_key_size = 8;
+    string test_value = "test-value";
+
+    string get_data;
+    Status s=db->Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_FALSE(s.ok());
+    cout << s.ToString() << endl;
+
+    delete db;
+}
+
 TEST_F(test_operations,zerosize)
 {
     int db_size=100;
