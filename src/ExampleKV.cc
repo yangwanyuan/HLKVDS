@@ -75,6 +75,12 @@ void OpenExample() {
     sleep(2);
 
     delete db;
+    db = NULL;
+
+    if (!kvdb::DB::OpenDB(TEST_DB_FILENAME, &db)) {
+        return;
+    }
+    Get(db);
 }
 
 int main() {

@@ -28,7 +28,7 @@ UTILS = \
 		src/Benchmark \
 		src/GCTest
 
-SHARED_LIB = src/libkv.so
+SHARED_LIB = src/libhyperds.so
 
 TEST =  test/test_block_manager \
 	    test/test_index_manager \
@@ -83,7 +83,7 @@ src/DbTest : ${SRC_DIR}/DbTest.cc ${COMMON_OBJECTS}
 src/GCTest: ${SRC_DIR}/GCTest.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
 
-src/libkv.so: ${COMMON_OBJECTS}
+src/libhyperds.so: ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -shared -o $@ ${LIBS}
 
 test/test_rmd: test/test_rmd.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
@@ -114,9 +114,9 @@ clean:
 .PHONY : install
 install:
 	cp -r src/include/hyperds /usr/local/include
-	cp src/libkv.so /usr/local/lib
+	cp src/libhyperds.so /usr/local/lib
 
 .PHONY : uninstall
 uninstall:
 	rm -fr /usr/local/include/hyperds
-	rm -f /usr/local/lib/libkv.so
+	rm -f /usr/local/lib/libhyperds.so
