@@ -3,7 +3,7 @@ OPT ?= -g2
 
 INCLUDES = -I ./src/include \
 				-I ./test/include
-GTEST_INCLUDES = -I ./test/include/gtest ./test/lib/libgtest.a
+GTEST_INCLUDES = -I ./test/include/gtest ./test/lib/libgmock.a
 
 LIBS = -pthread
 
