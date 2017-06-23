@@ -142,7 +142,11 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
 }
 
 Iterator* KvdbDS::NewIterator() {
+#ifdef WITH_ITERATOR
     return new KvdbIter(idxMgr_, segMgr_, bdev_);
+#else
+    return NULL;
+#endif
 }
 
 void KvdbDS::printDbStates() {
@@ -476,6 +480,7 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     data.assign(mdata, data_len);
     delete[] mdata;
 
+#ifdef WITH_ITERATOR
     ////TODO: test read key, need remove to other place
     //uint64_t key_offset = 0;
     //uint16_t key_len = entry->GetKeySize();
@@ -490,6 +495,7 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     //__INFO("!!!!!!!!!!!!!!!!!! Key is %s!!!!", mkey);
     //delete[] mkey;
     ////test read key END!
+#endif
 
     __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffsetPhy());
 

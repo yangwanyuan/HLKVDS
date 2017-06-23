@@ -11,6 +11,8 @@
 namespace kvdb {
 #define MAGIC_NUMBER 0xffff0001
 
+#define WITH_ITERATOR 1
+
 #define RMDsize 160
 #define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 #define SEG_RESERVED_FOR_GC 2

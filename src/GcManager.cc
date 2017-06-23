@@ -271,7 +271,7 @@ void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                 char* data = new char[data_len];
                 memcpy(data, &dataBuf_[data_offset], data_len);
 
-
+#ifdef WITH_ITERATOR
                 //memcpy key to KVSlice.GetNextHeadOffsetGetNextHeadOffset
                 uint16_t key_len =header.GetKeySize();
                 uint32_t next_head_offset = header.GetNextHeadOffset();
@@ -284,10 +284,12 @@ void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                 char* key = new char[key_len+1];
                 memcpy(key, &dataBuf_[key_offset], key_len);
                 key[key_len] = '\0';
-
                 KVSlice *slice = new KVSlice(&digest, key, key_len, data, data_len);
-                slice_list.push_back(slice);
+#else
+                KVSlice *slice = new KVSlice(&digest, data, data_len);
+#endif
 
+                slice_list.push_back(slice);
                 __DEBUG("the slice key_digest = %s, value = %s, seg_offset = %ld, head_offset = %d is valid, need to write", digest.GetDigest(), data, phy_offset, head_offset);
             }
         }
@@ -318,8 +320,11 @@ void GcManager::cleanKvList(std::list<KVSlice*> &slice_list) {
     while (!slice_list.empty()) {
         KVSlice *slice = slice_list.front();
         slice_list.pop_front();
+#ifdef WITH_ITERATOR
         const char* key = slice->GetKey();
         delete[] key;
+#else
+#endif
         const char* data = slice->GetData();
         delete[] data;
         delete slice;

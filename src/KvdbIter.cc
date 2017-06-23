@@ -8,6 +8,7 @@
 #include "SegmentManager.h"
 #include "BlockDevice.h"
 
+#ifdef WITH_ITERATOR
 namespace kvdb {
 
 KvdbIter::KvdbIter(IndexManager* im, SegmentManager* sm, BlockDevice* bdev) :
@@ -224,3 +225,5 @@ Status KvdbIter::status() const {
 }
 
 }
+
+#endif

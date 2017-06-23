@@ -55,12 +55,21 @@ KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len) :
     computeDigest();
 }
 
+#ifdef WITH_ITERATOR
 KVSlice::KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
                 const char* data, int data_len) :
     key_(key), keyLength_(key_len), data_(data), dataLength_(data_len),
             digest_(NULL), entry_(NULL), segId_(0) {
     digest_ = new Kvdb_Digest(*digest);
 }
+#else
+KVSlice::KVSlice(Kvdb_Digest *digest, const char* data, int data_len) :
+    key_(NULL), keyLength_(0), data_(data), dataLength_(data_len),
+            digest_(NULL), entry_(NULL), segId_(0) {
+    digest_ = new Kvdb_Digest(*digest);
+}
+#endif
+
 
 void KVSlice::SetKeyValue(const char* key, int key_len, const char* data,
                           int data_len) {
@@ -188,17 +197,29 @@ SegBase::SegBase(SegmentManager* sm, BlockDevice* bdev) :
 
 bool SegBase::TryPut(KVSlice* slice) {
     uint32_t freeSize = tailPos_ - headPos_;
+#ifdef WITH_ITERATOR
     uint32_t needSize = slice->GetDataLen() + slice->GetKeyLen() + IndexManager::SizeOfDataHeader();
+#else
+    uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
+#endif
     return freeSize > needSize;
 }
 
 void SegBase::Put(KVSlice* slice) {
     if (slice->IsAlignedData()) {
+#ifdef WITH_ITERATOR
         headPos_ += IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
+#else
+        headPos_ += IndexManager::SizeOfDataHeader();
+#endif
         tailPos_ -= ALIGNED_SIZE;
         keyAlignedNum_++;
     } else {
+#ifdef WITH_ITERATOR
         headPos_ += IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();
+#else
+        headPos_ += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
+#endif
     }
     keyNum_++;
     sliceList_.push_back(slice);
@@ -226,10 +247,15 @@ void SegBase::fillEntryToSlice() {
         slice->SetSegId(segId_);
         if (slice->IsAlignedData()) {
             uint32_t data_offset = tail_pos - ALIGNED_SIZE;
+#ifdef WITH_ITERATOR
             uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
-
             DataHeader data_header(slice->GetDigest(), slice->GetKeyLen(), slice->GetDataLen(),
                                    data_offset, next_offset);
+#else
+            uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader();
+            DataHeader data_header(slice->GetDigest(), slice->GetDataLen(),
+                                   data_offset, next_offset);
+#endif
 
             uint64_t seg_offset = 0;
             segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
@@ -238,17 +264,32 @@ void SegBase::fillEntryToSlice() {
             HashEntry hash_entry(data_header, header_offset, NULL);
             slice->SetHashEntry(&hash_entry);
 
+#ifdef WITH_ITERATOR
             head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
+#else
+            head_pos += IndexManager::SizeOfDataHeader();
+#endif
             tail_pos -= ALIGNED_SIZE;
             __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
         } else {
+#ifdef With_ITERATOR
             uint32_t data_offset = head_pos + IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
             uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader()
                     + slice->GetKeyLen() + slice->GetDataLen();
+#else
+            uint32_t data_offset = head_pos + IndexManager::SizeOfDataHeader();
+            uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader()
+                    + slice->GetDataLen();
 
+#endif
+
+#ifdef WITH_ITERATOR
             DataHeader data_header(slice->GetDigest(), slice->GetKeyLen(), slice->GetDataLen(),
                                    data_offset, next_offset);
-
+#else
+            DataHeader data_header(slice->GetDigest(), slice->GetDataLen(),
+                                   data_offset, next_offset);
+#endif
             uint64_t seg_offset = 0;
             segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
@@ -256,7 +297,11 @@ void SegBase::fillEntryToSlice() {
             HashEntry hash_entry(data_header, header_offset, NULL);
             slice->SetHashEntry(&hash_entry);
 
+#ifdef WITH_ITERATOR
             head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();
+#else
+            head_pos += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
+#endif
             __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
 
         }
@@ -308,14 +353,19 @@ void SegBase::copyToDataBuf() {
         char *data = (char *) slice->GetData();
         uint16_t data_len = slice->GetDataLen();
 
+#ifdef WITH_ITERATOR
         char *key = (char *) slice->GetKey();
         uint16_t key_len = slice->GetKeyLen();
-
+#else
+#endif
         memcpy(&(dataBuf_[offset_begin]), header,
                IndexManager::SizeOfDataHeader());
         offset_begin += IndexManager::SizeOfDataHeader();
+#ifdef WITH_ITERATOR
         memcpy(&(dataBuf_[offset_begin]), key, key_len);
         offset_begin += key_len;
+#else
+#endif
 
         if (slice->IsAlignedData()) {
             offset_end -= data_len;

@@ -9,6 +9,7 @@
 #include <string>
 #include "hyperds/Iterator.h"
 
+#ifdef WITH_ITERATOR
 namespace kvdb {
 
 class IndexManager;
@@ -46,5 +47,6 @@ private:
     int entryListCur_;
 };
 } 
+#endif
 
 #endif // #ifndef _KV_DB_KVDBITER_H_
