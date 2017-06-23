@@ -146,8 +146,9 @@ int KernelDevice::Open(string path, bool dsync) {
         capacity_ = get_block_device_capacity();
         blockSize_ = statbuf.st_blksize;
     } else {
-        __ERROR("The path is not a Block device.");
-        goto open_fail;
+        capacity_ = statbuf.st_size;
+        //TODO:() dynamic block size in file mode
+        blockSize_ = 4096;
     }
     return FOK;
     open_fail: close(bufFd_);
