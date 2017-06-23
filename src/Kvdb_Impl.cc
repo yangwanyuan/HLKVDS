@@ -30,6 +30,8 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
     uint64_t db_size = 0;
     uint64_t device_capacity = 0;
     uint64_t data_theory_size = 0;
+    uint64_t last_check_point = 0;
+    bool     graceful_shutdown = 0;
 
     KvdbDS* ds = new KvdbDS(filename, opts);
 
@@ -113,7 +115,7 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
     DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, segment_size,
                     number_segments, 0, db_sb_size, db_index_size,
                     db_seg_table_size, db_data_region_size, device_capacity,
-                    data_theory_size);
+                    data_theory_size, last_check_point, graceful_shutdown);
     ds->sbMgr_->SetSuperBlock(sb);
 
     __INFO("\nCreateKvdbDS table information:\n"
@@ -191,6 +193,7 @@ bool KvdbDS::writeMetaDataToDevice() {
         return false;
     }
 
+    sbMgr_->SetGracefulShutdown(true); //Graceful shutdown
     if (!sbMgr_->WriteSuperBlockToDevice()) {
         return false;
     }
@@ -541,6 +544,7 @@ void KvdbDS::SegWriteThdEntry() {
 
             uint32_t free_size = seg->GetFreeSize();
             seg->SetSegId(seg_id);
+            seg->SetCheckPoint(last_check_point);
             res = seg->WriteSegToDevice();
             if (res) {
                 segMgr_->Use(seg_id, free_size);
@@ -604,6 +608,7 @@ void KvdbDS::CheckPointThdEntry() {
     __DEBUG("CheckPoint thread start!!");
     while (!ckpT_stop_) {
         writeMetaDataToDevice();
+        last_check_point++;
         usleep(1000000);
     } __DEBUG("CheckPoint thread stop!!");
 }

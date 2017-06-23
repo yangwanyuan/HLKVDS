@@ -91,6 +91,7 @@ private:
     Kvdb_Digest *digest_;
     HashEntry *entry_;
     uint32_t segId_;
+    uint64_t ckp_;
 
     void copy_helper(const KVSlice& toBeCopied);
     void computeDigest();
@@ -165,6 +166,9 @@ public:
         segId_ = seg_id;
     }
 
+    void SetCheckPoint(uint64_t last_check_point) {
+        last_check_point = last_check_point;
+    }
     int32_t GetKeyNum() const {
         return keyNum_;
     }
@@ -182,6 +186,7 @@ private:
 
 private:
     int32_t segId_;
+    uint64_t last_check_point;
     SegmentManager* segMgr_;
     BlockDevice* bdev_;
     int32_t segSize_;

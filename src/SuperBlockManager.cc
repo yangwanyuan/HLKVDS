@@ -54,6 +54,7 @@ void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
     sb_->db_data_region_size = sb.db_data_region_size;
     sb_->device_capacity = sb.device_capacity;
     sb_->data_theory_size = sb.data_theory_size;
+    sb_->last_check_point = sb.last_check_point;
 }
 
 uint64_t SuperBlockManager::GetSuperBlockSizeOnDevice() {
@@ -78,6 +79,11 @@ void SuperBlockManager::SetElementNum(uint32_t num) {
 void SuperBlockManager::SetCurSegId(uint32_t id) {
     std::lock_guard < std::mutex > l(mtx_);
     sb_->current_segment = id;
+}
+
+void SuperBlockManager::SetGracefulShutdown(bool shutdown) {
+    std::lock_guard < std::mutex > l(mtx_);
+    sb_->graceful_shutdown = shutdown;
 }
 
 void SuperBlockManager::SetDataTheorySize(uint64_t size) {
