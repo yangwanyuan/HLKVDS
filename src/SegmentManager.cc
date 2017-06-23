@@ -178,6 +178,24 @@ bool SegmentManager::ComputeDataOffsetPhyFromEntry(HashEntry* entry,
     return true;
 }
 
+#ifdef WITH_ITERATOR
+bool SegmentManager::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
+                                                    uint64_t& key_offset) {
+    uint64_t seg_offset = 0;
+    uint64_t header_offset = entry->GetHeaderOffsetPhy();
+    if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
+        return false;
+    }
+    uint32_t data_size = entry->GetDataSize();
+    if ( data_size == ALIGNED_SIZE) {
+        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize();
+    } else {
+        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize() - data_size;
+    }
+    return true;
+}
+#endif
+
 bool SegmentManager::Alloc(uint32_t& seg_id) {
     std::unique_lock < std::mutex > l(mtx_);
     if (freedCounter_ <= SEG_RESERVED_FOR_GC) {

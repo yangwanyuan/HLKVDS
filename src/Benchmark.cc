@@ -186,6 +186,7 @@ void* fun_insert(void *arg) {
 
     for (int i = key_start; i < key_end + 1; i++) {
         string key = key_list[i];
+        //string key = key_list[i-key_start];
         KVTime tv_start;
         s = db->Insert(key.c_str(), key_len, value->c_str(), value_size);
         KVTime tv_end;

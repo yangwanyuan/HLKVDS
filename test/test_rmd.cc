@@ -22,7 +22,8 @@ TEST_F(test_rmd, IntKeyTest)
     uint32_t conflict = 0;
     set<string> result_set;
 
-    for(uint32_t i=0; i< 4294967295; i++)
+    //for(uint32_t i=0; i< 4294967295; i++)
+    for(uint32_t i=0; i< 10; i++)
     {
         char *pi = (char *)&i;
 

@@ -11,6 +11,7 @@
 
 #include "Kvdb_Impl.h"
 #include "KeyDigestHandle.h"
+#include "KvdbIter.h"
 
 namespace kvdb {
 
@@ -132,12 +133,20 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
             db_index_size, db_seg_table_size, db_meta_size,
             db_data_region_size, db_size, device_capacity);
 
-    ds->seg_ = new SegmentSlice(ds->segMgr_, ds->idxMgr_, ds->bdev_,
+    ds->seg_ = new SegForReq(ds->segMgr_, ds->idxMgr_, ds->bdev_,
                                 ds->options_.expired_time);
     ds->startThds();
 
     return ds;
 
+}
+
+Iterator* KvdbDS::NewIterator() {
+#ifdef WITH_ITERATOR
+    return new KvdbIter(idxMgr_, segMgr_, bdev_);
+#else
+    return NULL;
+#endif
 }
 
 void KvdbDS::printDbStates() {
@@ -217,7 +226,7 @@ bool KvdbDS::readMetaDataFromDevice() {
         return false;
     }
 
-    seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_, options_.expired_time);
+    seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
 
     __INFO("\nReading meta information from file:\n"
             "\t hashtable_size            : %d\n"
@@ -381,6 +390,52 @@ Status KvdbDS::Get(const char* key, uint32_t key_len, string &data) {
 
 }
 
+Status KvdbDS::InsertBatch(WriteBatch *batch)
+{
+    if (batch->batch_.empty()) {
+        return Status::OK();
+    }
+
+    uint32_t seg_id = 0;
+    bool ret;
+    //TODO: use GcSegment first, need abstract segment.
+    while (!segMgr_->Alloc(seg_id)) {
+        ret = gcMgr_->ForeGC();
+        if (!ret) {
+            __ERROR("Cann't get a new Empty Segment.\n");
+            return Status::Aborted("Can't allocate a Empty Segment.");
+        }
+    }
+
+    SegForSlice *seg = new SegForSlice(segMgr_, idxMgr_, bdev_);
+    for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
+            iter != batch->batch_.end(); iter++) {
+        if (seg->TryPut(*iter)) {
+            seg->Put(*iter);
+        }
+        else {
+            __ERROR("The Batch is too large, can't put in one segment");
+            delete seg;
+            return Status::Aborted("Batch is too large.");
+        }
+    }
+
+    seg->SetSegId(seg_id);
+    ret = seg->WriteSegToDevice();
+    if(!ret) {
+        __ERROR("Write batch segment to device failed");
+        segMgr_->FreeForFailed(seg_id);
+        delete seg;
+        return Status::IOError("could not write batch segment to device ");
+    }
+
+    uint32_t free_size = seg->GetFreeSize();
+    segMgr_->Use(seg_id, free_size);
+    seg->UpdateToIndex();
+    delete seg;
+    return Status::OK();
+}
+
 Status KvdbDS::insertKey(KVSlice& slice) {
     Request *req = new Request(slice);
     reqQue_.Enqueue_Notify(req);
@@ -399,7 +454,7 @@ Status KvdbDS::updateMeta(Request *req) {
     KVSlice *slice = &req->GetSlice();
     res = idxMgr_->UpdateIndex(slice);
     // minus the segment delete counter
-    SegmentSlice *seg = req->GetSeg();
+    SegForReq *seg = req->GetSeg();
     if (!seg->CommitedAndGetNum()) {
         segReaperQue_.Enqueue_Notify(seg);
     }
@@ -425,6 +480,23 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     data.assign(mdata, data_len);
     delete[] mdata;
 
+#ifdef WITH_ITERATOR
+    ////TODO: test read key, need remove to other place
+    //uint64_t key_offset = 0;
+    //uint16_t key_len = entry->GetKeySize();
+    //segMgr_->ComputeSegOffsetFromOffset(data_offset, key_offset);
+    //key_offset += entry->GetNextHeadOffsetInSeg() - key_len;
+    //char *mkey = new char[key_len];
+    //if (bdev_->pRead(mkey, key_len, key_offset) != (ssize_t) key_len) {
+    //    __ERROR("Could not read key at position");
+    //    delete[] mkey;
+    //    return Status::IOError("Could not read key at position.");
+    //}
+    //__INFO("!!!!!!!!!!!!!!!!!! Key is %s!!!!", mkey);
+    //delete[] mkey;
+    ////test read key END!
+#endif
+
     __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffsetPhy());
 
     return Status::OK();
@@ -442,8 +514,8 @@ void KvdbDS::ReqMergeThdEntry() {
             } else {
                 seg_->Complete();
                 segWriteQue_.Enqueue_Notify(seg_);
-                seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_,
-                                        options_.expired_time);
+                seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
+                                    options_.expired_time);
                 seg_->Put(req);
             }
             lck_seg.unlock();
@@ -455,7 +527,7 @@ void KvdbDS::ReqMergeThdEntry() {
 void KvdbDS::SegWriteThdEntry() {
     __DEBUG("Segment write thread start!!");
     while (!segWriteT_stop_) {
-        SegmentSlice *seg = segWriteQue_.Wait_Dequeue();
+        SegForReq *seg = segWriteQue_.Wait_Dequeue();
         if (seg) {
             uint32_t seg_id = 0;
             bool res;
@@ -468,7 +540,8 @@ void KvdbDS::SegWriteThdEntry() {
             }
 
             uint32_t free_size = seg->GetFreeSize();
-            res = seg->WriteSegToDevice(seg_id);
+            seg->SetSegId(seg_id);
+            res = seg->WriteSegToDevice();
             if (res) {
                 segMgr_->Use(seg_id, free_size);
             } else {
@@ -492,8 +565,8 @@ void KvdbDS::SegTimeoutThdEntry() {
             seg_->Complete();
 
             segWriteQue_.Enqueue_Notify(seg_);
-            seg_ = new SegmentSlice(segMgr_, idxMgr_, bdev_,
-                                    options_.expired_time);
+            seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
+                                options_.expired_time);
         }
         lck.unlock();
 
@@ -505,7 +578,7 @@ void KvdbDS::SegReaperThdEntry() {
     __DEBUG("Segment reaper thread start!!");
 
     while (!segReaperT_stop_) {
-        SegmentSlice *seg = segReaperQue_.Wait_Dequeue();
+        SegForReq *seg = segReaperQue_.Wait_Dequeue();
         if (seg) {
             seg->CleanDeletedEntry();
             __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());

@@ -3,8 +3,8 @@
 //  LICENSE file in the root directory of this source tree. An additional grant
 //  of patent rights can be found in the PATENTS file in the same directory.
 
-#ifndef _KV_DB_DATAHANDLE_H_
-#define _KV_DB_DATAHANDLE_H_
+#ifndef _KV_DB_SEGMENT_H_
+#define _KV_DB_SEGMENT_H_
 
 #include <string>
 #include <sys/types.h>
@@ -31,8 +31,7 @@ class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
 class SegmentManager;
-class SegmentSlice;
-
+class SegForReq;
 
 class KVSlice {
 public:
@@ -42,7 +41,12 @@ public:
     KVSlice& operator=(const KVSlice& toBeCopied);
 
     KVSlice(const char* key, int key_len, const char* data, int data_len);
+#ifdef WITH_ITERATOR
+    KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
+            const char* data, int data_len);
+#else
     KVSlice(Kvdb_Digest *digest, const char* data, int data_len);
+#endif
 
     const Kvdb_Digest& GetDigest() const {
         return *digest_;
@@ -58,10 +62,10 @@ public:
 
     string GetKeyStr() const;
     string GetDataStr() const;
-    uint32_t GetKeyLen() const {
+
+    uint16_t GetKeyLen() const {
         return keyLength_;
     }
-
     uint16_t GetDataLen() const {
         return dataLength_;
     }
@@ -122,11 +126,11 @@ public:
 
     void SetWriteStat(bool stat);
 
-    void SetSeg(SegmentSlice *seg) {
+    void SetSeg(SegForReq *seg) {
         segPtr_ = seg;
     }
 
-    SegmentSlice* GetSeg() {
+    SegForReq* GetSeg() {
         return segPtr_;
     }
 
@@ -140,74 +144,115 @@ private:
     mutable std::mutex mtx_;
     std::condition_variable cv_;
 
-    SegmentSlice *segPtr_;
+    SegForReq *segPtr_;
 };
 
-class SegmentSlice {
+class SegBase {
 public:
-    SegmentSlice();
-    ~SegmentSlice();
-    SegmentSlice(const SegmentSlice& toBeCopied);
-    SegmentSlice& operator=(const SegmentSlice& toBeCopied);
+    SegBase();
+    ~SegBase();
+    SegBase(const SegBase& toBeCopied);
+    SegBase& operator=(const SegBase& toBeCopied);
+    SegBase(SegmentManager* sm, BlockDevice* bdev);
 
-    SegmentSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev,
-                 uint32_t timeout);
-
-    bool TryPut(Request* req);
-    void Put(Request* req);
-    bool WriteSegToDevice(uint32_t seg_id);
-    void Complete();
-    void Notify(bool stat);
-    bool IsExpired();
+    bool TryPut(KVSlice* slice);
+    void Put(KVSlice* slice);
+    bool WriteSegToDevice();
     uint32_t GetFreeSize() const {
         return tailPos_ - headPos_;
     }
 
-    int32_t CommitedAndGetNum() {
-        return --reqCommited_;
-    }
-    void CleanDeletedEntry();
-    uint32_t GetSegId() const {
+    int32_t GetSegId() const {
         return segId_;
+    }
+    void SetSegId(int32_t seg_id) {
+        segId_ = seg_id;
+    }
+
+    int32_t GetKeyNum() const {
+        return keyNum_;
+    }
+
+    std::list<KVSlice *>& GetSliceList() {
+        return sliceList_;
     }
 
 private:
-    bool isCanFit(Request* req) const;
-    void copyHelper(const SegmentSlice& toBeCopied);
-    void fillSlice();
-    void fillSegHead();
-    void notifyAndClean(bool req_state);
+    void copyHelper(const SegBase& toBeCopied);
+    void fillEntryToSlice();
     bool _writeDataToDevice();
-    void copyToData(char* data_buff);
+    void copyToDataBuf();
+    bool newDataBuffer();
 
-    uint32_t segId_;
+private:
+    int32_t segId_;
     SegmentManager* segMgr_;
-    IndexManager* idxMgr_;
     BlockDevice* bdev_;
-    uint32_t timeout_;
-    uint32_t segSize_;
+    int32_t segSize_;
     KVTime persistTime_;
-    KVTime startTime_;
 
     uint32_t headPos_;
     uint32_t tailPos_;
 
     int32_t keyNum_;
     int32_t keyAlignedNum_;
+
+    std::list<KVSlice *> sliceList_;
+
+    SegmentOnDisk *segOndisk_;
+    char *dataBuf_;
+};
+
+class SegForReq : public SegBase {
+public:
+    SegForReq();
+    ~SegForReq();
+    SegForReq(const SegForReq& toBeCopied);
+    SegForReq& operator=(const SegForReq& toBeCopied);
+
+    SegForReq(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+
+    bool TryPut(Request* req);
+    void Put(Request* req);
+    void Complete();
+    void Notify(bool stat);
+    bool IsExpired();
+
+    int32_t CommitedAndGetNum() {
+        return --reqCommited_;
+    }
+
+    void CleanDeletedEntry();
+
+private:
+    IndexManager* idxMgr_;
+    uint32_t timeout_;
+    KVTime startTime_;
+    KVTime persistTime_;
+
     bool isCompleted_;
     bool hasReq_;
 
     std::atomic<int32_t> reqCommited_;
-
     std::list<Request *> reqList_;
-    SegmentOnDisk *segOndisk_;
 
     mutable std::mutex mtx_;
     std::list<HashEntry> delReqList_;
-
-    char *dataBuf_;
 };
 
-} //end namespace kvdb
+class SegForSlice : public SegBase {
+public:
+    SegForSlice();
+    ~SegForSlice();
+    SegForSlice(const SegForSlice& toBeCopied);
+    SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-#endif //#ifndef _KV_DB_DATAHANDLE_H_
+    SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+
+    void UpdateToIndex();
+private:
+    IndexManager* idxMgr_;
+};
+
+}
+#endif //#ifndef _KV_DB_SEGMENT_H_

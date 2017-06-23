@@ -13,7 +13,7 @@
 #include <string.h>
 #include <string>
 #include <cstring>
-#include "hyperds/status.h"
+#include "hyperds/Status.h"
 
 Status::Status(Code _code, const char* msg) :
     code_(_code) {

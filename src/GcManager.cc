@@ -6,193 +6,6 @@
 #include "GcManager.h"
 
 namespace kvdb {
-GcSegment::GcSegment() :
-    segId_(0), segMgr_(NULL), idxMgr_(NULL), bdev_(NULL), segSize_(0),
-            persistTime_(KVTime()), headPos_(0), tailPos_(0), keyNum_(0),
-            keyAlignedNum_(0), segOndisk_(NULL) {
-    segOndisk_ = new SegmentOnDisk();
-    dataBuf_ = new char[segSize_];
-}
-
-GcSegment::~GcSegment() {
-    delete segOndisk_;
-    delete[] dataBuf_;
-}
-
-GcSegment::GcSegment(const GcSegment& toBeCopied) {
-    segOndisk_ = new SegmentOnDisk();
-    dataBuf_ = new char[segSize_];
-    copyHelper(toBeCopied);
-}
-
-GcSegment& GcSegment::operator=(const GcSegment& toBeCopied) {
-    copyHelper(toBeCopied);
-    return *this;
-}
-
-void GcSegment::copyHelper(const GcSegment& toBeCopied) {
-    segId_ = toBeCopied.segId_;
-    segMgr_ = toBeCopied.segMgr_;
-    idxMgr_ = toBeCopied.idxMgr_;
-    bdev_ = toBeCopied.bdev_;
-    segSize_ = toBeCopied.segSize_;
-    persistTime_ = toBeCopied.persistTime_;
-    headPos_ = toBeCopied.headPos_;
-    tailPos_ = toBeCopied.tailPos_;
-    keyNum_ = toBeCopied.keyNum_;
-    keyAlignedNum_ = toBeCopied.keyAlignedNum_;
-    *segOndisk_ = *toBeCopied.segOndisk_;
-    memcpy(dataBuf_, toBeCopied.dataBuf_, segSize_);
-}
-
-GcSegment::GcSegment(SegmentManager* sm, IndexManager* im, BlockDevice* bdev) :
-    segId_(0), segMgr_(sm), idxMgr_(im), bdev_(bdev),
-            segSize_(segMgr_->GetSegmentSize()), persistTime_(KVTime()),
-            headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
-            keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL) {
-    segOndisk_ = new SegmentOnDisk();
-    dataBuf_ = new char[segSize_];
-}
-
-bool GcSegment::TryPut(KVSlice* slice) {
-    return isCanFit(slice);
-}
-
-void GcSegment::Put(KVSlice* slice) {
-    if (slice->IsAlignedData()) {
-        headPos_ += IndexManager::SizeOfDataHeader();
-        tailPos_ -= ALIGNED_SIZE;
-        keyAlignedNum_++;
-    } else {
-        headPos_ += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
-    }
-    keyNum_++;
-    sliceList_.push_back(slice);
-
-    __DEBUG("Put request key = %s", slice->GetKeyStr().c_str());
-}
-
-bool GcSegment::WriteSegToDevice(uint32_t seg_id) {
-    segId_ = seg_id;
-    fillSlice();
-    __DEBUG("Begin write seg, free size %u, seg id: %d, key num: %d", tailPos_-headPos_ , segId_, keyNum_);
-
-    return _writeDataToDevice();
-}
-
-void GcSegment::UpdateToIndex() {
-    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
-            != sliceList_.end(); iter++) {
-        KVSlice *slice = *iter;
-        idxMgr_->UpdateIndex(slice);
-    } __DEBUG("UpdateToIndex Success!");
-}
-
-bool GcSegment::isCanFit(KVSlice* slice) const {
-    uint32_t freeSize = tailPos_ - headPos_;
-    uint32_t needSize = slice->GetDataLen() + IndexManager::SizeOfDataHeader();
-    return freeSize > needSize;
-}
-
-void GcSegment::fillSlice() {
-    uint32_t head_pos = SegmentManager::SizeOfSegOnDisk();
-    uint32_t tail_pos = segSize_;
-    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
-            != sliceList_.end(); iter++) {
-
-        KVSlice *slice = *iter;
-        slice->SetSegId(segId_);
-        if (slice->IsAlignedData()) {
-            uint32_t data_offset = tail_pos - ALIGNED_SIZE;
-            uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader();
-
-            DataHeader data_header(slice->GetDigest(), slice->GetDataLen(),
-                                   data_offset, next_offset);
-
-            uint64_t seg_offset = 0;
-            segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
-            uint64_t header_offset = seg_offset + head_pos;
-
-            HashEntry hash_entry(data_header, header_offset, NULL);
-            slice->SetHashEntry(&hash_entry);
-
-            head_pos += IndexManager::SizeOfDataHeader();
-            tail_pos -= ALIGNED_SIZE;
-            __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
-        } else {
-            uint32_t data_offset = head_pos + IndexManager::SizeOfDataHeader();
-            uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader()
-                    + slice->GetDataLen();
-
-            DataHeader data_header(slice->GetDigest(), slice->GetDataLen(),
-                                   data_offset, next_offset);
-
-            uint64_t seg_offset = 0;
-            segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
-            uint64_t header_offset = seg_offset + head_pos;
-
-            HashEntry hash_entry(data_header, header_offset, NULL);
-            slice->SetHashEntry(&hash_entry);
-
-            head_pos += IndexManager::SizeOfDataHeader() + slice->GetDataLen();
-            __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
-
-        }
-    }
-    if (head_pos != headPos_ || tail_pos != tailPos_) {
-        __ERROR("Segment fillSlice  Failed!!! head_pos= %u, headPos_=%u, tail_pos= %u, tailPos_ = %u", head_pos, headPos_, tail_pos, tailPos_);
-    }
-}
-
-bool GcSegment::_writeDataToDevice() {
-    copyToData();
-
-    uint64_t offset = 0;
-    segMgr_->ComputeSegOffsetFromId(segId_, offset);
-
-    if (bdev_->pWrite(dataBuf_, segSize_, offset) != segSize_) {
-        __ERROR("Write Segment front data error, seg_id:%u", segId_);
-        return false;
-    }
-    return true;
-}
-
-void GcSegment::copyToData() {
-    uint64_t offset = 0;
-    segMgr_->ComputeSegOffsetFromId(segId_, offset);
-
-    uint32_t offset_begin = 0;
-    uint32_t offset_end = segSize_;
-
-    memcpy(dataBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
-    offset_begin += SegmentManager::SizeOfSegOnDisk();
-
-    //aggregate iovec
-    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
-            != sliceList_.end(); iter++) {
-        KVSlice *slice = *iter;
-        DataHeader *header =
-                &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
-        char *data = (char *) slice->GetData();
-        uint16_t data_len = slice->GetDataLen();
-
-        memcpy(&(dataBuf_[offset_begin]), header,
-               IndexManager::SizeOfDataHeader());
-        offset_begin += IndexManager::SizeOfDataHeader();
-
-        if (slice->IsAlignedData()) {
-            offset_end -= data_len;
-            memcpy(&(dataBuf_[offset_end]), data, data_len);
-            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_end + offset);
-        } else {
-            memcpy(&(dataBuf_[offset_begin]), data, data_len);
-            offset_begin += data_len;
-            __DEBUG("write key = %s, data position: %lu", slice->GetKey(), offset_begin + offset);
-        }
-    }
-    memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
-}
-
 GcManager::~GcManager() {
     if (dataBuf_) {
         delete[] dataBuf_;
@@ -315,7 +128,8 @@ void GcManager::FullGC() {
 uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     if (!dataBuf_) {
         uint32_t seg_size = segMgr_->GetSegmentSize();
-        dataBuf_ = new char[seg_size];
+        //dataBuf_ = new char[seg_size];
+        posix_memalign((void **)&dataBuf_, 4096, seg_size);
     }
 
     bool ret;
@@ -330,7 +144,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     std::list<KVSlice*>::iterator slice_iter;
 
     //handle first segment
-    GcSegment *seg_first = new GcSegment(segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg_first = new SegForSlice(segMgr_, idxMgr_, bdev_);
     for (std::multimap<uint32_t, uint32_t>::iterator iter = cands_map.begin(); iter
             != cands_map.end(); ++iter) {
         uint32_t seg_id = iter->second;
@@ -361,7 +175,8 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
 
     uint32_t seg_first_id;
     segMgr_->AllocForGC(seg_first_id);
-    ret = seg_first->WriteSegToDevice(seg_first_id);
+    seg_first->SetSegId(seg_first_id);
+    ret = seg_first->WriteSegToDevice();
     if (!ret) {
         __ERROR("Write First GC segment to device failed, free 0 segments");
         delete seg_first;
@@ -392,7 +207,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     }
 
     //handle second segment
-    GcSegment *seg_second = new GcSegment(segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg_second = new SegForSlice(segMgr_, idxMgr_, bdev_);
     uint32_t seg_second_id;
     segMgr_->AllocForGC(seg_second_id);
 
@@ -401,7 +216,8 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
         seg_second->Put(slice);
     }
 
-    ret = seg_second->WriteSegToDevice(seg_second_id);
+    seg_second->SetSegId(seg_second_id);
+    ret = seg_second->WriteSegToDevice();
     if (!ret) {
         __ERROR("Write Second GC segment to device failed, but First Segment is completed, free %d segments", total_free);
         delete seg_second;
@@ -455,9 +271,25 @@ void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                 char* data = new char[data_len];
                 memcpy(data, &dataBuf_[data_offset], data_len);
 
+#ifdef WITH_ITERATOR
+                //memcpy key to KVSlice.GetNextHeadOffsetGetNextHeadOffset
+                uint16_t key_len =header.GetKeySize();
+                uint32_t next_head_offset = header.GetNextHeadOffset();
+                uint32_t key_offset;
+                if (ALIGNED_SIZE == data_len) {
+                    key_offset = next_head_offset - key_len;
+                } else {
+                    key_offset = next_head_offset - data_len - key_len;
+                }
+                char* key = new char[key_len+1];
+                memcpy(key, &dataBuf_[key_offset], key_len);
+                key[key_len] = '\0';
+                KVSlice *slice = new KVSlice(&digest, key, key_len, data, data_len);
+#else
                 KVSlice *slice = new KVSlice(&digest, data, data_len);
-                slice_list.push_back(slice);
+#endif
 
+                slice_list.push_back(slice);
                 __DEBUG("the slice key_digest = %s, value = %s, seg_offset = %ld, head_offset = %d is valid, need to write", digest.GetDigest(), data, phy_offset, head_offset);
             }
         }
@@ -488,6 +320,11 @@ void GcManager::cleanKvList(std::list<KVSlice*> &slice_list) {
     while (!slice_list.empty()) {
         KVSlice *slice = slice_list.front();
         slice_list.pop_front();
+#ifdef WITH_ITERATOR
+        const char* key = slice->GetKey();
+        delete[] key;
+#else
+#endif
         const char* data = slice->GetData();
         delete[] data;
         delete slice;

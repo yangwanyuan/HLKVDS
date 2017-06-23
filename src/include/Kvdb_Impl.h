@@ -15,14 +15,16 @@
 
 #include "Db_Structure.h"
 #include "hyperds/Options.h"
-#include "hyperds/status.h"
+#include "hyperds/Status.h"
+#include "hyperds/Write_batch.h"
+#include "hyperds/Iterator.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
-#include "DataHandle.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
 #include "WorkQueue.h"
+#include "Segment.h"
 
 namespace kvdb {
 
@@ -35,6 +37,10 @@ public:
                   uint16_t length);
     Status Get(const char* key, uint32_t key_len, string &data);
     Status Delete(const char* key, uint32_t key_len);
+
+    Status InsertBatch(WriteBatch *batch);
+
+    Iterator* NewIterator();
 
     void Do_GC();
     void ClearReadCache() {
@@ -76,7 +82,7 @@ private:
     GcManager* gcMgr_;
     string fileName_;
 
-    SegmentSlice *seg_;
+    SegForReq *seg_;
     std::mutex segMtx_;
     Options options_;
 
@@ -91,7 +97,7 @@ private:
 private:
     std::vector<std::thread> segWriteTP_;
     std::atomic<bool> segWriteT_stop_;
-    WorkQueue<SegmentSlice*> segWriteQue_;
+    WorkQueue<SegForReq*> segWriteQue_;
     void SegWriteThdEntry();
 
     // Seg Timeout thread
@@ -104,7 +110,7 @@ private:
 private:
     std::thread segReaperT_;
     std::atomic<bool> segReaperT_stop_;
-    WorkQueue<SegmentSlice*> segReaperQue_;
+    WorkQueue<SegForReq*> segReaperQue_;
     void SegReaperThdEntry();
 
     //GC thread

@@ -9,6 +9,7 @@
 
 #include "Kvdb_Impl.h"
 #include "hyperds/Options.h"
+#include "hyperds/Iterator.h"
 #include "gtest/gtest.h"
 #include <string>
 

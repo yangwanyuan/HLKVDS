@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 
+#include "Db_Structure.h"
 #include "Options.h"
 
 using namespace std;

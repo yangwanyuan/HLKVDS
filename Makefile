@@ -36,15 +36,19 @@ TEST =  test/test_block_manager \
 	    test/test_rmd \
 	    test/test_segment_manager \
 	    test/test_db \
-	    test/test_status
+	    test/test_status\
+		test/test_batch\
+		test/test_iterator
 
 PROGNAME := ${UTILS} ${SHARED_LIB}
 
-SRC_OBJ =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o DataHandle.o BlockDevice.o KernelDevice.o SegmentManager.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o rmd160.o Options.o status.o
+SRC_OBJ =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o BlockDevice.o KernelDevice.o \
+			SegmentManager.o Segment.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o \
+			rmd160.o Options.o Write_batch.o Status.o KvdbIter.o
 SRC_OBJECTS = $(addprefix ${SRC_DIR}/, ${SRC_OBJ})
 COMMON_OBJECTS = ${SRC_OBJECTS}
 TEST_OBJECTS = test/test_base.o
-ALL_OBJECTS = $(CORE_C_OBJ) $(CORE_CXX_OBJ)
+ALL_OBJECTS = $(CORE_C_OBJ) $(CORE_CXX_OBJ) $(TEST_CXX_OBJ)
 
 .PHONY : all
 all: ${PROGNAME}
@@ -96,6 +100,11 @@ test/test_db: test/test_db.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 test/test_status: test/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+test/test_batch: test/test_batch.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+test/test_iterator: test/test_iterator.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+
 .PHONY : clean
 clean:
 	rm -fr $(ALL_OBJECTS)
