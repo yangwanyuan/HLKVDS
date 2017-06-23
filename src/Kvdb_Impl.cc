@@ -301,11 +301,17 @@ void KvdbDS::startThds() {
 
     gcT_stop_.store(false);
     gcT_ = std::thread(&KvdbDS::GCThdEntry, this);
+
+    ckpT_stop_.store(false);
+    ckpT_ = std::thread(&KvdbDS::CheckPointThdEntry, this);
 }
 
 void KvdbDS::stopThds() {
     gcT_stop_.store(true);
     gcT_.join();
+
+    ckpT_stop_.store(true);
+    ckpT_.join();
 
     segReaperT_stop_.store(true);
     segReaperT_.join();
@@ -592,6 +598,14 @@ void KvdbDS::GCThdEntry() {
         gcMgr_->BackGC();
         usleep(1000000);
     } __DEBUG("GC thread stop!!");
+}
+
+void KvdbDS::CheckPointThdEntry() {
+    __DEBUG("CheckPoint thread start!!");
+    while (!ckpT_stop_) {
+        writeMetaDataToDevice();
+        usleep(1000000);
+    } __DEBUG("CheckPoint thread stop!!");
 }
 }
 
