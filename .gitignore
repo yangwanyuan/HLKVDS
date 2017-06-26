@@ -3,3 +3,9 @@
 *.swp
 *.exe
 tags
+deps/
+test.img
+test/include/gmock
+test/include/gtest
+test/lib
+test/*.xml
