@@ -1,9 +1,13 @@
 #OPT ?= -g
 OPT ?= -g2
 
-INCLUDES = -I ./src/include \
-				-I ./test/include
-GTEST_INCLUDES = -I ./test/include/gtest ./test/lib/libgmock.a
+SRC_DIR = ./src
+TOOLS_DIR = ./tools
+TEST_DIR = ./test
+
+INCLUDES = -I ${SRC_DIR}/include \
+		   -I ${TEST_DIR}/include
+GTEST_INCLUDES = -I ${TEST_DIR}/include/gtest ${TEST_DIR}/lib/libgmock.a
 
 LIBS = -pthread
 
@@ -12,50 +16,43 @@ CXX = g++
 C_FLAGS = -Wall -fPIC ${OPT}
 CXX_FLAGS = --std=c++11 -Wall -fPIC ${OPT}
 
-SRC_DIR = ./src
-CORE_C_SRC = $(wildcard ./src/*.c)
-CORE_CXX_SRC = $(wildcard ./src/*.cc)
-TEST_CXX_SRC = $(wildcard ./test/*.cc)
- 
+
+CORE_C_SRC = $(wildcard ${SRC_DIR}/*.c)
+CORE_CXX_SRC = $(wildcard ${SRC_DIR}/*.cc)
 CORE_C_OBJ = $(patsubst %.c, %.o, ${CORE_C_SRC})
 CORE_CXX_OBJ = $(patsubst %.cc, %.o, ${CORE_CXX_SRC})
-TEST_CXX_OBJ  = $(patsubst %.cc, %.o, ${TEST_CXX_SRC})
+COMMON_OBJECTS = ${CORE_C_OBJ} ${CORE_CXX_OBJ}
 
-UTILS = \
-		src/DbTest \
-		src/CreateDb \
-		src/ExampleKV \
-		src/Benchmark \
-		src/GCTest
+TEST_SRC = ${TEST_DIR}/test_base.cc
+TEST_OBJECTS  = $(patsubst %.cc, %.o, ${TEST_SRC})
 
-SHARED_LIB = src/libkv.so
+TOOLS_LIST = \
+		${TOOLS_DIR}/DbTest \
+		${TOOLS_DIR}/CreateDb \
+		${TOOLS_DIR}/ExampleKV \
+		${TOOLS_DIR}/Benchmark \
+		${TOOLS_DIR}/GCTest
 
-TEST =  test/test_block_manager \
-	    test/test_index_manager \
-	    test/test_operations \
-	    test/test_rmd \
-	    test/test_segment_manager \
-	    test/test_db \
-	    test/test_status\
-		test/test_batch\
-		test/test_iterator
+SHARED_LIB = ${SRC_DIR}/libkv.so
 
-PROGNAME := ${UTILS} ${SHARED_LIB}
+TESTS_LIST =  ${TEST_DIR}/test_block_manager \
+	    ${TEST_DIR}/test_index_manager \
+	    ${TEST_DIR}/test_operations \
+	    ${TEST_DIR}/test_rmd \
+	    ${TEST_DIR}/test_segment_manager \
+	    ${TEST_DIR}/test_db \
+	    ${TEST_DIR}/test_status\
+		${TEST_DIR}/test_batch\
+		${TEST_DIR}/test_iterator
 
-SRC_OBJ =  Kvdb_Impl.o IndexManager.o SuperBlockManager.o BlockDevice.o KernelDevice.o \
-			SegmentManager.o Segment.o GcManager.o Utils.o Kvdb.o KeyDigestHandle.o \
-			rmd160.o Options.o Write_batch.o Status.o KvdbIter.o
-SRC_OBJECTS = $(addprefix ${SRC_DIR}/, ${SRC_OBJ})
-COMMON_OBJECTS = ${SRC_OBJECTS}
-TEST_OBJECTS = test/test_base.o
-ALL_OBJECTS = $(CORE_C_OBJ) $(CORE_CXX_OBJ) $(TEST_CXX_OBJ)
+PROGNAME := ${TOOLS_LIST} ${SHARED_LIB}
 
 .PHONY : all
 all: ${PROGNAME}
 	@echo 'Done'
 
 .PHONY : test
-test: ${TEST}
+test: ${TESTS_LIST}
 	@echo 'make test Done'
 
 $(CORE_CXX_OBJ): %.o: %.cc
@@ -63,53 +60,48 @@ $(CORE_CXX_OBJ): %.o: %.cc
 
 $(CORE_C_OBJ): %.o: %.c
 	${CC} ${C_FLAGS} ${INCLUDES} -c $< -o $@
-	
-$(TEST_CXX_OBJ): %.o: %.cc
+
+$(TEST_OBJECTS): %.o: %.cc
 	${CXX} ${CXX_FLAGS} ${INCLUDES} -c $< -o $@
 
-
-src/Benchmark: ${SRC_DIR}/Benchmark.cc ${COMMON_OBJECTS}
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
-
-src/CreateDb: ${SRC_DIR}/CreateDb.cc ${COMMON_OBJECTS}
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
-
-src/ExampleKV: ${SRC_DIR}/ExampleKV.cc ${COMMON_OBJECTS}
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
-
-src/DbTest : ${SRC_DIR}/DbTest.cc ${COMMON_OBJECTS}
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
-
-src/GCTest: ${SRC_DIR}/GCTest.cc ${COMMON_OBJECTS}
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
-
-src/libkv.so: ${COMMON_OBJECTS}
+${SRC_DIR}/libkv.so: ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -shared -o $@ ${LIBS}
 
-test/test_rmd: test/test_rmd.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TOOLS_DIR}/Benchmark: ${TOOLS_DIR}/Benchmark.cc ${COMMON_OBJECTS}
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+${TOOLS_DIR}/CreateDb: ${TOOLS_DIR}/CreateDb.cc ${COMMON_OBJECTS}
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+${TOOLS_DIR}/ExampleKV: ${TOOLS_DIR}/ExampleKV.cc ${COMMON_OBJECTS}
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+${TOOLS_DIR}/DbTest : ${TOOLS_DIR}/DbTest.cc ${COMMON_OBJECTS}
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+${TOOLS_DIR}/GCTest: ${TOOLS_DIR}/GCTest.cc ${COMMON_OBJECTS}
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+
+${TEST_DIR}/test_rmd: ${TEST_DIR}/test_rmd.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_block_manager: test/test_block_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_block_manager: ${TEST_DIR}/test_block_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_index_manager: test/test_index_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_index_manager: ${TEST_DIR}/test_index_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_operations: test/test_operations.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_operations: ${TEST_DIR}/test_operations.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_segment_manager: test/test_segment_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_segment_manager: ${TEST_DIR}/test_segment_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_db: test/test_db.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_db: ${TEST_DIR}/test_db.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_status: test/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_status: ${TEST_DIR}/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_batch: test/test_batch.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_batch: ${TEST_DIR}/test_batch.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-test/test_iterator: test/test_iterator.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_iterator: ${TEST_DIR}/test_iterator.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 
 .PHONY : clean
 clean:
-	rm -fr $(ALL_OBJECTS)
+	rm -fr $(COMMON_OBJECTS) $(TEST_CXX_OBJ)
 	rm -fr $(PROGNAME)
-	rm -fr $(TEST)
+	rm -fr $(TESTS_LIST)
 
 .PHONY : install
 install:
