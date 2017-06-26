@@ -267,7 +267,7 @@ void SegBase::fillEntryToSlice() {
             tail_pos -= ALIGNED_SIZE;
             __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u, tail_pos = %u", slice->GetKey(), data_offset, header_offset, segId_, head_pos, tail_pos);
         } else {
-#ifdef With_ITERATOR
+#ifdef WITH_ITERATOR
             uint32_t data_offset = head_pos + IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
             uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader()
                     + slice->GetKeyLen() + slice->GetDataLen();
