@@ -487,12 +487,14 @@ SegForSlice::SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev
 }
 
 void SegForSlice::UpdateToIndex() {
+    //std::lock_guard <std::mutex> l(mtx_);
     list<KVSlice *> &slice_list = GetSliceList();
-    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
-            != slice_list.end(); iter++) {
-        KVSlice *slice = *iter;
-        idxMgr_->UpdateIndex(slice);
-    } __DEBUG("UpdateToIndex Success!");
+    idxMgr_->UpdateIndexes(slice_list);
+    //for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
+    //        != slice_list.end(); iter++) {
+    //    KVSlice *slice = *iter;
+    //    idxMgr_->UpdateIndex(slice);
+    //} __DEBUG("UpdateToIndex Success!");
 
 }
 

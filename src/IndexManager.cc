@@ -289,6 +289,15 @@ bool IndexManager::UpdateIndex(KVSlice* slice) {
     return true;
 }
 
+void IndexManager::UpdateIndexes(list<KVSlice*> &slice_list) {
+    std::lock_guard<std::mutex> l(batch_mtx_);
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
+            != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        UpdateIndex(slice);
+    } __DEBUG("UpdateToIndex Success!");
+}
+
 void IndexManager::RemoveEntry(HashEntry entry) {
     Kvdb_Digest digest = entry.GetKeyDigest();
 
