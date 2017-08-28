@@ -198,6 +198,9 @@ string KvdbIter::Value() {
 
     __DEBUG("data offset: %lu",data_offset);
     uint16_t data_len = hashEntry_->GetDataSize();
+    if ( data_len ==0 ) {
+        return "";
+    }
     char *mdata = new char[data_len+1];
     if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
         __ERROR("Could not read data at position");
