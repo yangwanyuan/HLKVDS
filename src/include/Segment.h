@@ -40,7 +40,7 @@ public:
     KVSlice(const KVSlice& toBeCopied);
     KVSlice& operator=(const KVSlice& toBeCopied);
 
-    KVSlice(const char* key, int key_len, const char* data, int data_len);
+    KVSlice(const char* key, int key_len, const char* data, int data_len, bool deep_copy = false);
     KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
             const char* data, int data_len);
 
@@ -91,6 +91,7 @@ private:
     Kvdb_Digest *digest_;
     HashEntry *entry_;
     uint32_t segId_;
+    bool deepCopy_;
 
     void copy_helper(const KVSlice& toBeCopied);
     void computeDigest();
