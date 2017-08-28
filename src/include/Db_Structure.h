@@ -22,6 +22,7 @@ namespace kvdb {
 
 #define SEG_WRITE_THREAD 10
 #define SEG_FULL_RATE 0.9
+#define CAPACITY_THRESHOLD_TODO_GC 0.5
 #define GC_UPPER_LEVEL 0.3
 #define GC_LOWER_LEVEL 0.1
 
