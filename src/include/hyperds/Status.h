@@ -12,6 +12,7 @@
 #define _KV_DB_STATUS_H_
 
 #include <string>
+namespace kvdb {
 
 class Status {
 public:
@@ -79,5 +80,5 @@ private:
     Status(Code _code, const char* msg);
 
 };
-
+}
 #endif //#define _KV_DB_STATUS_H_
