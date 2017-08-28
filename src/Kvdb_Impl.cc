@@ -590,6 +590,16 @@ void KvdbDS::SegReaperThdEntry() {
             delete seg;
         }
     } __DEBUG("Segment write thread stop!!");
+
+    //Clean the Queue
+    while (!segReaperQue_.empty()) {
+        SegForReq *seg = segReaperQue_.Wait_Dequeue();
+        if (seg) {
+            seg->CleanDeletedEntry();
+            __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+            delete seg;
+        }
+    }
 }
 
 void KvdbDS::Do_GC() {
