@@ -6,6 +6,8 @@
 #include "hyperds/Status.h"
 #include "Db_Structure.h"
 
+namespace kvdb {
+
 Status::Status(Code _code, const char* msg) :
     code_(_code) {
     uint32_t size = strlen(msg);
@@ -60,4 +62,5 @@ std::string Status::ToString() const {
     }
 
     return result;
+}
 }
