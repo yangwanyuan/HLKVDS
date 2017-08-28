@@ -4,6 +4,7 @@
 #include <string>
 #include <sys/time.h>
 #include <mutex>
+#include <list>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -275,6 +276,7 @@ public:
         bool WriteIndexToDevice();
 
         bool UpdateIndex(KVSlice* slice);
+        void UpdateIndexes(list<KVSlice*> &slice_list);
         bool GetHashEntry(KVSlice *slice);
         void RemoveEntry(HashEntry entry);
 
@@ -334,6 +336,7 @@ public:
 
         KVTime* lastTime_;
         mutable std::mutex mtx_;
+        std::mutex batch_mtx_;
 
     };
 
