@@ -114,6 +114,14 @@ private:
     std::atomic<bool> gcT_stop_;
 
     void GCThdEntry();
+
+    //CheckPoint thread
+private:
+    std::thread ckpT_;
+    std::atomic<bool> ckpT_stop_;
+    uint64_t last_check_point;
+
+    void CheckPointThdEntry();
 };
 
 } // namespace kvdb
