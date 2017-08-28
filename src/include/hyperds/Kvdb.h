@@ -31,6 +31,7 @@ public:
     Iterator* NewIterator();
 
     void Do_GC();
+    void printDbStates();
 
 private:
     DB();
