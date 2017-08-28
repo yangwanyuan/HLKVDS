@@ -33,12 +33,25 @@ bool SuperBlockManager::LoadSuperBlockFromDevice(uint64_t offset) {
 }
 
 bool SuperBlockManager::WriteSuperBlockToDevice() {
-    uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
-    if ((uint64_t) bdev_->pWrite(sb_, length, startOff_) != length) {
+    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    char *align_buf;
+    posix_memalign((void **)&align_buf, 4096, length);
+    memset(align_buf, 0, length);
+    memcpy((void *)align_buf, (const void*)sb_, SuperBlockManager::SizeOfDBSuperBlock());
+    if ((uint64_t) bdev_->pWrite(align_buf, length, startOff_) != length) {
         __ERROR("Could not write superblock at position %ld\n", startOff_);
+        free(align_buf);
         return false;
     }
+    free(align_buf);
     return true;
+
+    //uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
+    //if ((uint64_t) bdev_->pWrite(sb_, length, startOff_) != length) {
+    //    __ERROR("Could not write superblock at position %ld\n", startOff_);
+    //    return false;
+    //}
+    //return true;
 }
 
 void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
