@@ -40,7 +40,7 @@ void MDinit(dword *MDbuf) {
 
 /********************************************************************/
 
-void compress(dword *MDbuf, dword *X) {
+void compress_(dword *MDbuf, dword *X) {
     dword aa = MDbuf[0], bb = MDbuf[1], cc = MDbuf[2], dd = MDbuf[3], ee =
             MDbuf[4];
     dword aaa = MDbuf[0], bbb = MDbuf[1], ccc = MDbuf[2], ddd = MDbuf[3], eee =
@@ -246,14 +246,14 @@ void MDfinish(dword *MDbuf, byte *strptr, dword lswlen, dword mswlen) {
 
     if ((lswlen & 63) > 55) {
         /* length goes to next block */
-        compress(MDbuf, X);
+        compress_(MDbuf, X);
         memset(X, 0, 16 * sizeof(dword));
     }
 
     /* append length in bits*/
     X[14] = lswlen << 3;
     X[15] = (lswlen >> 29) | (mswlen << 3);
-    compress(MDbuf, X);
+    compress_(MDbuf, X);
 
     return;
 }
