@@ -26,7 +26,8 @@ UTILS = \
 		src/CreateDb \
 		src/ExampleKV \
 		src/Benchmark \
-		src/GCTest
+		src/GCTest \
+		src/LoadDB
 
 SHARED_LIB = src/libhyperds.so
 
@@ -81,6 +82,8 @@ src/DbTest : ${SRC_DIR}/DbTest.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
 
 src/GCTest: ${SRC_DIR}/GCTest.cc ${COMMON_OBJECTS}
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
+src/LoadDB: ${SRC_DIR}/LoadDB.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
 
 src/libhyperds.so: ${COMMON_OBJECTS}
