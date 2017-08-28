@@ -73,7 +73,7 @@ void KeyDigestHandle::ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
             X[i] = BYTES_TO_DWORD(value);
             value += 4;
         }
-        compress(MDbuf, X);
+        compress_(MDbuf, X);
     } /* length mod 64 bytes left */
 
     /* finish: */

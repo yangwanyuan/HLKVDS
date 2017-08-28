@@ -114,7 +114,7 @@ void MDinit(dword *MDbuf);
  *  initializes MDbuffer to "magic constants"
  */
 
-void compress(dword *MDbuf, dword *X);
+void compress_(dword *MDbuf, dword *X);
 /*
  *  the compression function.
  *  transforms MDbuf using message bytes X[0] through X[15]
