@@ -55,6 +55,7 @@ Status DB::Insert(const char* key, uint32_t key_len, const char* data,
     if (!s.ok()) {
         std::cout << "DB Insert failed" << std::endl;
     }
+
     return s;
 }
 
@@ -84,6 +85,11 @@ Status DB::InsertBatch(WriteBatch *batch) {
 
 Iterator* DB::NewIterator() {
     return kvdb_->NewIterator();
+}
+
+void DB::printDbStates()
+{
+    return kvdb_->printDbStates();
 }
 
 }// end namespace kvdb
