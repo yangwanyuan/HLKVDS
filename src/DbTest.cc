@@ -37,6 +37,7 @@ void Open_DB_Test(string filename) {
     Options opts;
     KvdbDS *db = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
 
+    /*
     //DB Insert 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -78,7 +79,10 @@ void Open_DB_Test(string filename) {
         std::cout << "Delete Success!" << std::endl;
     }
 
-    ////DB Get
+    delete db;
+    db = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
+
+    //DB Get
     //if (!db->Get(test_key.c_str(), test_key_size, get_data)){
     //  std::cout << "Get Failed" << std::endl;
     //}else{
@@ -112,6 +116,8 @@ void Open_DB_Test(string filename) {
         std::cout << "Insert Batch Success" << std::endl;
     }
 
+    db->printDbStates();
+
     //DB Get
     //string get_data;
     s = db->Get(test_key.c_str(), test_key_size, get_data);
@@ -127,7 +133,7 @@ void Open_DB_Test(string filename) {
         std::cout << "Get Success: data is " << get_data << std::endl;
     }
 
-
+    */
     Iterator* it = db->NewIterator();
     cout << "Iterator the db: First to Last" << endl;
     for(it->SeekToFirst(); it->Valid(); it->Next()) {
@@ -145,10 +151,10 @@ void Open_DB_Test(string filename) {
 int main(int argc, char** argv) {
     string filename = FILENAME;
 
-    Create_DB_Test(filename);
+    //Create_DB_Test(filename);
     Open_DB_Test(filename);
     std::cout << "first process success" << std::endl;
-    Create_DB_Test(filename);
+    //Create_DB_Test(filename);
     Open_DB_Test(filename);
     return 0;
 }
