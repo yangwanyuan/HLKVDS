@@ -29,32 +29,27 @@ public:
     uint64_t db_data_region_size;
     uint64_t device_capacity;
     uint64_t data_theory_size;
-    uint64_t last_check_point;
-    bool     graceful_shutdown;
 
 public:
     DBSuperBlock(uint32_t magic, uint32_t ht_size, uint32_t num_eles,
                  uint32_t seg_size, uint32_t num_seg, uint32_t cur_seg,
                  uint64_t sb_size, uint64_t index_size,
                  uint64_t seg_table_size, uint64_t data_region_size,
-                 uint64_t dev_size, uint64_t data_size,
-                 uint64_t check_point, bool graceful_shutdown) :
+                 uint64_t dev_size, uint64_t data_size) :
         magic_number(magic), hashtable_size(ht_size),
                 number_elements(num_eles), segment_size(seg_size),
                 number_segments(num_seg), current_segment(cur_seg),
                 db_sb_size(sb_size), db_index_size(index_size),
                 db_seg_table_size(seg_table_size),
                 db_data_region_size(data_region_size),
-                device_capacity(dev_size), data_theory_size(data_size),
-                last_check_point(check_point), graceful_shutdown(graceful_shutdown) {
+                device_capacity(dev_size), data_theory_size(data_size) {
     }
 
     DBSuperBlock() :
         magic_number(0), hashtable_size(0), number_elements(0),
                 segment_size(0), number_segments(0), current_segment(0),
                 db_sb_size(0), db_index_size(0), db_seg_table_size(0),
-                db_data_region_size(0), device_capacity(0), data_theory_size(0),
-                last_check_point(0), graceful_shutdown(0){
+                db_data_region_size(0), device_capacity(0), data_theory_size(0) {
     }
 
     uint32_t GetMagic() const {
@@ -92,9 +87,6 @@ public:
     }
     uint64_t GetDataTheorySize() const {
         return data_theory_size;
-    }
-    uint64_t GetLastCheckPoint() const {
-        return last_check_point;
     }
 
     ~DBSuperBlock() {
@@ -160,7 +152,6 @@ public:
 
     void SetElementNum(uint32_t num);
     void SetCurSegId(uint32_t id);
-    void SetGracefulShutdown(bool shutdown);
     void SetDataTheorySize(uint64_t size);
 
     SuperBlockManager(BlockDevice* bdev, Options &opt);
