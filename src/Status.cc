@@ -4,6 +4,7 @@
 #include <string>
 #include <cstring>
 #include "hyperds/Status.h"
+#include "Db_Structure.h"
 
 Status::Status(Code _code, const char* msg) :
     code_(_code) {

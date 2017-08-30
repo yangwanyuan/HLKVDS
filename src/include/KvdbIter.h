@@ -3,6 +3,7 @@
 
 #include <string>
 #include "hyperds/Iterator.h"
+#include "Db_Structure.h"
 
 #ifdef WITH_ITERATOR
 namespace kvdb {

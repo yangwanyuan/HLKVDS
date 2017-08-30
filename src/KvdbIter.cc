@@ -2,6 +2,7 @@
 #include "IndexManager.h"
 #include "SegmentManager.h"
 #include "BlockDevice.h"
+#include "Db_Structure.h"
 
 #ifdef WITH_ITERATOR
 namespace kvdb {
