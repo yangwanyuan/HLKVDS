@@ -171,7 +171,10 @@ ssize_t KernelDevice::pWrite(const void* buf, size_t count, off_t offset) {
     }
     __INFO("Buffered FD Pwrite, write size = %ld, block_size = %d",
             count, get_blocksize());
-    return pwrite(bufFd_, buf, count, offset);
+    //return pwrite(bufFd_, buf, count, offset);
+    ssize_t ret = pwrite(bufFd_, buf, count, offset);
+    fsync(bufFd_);
+    return ret;
 }
 
 ssize_t KernelDevice::pRead(void* buf, size_t count, off_t offset) {

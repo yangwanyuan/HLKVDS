@@ -52,6 +52,12 @@ void GcManager::BackGC() {
     if (used_seg_num == 0 || theory_seg_num > used_seg_num) {
         return;
     }
+
+    //upper water threshold
+    if ( (double)free_seg_num / (double)total_seg_num > CAPACITY_THRESHOLD_TODO_GC) {
+        return;
+    }
+
     double waste_rate = 1 - ((double) theory_seg_num / (double) used_seg_num);
 
     __DEBUG("Begin do Background GC! waste_rate is %f, data_theory_size = %lu", waste_rate, data_theory_size);

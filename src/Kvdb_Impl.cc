@@ -380,6 +380,10 @@ Status KvdbDS::Get(const char* key, uint32_t key_len, string &data) {
         //The key is not exist
         return Status::NotFound("Key is not found.");
     }
+    if (slice.GetDataLen() == 0) {
+        //The key is not exist
+        return Status::NotFound("Key is not found.");
+    }
 
     return readData(slice, data);
 
@@ -427,6 +431,7 @@ Status KvdbDS::InsertBatch(WriteBatch *batch)
     uint32_t free_size = seg->GetFreeSize();
     segMgr_->Use(seg_id, free_size);
     seg->UpdateToIndex();
+
     delete seg;
     return Status::OK();
 }
@@ -466,6 +471,11 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     }
 
     uint16_t data_len = entry->GetDataSize();
+    if (data_len == 0) {
+        //The key is not exist
+        return Status::NotFound("Key is not found.");
+    }
+
     char *mdata = new char[data_len];
     if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
         __ERROR("Could not read data at position");
@@ -580,6 +590,16 @@ void KvdbDS::SegReaperThdEntry() {
             delete seg;
         }
     } __DEBUG("Segment write thread stop!!");
+
+    //Clean the Queue
+    while (!segReaperQue_.empty()) {
+        SegForReq *seg = segReaperQue_.Wait_Dequeue();
+        if (seg) {
+            seg->CleanDeletedEntry();
+            __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+            delete seg;
+        }
+    }
 }
 
 void KvdbDS::Do_GC() {
