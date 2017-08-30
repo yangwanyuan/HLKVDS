@@ -37,7 +37,11 @@ DB::DB() {
 }
 
 DB::~DB() {
-    delete instance_->kvdb_;
+    if (instance_) {
+        delete instance_->kvdb_;
+        instance_->kvdb_ = NULL;
+    }
+    instance_ = NULL;
 }
 
 Status DB::Insert(const char* key, uint32_t key_len, const char* data,
