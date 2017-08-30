@@ -2,7 +2,6 @@
 #define _KV_DB_ITERATOR_H_
 
 #include <string>
-#include "Db_Structure.h"
 #include "hyperds/Status.h"
 
 namespace kvdb {

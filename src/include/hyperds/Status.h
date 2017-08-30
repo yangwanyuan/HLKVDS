@@ -2,7 +2,6 @@
 #define _KV_DB_STATUS_H_
 
 #include <string>
-#include "Db_Structure.h"
 
 class Status {
 public:

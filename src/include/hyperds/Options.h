@@ -2,7 +2,6 @@
 #define _KV_DB_OPTIONS_H_
 
 #include <stdint.h>
-#include "Db_Structure.h"
 
 namespace kvdb {
 struct Options {

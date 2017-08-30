@@ -1,5 +1,6 @@
 #include "Segment.h"
 #include "hyperds/Write_batch.h"
+#include "Db_Structure.h"
 
 namespace kvdb {
 WriteBatch::WriteBatch() {}

@@ -40,36 +40,41 @@ DB::~DB() {
     delete instance_->kvdb_;
 }
 
-bool DB::Insert(const char* key, uint32_t key_len, const char* data,
+Status DB::Insert(const char* key, uint32_t key_len, const char* data,
                 uint16_t length) {
     Status s = kvdb_->Insert(key, key_len, data, length);
     if (!s.ok()) {
         std::cout << "DB Insert failed" << std::endl;
-        return false;
     }
-    return true;
+    return s;
 }
 
-bool DB::Delete(const char* key, uint32_t key_len) {
+Status DB::Delete(const char* key, uint32_t key_len) {
     Status s = kvdb_->Delete(key, key_len);
     if (!s.ok()) {
         std::cout << "DB Delete failed" << std::endl;
-        return false;
     }
-    return true;
+    return s;
 }
 
-bool DB::Get(const char* key, uint32_t key_len, string &data) {
+Status DB::Get(const char* key, uint32_t key_len, string &data) {
     Status s = kvdb_->Get(key, key_len, data);
     if (!s.ok()) {
         std::cout << "DB Get failed" << std::endl;
-        return false;
     }
-    return true;
+    return s;
 }
 
 void DB::Do_GC() {
     kvdb_->Do_GC();
+}
+
+Status DB::InsertBatch(WriteBatch *batch) {
+    return kvdb_->InsertBatch(batch);
+}
+
+Iterator* DB::NewIterator() {
+    return kvdb_->NewIterator();
 }
 
 }// end namespace kvdb
