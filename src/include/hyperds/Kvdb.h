@@ -6,6 +6,8 @@
 
 #include "hyperds/Options.h"
 #include "hyperds/Status.h"
+#include "hyperds/Write_batch.h"
+#include "hyperds/Iterator.h"
 
 using namespace std;
 
@@ -24,6 +26,9 @@ public:
                 uint16_t length);
     Status Delete(const char* key, uint32_t key_len);
     Status Get(const char* key, uint32_t key_len, string &data);
+
+    Status InsertBatch(WriteBatch *batch);
+    Iterator* NewIterator();
 
     void Do_GC();
 

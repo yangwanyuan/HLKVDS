@@ -69,4 +69,12 @@ void DB::Do_GC() {
     kvdb_->Do_GC();
 }
 
+Status DB::InsertBatch(WriteBatch *batch) {
+    return kvdb_->InsertBatch(batch);
+}
+
+Iterator* DB::NewIterator() {
+    return kvdb_->NewIterator();
+}
+
 }// end namespace kvdb
