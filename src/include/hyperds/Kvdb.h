@@ -4,7 +4,8 @@
 #include <iostream>
 #include <string>
 
-#include "Options.h"
+#include "hyperds/Options.h"
+#include "hyperds/Status.h"
 
 using namespace std;
 
@@ -19,10 +20,10 @@ public:
 
     virtual ~DB();
 
-    bool Insert(const char* key, uint32_t key_len, const char* data,
+    Status Insert(const char* key, uint32_t key_len, const char* data,
                 uint16_t length);
-    bool Delete(const char* key, uint32_t key_len);
-    bool Get(const char* key, uint32_t key_len, string &data);
+    Status Delete(const char* key, uint32_t key_len);
+    Status Get(const char* key, uint32_t key_len, string &data);
 
     void Do_GC();
 
