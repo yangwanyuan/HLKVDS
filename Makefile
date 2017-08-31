@@ -31,7 +31,6 @@ TOOLS_LIST = \
 		${TOOLS_DIR}/CreateDb \
 		${TOOLS_DIR}/ExampleKV \
 		${TOOLS_DIR}/Benchmark \
-		${TOOLS_DIR}/GCTest \
 		${TOOLS_DIR}/LoadDB
 
 SHARED_LIB = ${SRC_DIR}/libhlkvds.so
@@ -75,8 +74,6 @@ ${TOOLS_DIR}/CreateDb: ${TOOLS_DIR}/CreateDb.cc ${COMMON_OBJECTS}
 ${TOOLS_DIR}/ExampleKV: ${TOOLS_DIR}/ExampleKV.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
 ${TOOLS_DIR}/DbTest : ${TOOLS_DIR}/DbTest.cc ${COMMON_OBJECTS}
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
-${TOOLS_DIR}/GCTest: ${TOOLS_DIR}/GCTest.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
 ${TOOLS_DIR}/LoadDB: ${TOOLS_DIR}/LoadDB.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
