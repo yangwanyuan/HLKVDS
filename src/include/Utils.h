@@ -9,7 +9,7 @@
 #include <signal.h>
 #include "Db_Structure.h"
 
-namespace kvdb {
+namespace hlkvds {
 class KVTime {
 public:
     static inline size_t SizeOf() {

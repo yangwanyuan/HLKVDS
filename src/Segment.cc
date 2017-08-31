@@ -7,7 +7,7 @@
 
 #include "Segment.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 KVSlice::KVSlice() :
     key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL),

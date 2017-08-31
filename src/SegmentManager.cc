@@ -1,7 +1,7 @@
 #include "SegmentManager.h"
 #include <math.h>
 
-namespace kvdb {
+namespace hlkvds {
 
 SegmentOnDisk::SegmentOnDisk() :
     checksum(0), number_keys(0) {
@@ -327,4 +327,4 @@ SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm,
 SegmentManager::~SegmentManager() {
     segTable_.clear();
 }
-} //end namespace kvdb
+} //end namespace hlkvds

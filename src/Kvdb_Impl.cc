@@ -8,7 +8,7 @@
 #include "KeyDigestHandle.h"
 #include "KvdbIter.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
     if (filename == NULL) {

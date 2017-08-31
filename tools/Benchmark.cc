@@ -18,7 +18,7 @@
 #define OVERWRITE_TIMES 10
 
 using namespace std;
-using namespace kvdb;
+using namespace hlkvds;
 
 struct thread_arg {
     KvdbDS *db;

@@ -13,7 +13,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class Kvdb_Key {
 private:
     const char* value;
@@ -66,6 +66,6 @@ private:
     KeyDigestHandle();
 
 };
-}// namespace kvdb
+}// namespace hlkvds
 
 #endif //#ifndef _KV_DB_KEYDIGESTHANDLE_H_

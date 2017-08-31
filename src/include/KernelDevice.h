@@ -6,7 +6,7 @@
 
 #include "BlockDevice.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 class KernelDevice : public BlockDevice {
 public:
@@ -62,6 +62,6 @@ private:
 
 };
 
-}//namespace kvdb
+}//namespace hlkvds
 
 #endif // #ifndef KV_DB_KERNELDEVICE_H_

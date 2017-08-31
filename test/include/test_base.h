@@ -9,7 +9,7 @@
 #include <string>
 
 #define FILENAME  "/dev/loop2"
-using namespace kvdb;
+using namespace hlkvds;
 
 class TestBase : public ::testing::Test {
 public:

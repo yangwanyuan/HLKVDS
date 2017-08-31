@@ -12,7 +12,7 @@
 #include "hlkvds/Iterator.h"
 
 using namespace std;
-using namespace kvdb;
+using namespace hlkvds;
 
 
 void Open_DB_Test(string filename) {

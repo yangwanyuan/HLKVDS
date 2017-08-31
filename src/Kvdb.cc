@@ -1,7 +1,7 @@
 #include "hlkvds/Kvdb.h"
 #include "Kvdb_Impl.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 DB* DB::instance_ = NULL;
 
@@ -87,4 +87,4 @@ void DB::printDbStates()
     return kvdb_->printDbStates();
 }
 
-}// end namespace kvdb
+}// end namespace hlkvds

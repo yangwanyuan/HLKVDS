@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-namespace kvdb {
+namespace hlkvds {
 #define MAGIC_NUMBER 0xffff0001
 
 #define WITH_ITERATOR 1
@@ -88,6 +88,6 @@ enum struct OpType {
     UPDATE,
     DELETE
 };
-} // namespace kvdb
+} // namespace hlkvds
 
 #endif  // #define _KV_DB_DB_STRUCTURE_H_

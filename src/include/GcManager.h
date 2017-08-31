@@ -11,7 +11,7 @@
 #include "SegmentManager.h"
 #include "Segment.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 class GcManager {
 public:
@@ -44,6 +44,6 @@ private:
     char *dataBuf_;
 };
 
-}//namespace kvdb
+}//namespace hlkvds
 
 #endif //#ifndef _KV_DB_GCMANAGER_H_

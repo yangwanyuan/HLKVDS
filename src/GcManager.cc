@@ -1,6 +1,6 @@
 #include "GcManager.h"
 
-namespace kvdb {
+namespace hlkvds {
 GcManager::~GcManager() {
     if (dataBuf_) {
         delete[] dataBuf_;
@@ -332,4 +332,4 @@ void GcManager::cleanKvList(std::list<KVSlice*> &slice_list) {
     }
 }
 
-}//namespace kvdb
+}//namespace hlkvds

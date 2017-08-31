@@ -6,7 +6,7 @@
 #include "Db_Structure.h"
 
 #ifdef WITH_ITERATOR
-namespace kvdb {
+namespace hlkvds {
 
 class IndexManager;
 class SegmentManager;

@@ -2,7 +2,7 @@
 #include "hlkvds/Write_batch.h"
 #include "Db_Structure.h"
 
-namespace kvdb {
+namespace hlkvds {
 WriteBatch::WriteBatch() {}
 
 WriteBatch::~WriteBatch() {

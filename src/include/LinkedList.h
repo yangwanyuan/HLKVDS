@@ -6,7 +6,7 @@
 #include <vector>
 
 using namespace std;
-namespace kvdb {
+namespace hlkvds {
 
 template<typename T>
 class Node {

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-namespace kvdb {
+namespace hlkvds {
 struct Options {
     //use in Create DB
     int segment_size;
@@ -19,6 +19,6 @@ struct Options {
 
     Options();
 };
-} // namespace kvdb
+} // namespace hlkvds
 
 #endif //#define _KV_DB_OPTIONS_H_

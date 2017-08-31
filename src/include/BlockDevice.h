@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class BlockDevice {
 public:
     static BlockDevice* CreateDevice();
@@ -35,6 +35,6 @@ public:
 
     virtual void ClearReadCache() = 0;
 };
-}//namespace kvdb
+}//namespace hlkvds
 
 #endif // #ifndef _KV_DB_BLOCKDEVICE_H_

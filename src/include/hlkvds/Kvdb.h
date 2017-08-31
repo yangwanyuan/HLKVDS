@@ -11,7 +11,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 
 class KvdbDS;
 
@@ -43,6 +43,6 @@ private:
     static DB *instance_;
 };
 
-} // namespace kvdb
+} // namespace hlkvds
 
 #endif //KV_DB_KVDB_H_

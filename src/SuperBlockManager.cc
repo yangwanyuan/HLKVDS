@@ -5,7 +5,7 @@
 
 #include "SuperBlockManager.h"
 
-namespace kvdb {
+namespace hlkvds {
 bool SuperBlockManager::InitSuperBlockForCreateDB(uint64_t offset) {
     sb_ = new DBSuperBlock;
     startOff_ = offset;
@@ -92,4 +92,4 @@ void SuperBlockManager::SetDataTheorySize(uint64_t size) {
     std::lock_guard < std::mutex > l(mtx_);
     sb_->data_theory_size = size;
 }
-} // namespace kvdb
+} // namespace hlkvds

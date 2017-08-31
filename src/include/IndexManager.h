@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class KVSlice;
 class SegmentSlice;
 
@@ -341,5 +341,5 @@ public:
     };
 
 
-}// namespace kvdb
+}// namespace hlkvds
 #endif //#ifndef _KV_DB_INDEXMANAGER_H_

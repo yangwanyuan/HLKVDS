@@ -21,7 +21,7 @@
 #include "WorkQueue.h"
 #include "Segment.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 class KvdbDS {
 public:
@@ -116,6 +116,6 @@ private:
     void GCThdEntry();
 };
 
-} // namespace kvdb
+} // namespace hlkvds
 
 #endif  // #ifndef _KV_DB_KVDB_IMPL_H_

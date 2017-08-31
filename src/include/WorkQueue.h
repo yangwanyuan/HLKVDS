@@ -6,7 +6,7 @@
 #include <chrono>
 #include <iostream>
 
-namespace kvdb {
+namespace hlkvds {
 template <typename T> class WorkQueue {
 public:
     typedef T QueueType;

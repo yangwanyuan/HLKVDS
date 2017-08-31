@@ -10,7 +10,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class SuperBlockManager;
 
 class DBSuperBlock {
@@ -168,6 +168,6 @@ private:
     mutable std::mutex mtx_;
 
 };
-}// namespace kvdb
+}// namespace hlkvds
 
 #endif //#ifndef _KV_DB_SUPERBLOCK_H_

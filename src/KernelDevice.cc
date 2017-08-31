@@ -13,7 +13,7 @@
 #include <vector>
 #include "KernelDevice.h"
 
-namespace kvdb {
+namespace hlkvds {
 KernelDevice::KernelDevice() :
     directFd_(-1), bufFd_(-1), capacity_(0), blockSize_(0), path_("") {
 }

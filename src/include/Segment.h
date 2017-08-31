@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 
 class SegmentOnDisk;
 class DataHeader;

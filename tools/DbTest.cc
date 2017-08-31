@@ -7,7 +7,7 @@
 #include "hlkvds/Iterator.h"
 
 using namespace std;
-using namespace kvdb;
+using namespace hlkvds;
 
 //#define FILENAME  "0000_db"
 //#define FILENAME  "/dev/loop0"

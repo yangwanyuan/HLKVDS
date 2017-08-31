@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 
 class DataHeader;
 class HashEntry;
@@ -161,5 +161,5 @@ private:
 
 };
 
-} //end namespace kvdb
+} //end namespace hlkvds
 #endif // #ifndef _KV_DB_SEGMENT_MANAGER_H_

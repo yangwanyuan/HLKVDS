@@ -5,7 +5,7 @@
 #include <string>
 
 
-namespace kvdb {
+namespace hlkvds {
 
 class KvdbDS;
 class KVSlice;
@@ -25,6 +25,6 @@ private:
     friend class KvdbDS;
 };
 
-} // namespace kvdb
+} // namespace hlkvds
 
 #endif //#define _KV_DB_WRITE_BATCH_H_

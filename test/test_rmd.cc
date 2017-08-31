@@ -28,8 +28,8 @@ TEST_F(test_rmd, IntKeyTest)
         key_char[2] = *((char *)pi+2);
         key_char[3] = *((char *)pi+3);
 
-        kvdb::Kvdb_Key key(key_char, 4);
-        kvdb::Kvdb_Digest result;
+        hlkvds::Kvdb_Key key(key_char, 4);
+        hlkvds::Kvdb_Digest result;
         KeyDigestHandle::ComputeDigest(&key, result);
 
         string final_res = KeyDigestHandle::Tostring(&result);
@@ -65,8 +65,8 @@ TEST_F(test_rmd, RegularTest)
 
     int key_len = strlen(key_raw);
 
-    kvdb::Kvdb_Key key(key_raw, key_len);
-    kvdb::Kvdb_Digest result;
+    hlkvds::Kvdb_Key key(key_raw, key_len);
+    hlkvds::Kvdb_Digest result;
     KeyDigestHandle::ComputeDigest(&key, result);
 
     string final_res = KeyDigestHandle::Tostring(&result);

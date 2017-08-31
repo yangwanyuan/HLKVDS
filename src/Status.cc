@@ -6,7 +6,7 @@
 #include "hlkvds/Status.h"
 #include "Db_Structure.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 Status::Status(Code _code, const char* msg) :
     code_(_code) {

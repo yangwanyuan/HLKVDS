@@ -2,7 +2,7 @@
 #define _KV_DB_STATUS_H_
 
 #include <string>
-namespace kvdb {
+namespace hlkvds {
 
 class Status {
 public:

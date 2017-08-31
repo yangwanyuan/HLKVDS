@@ -1,6 +1,6 @@
 #include "test_base.h"
 
-using namespace kvdb;
+using namespace hlkvds;
 
 KvdbDS* TestBase::Create_DB(int db_size) {
     int ht_size = db_size;

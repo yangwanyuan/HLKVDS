@@ -7,7 +7,7 @@
 
 #include "IndexManager.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 #ifdef WITH_ITERATOR
 DataHeader::DataHeader() :

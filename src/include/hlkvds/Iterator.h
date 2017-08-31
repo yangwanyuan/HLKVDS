@@ -4,7 +4,7 @@
 #include <string>
 #include "hlkvds/Status.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 class Iterator {
 public:
