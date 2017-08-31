@@ -1,5 +1,5 @@
-#ifndef KV_DB_KERNELDEVICE_H_
-#define KV_DB_KERNELDEVICE_H_
+#ifndef _HLKVDS_KERNELDEVICE_H_
+#define _HLKVDS_KERNELDEVICE_H_
 
 #include <string>
 #include <unistd.h>
@@ -64,4 +64,4 @@ private:
 
 }//namespace hlkvds
 
-#endif // #ifndef KV_DB_KERNELDEVICE_H_
+#endif // #ifndef _HLKVDS_KERNELDEVICE_H_

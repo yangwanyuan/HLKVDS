@@ -1,5 +1,5 @@
-#ifndef _KV_DB_STATUS_H_
-#define _KV_DB_STATUS_H_
+#ifndef _HLKVDS_STATUS_H_
+#define _HLKVDS_STATUS_H_
 
 #include <string>
 namespace hlkvds {
@@ -71,4 +71,4 @@ private:
 
 };
 }
-#endif //#define _KV_DB_STATUS_H_
+#endif //#define _HLKVDS_STATUS_H_

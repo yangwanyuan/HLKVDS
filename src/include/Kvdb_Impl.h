@@ -1,5 +1,5 @@
-#ifndef _KV_DB_KVDB_IMPL_H_
-#define _KV_DB_KVDB_IMPL_H_
+#ifndef _HLKVDS_KVDB_IMPL_H_
+#define _HLKVDS_KVDB_IMPL_H_
 
 #include <list>
 #include <queue>
@@ -118,4 +118,4 @@ private:
 
 } // namespace hlkvds
 
-#endif  // #ifndef _KV_DB_KVDB_IMPL_H_
+#endif  // #ifndef _HLKVDS_KVDB_IMPL_H_

@@ -1,5 +1,5 @@
-#ifndef _KV_DB_WRITE_BATCH_H_
-#define _KV_DB_WRITE_BATCH_H_
+#ifndef _HLKVDS_WRITE_BATCH_H_
+#define _HLKVDS_WRITE_BATCH_H_
 
 #include <list>
 #include <string>
@@ -27,4 +27,4 @@ private:
 
 } // namespace hlkvds
 
-#endif //#define _KV_DB_WRITE_BATCH_H_
+#endif //#define _HLKVDS_WRITE_BATCH_H_

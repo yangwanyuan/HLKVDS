@@ -1,5 +1,5 @@
-#ifndef _KV_DB_KEYDIGESTHANDLE_H_
-#define _KV_DB_KEYDIGESTHANDLE_H_
+#ifndef _HLKVDS_KEYDIGESTHANDLE_H_
+#define _HLKVDS_KEYDIGESTHANDLE_H_
 
 #include <string.h>
 #include <stdint.h>
@@ -68,4 +68,4 @@ private:
 };
 }// namespace hlkvds
 
-#endif //#ifndef _KV_DB_KEYDIGESTHANDLE_H_
+#endif //#ifndef _HLKVDS_KEYDIGESTHANDLE_H_

@@ -1,5 +1,5 @@
-#ifndef _KV_DB_UTILS_H_
-#define _KV_DB_UTILS_H_
+#ifndef _HLKVDS_UTILS_H_
+#define _HLKVDS_UTILS_H_
 
 #include <time.h>
 #include <sys/time.h>
@@ -109,4 +109,4 @@ private:
 };
 }
 
-#endif //#ifndef _KV_DB_UTILS_H_
+#endif //#ifndef _HLKVDS_UTILS_H_

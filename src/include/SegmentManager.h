@@ -1,5 +1,5 @@
-#ifndef _KV_DB_SEGMENT_MANAGER_H_
-#define _KV_DB_SEGMENT_MANAGER_H_
+#ifndef _HLKVDS_SEGMENT_MANAGER_H_
+#define _HLKVDS_SEGMENT_MANAGER_H_
 
 #include <stdio.h>
 #include <vector>
@@ -162,4 +162,4 @@ private:
 };
 
 } //end namespace hlkvds
-#endif // #ifndef _KV_DB_SEGMENT_MANAGER_H_
+#endif // #ifndef _HLKVDS_SEGMENT_MANAGER_H_

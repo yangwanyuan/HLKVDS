@@ -1,5 +1,5 @@
-#ifndef _KV_DB_ITERATOR_H_
-#define _KV_DB_ITERATOR_H_
+#ifndef _HLKVDS_ITERATOR_H_
+#define _HLKVDS_ITERATOR_H_
 
 #include <string>
 #include "hlkvds/Status.h"
@@ -30,4 +30,4 @@ private:
 };
 
 }
-#endif //#ifndef _KV_DB_ITERATOR_H_
+#endif //#ifndef _HLKVDS_ITERATOR_H_

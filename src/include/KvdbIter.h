@@ -1,5 +1,5 @@
-#ifndef _KV_DB_KVDBITER_H_
-#define _KV_DB_KVDBITER_H_
+#ifndef _HLKVDS_KVDBITER_H_
+#define _HLKVDS_KVDBITER_H_
 
 #include <string>
 #include "hlkvds/Iterator.h"
@@ -45,4 +45,4 @@ private:
 } 
 #endif
 
-#endif // #ifndef _KV_DB_KVDBITER_H_
+#endif // #ifndef _HLKVDS_KVDBITER_H_

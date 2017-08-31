@@ -1,5 +1,5 @@
-#ifndef _KV_DB_OPTIONS_H_
-#define _KV_DB_OPTIONS_H_
+#ifndef _HLKVDS_OPTIONS_H_
+#define _HLKVDS_OPTIONS_H_
 
 #include <stdint.h>
 
@@ -21,4 +21,4 @@ struct Options {
 };
 } // namespace hlkvds
 
-#endif //#define _KV_DB_OPTIONS_H_
+#endif //#define _HLKVDS_OPTIONS_H_

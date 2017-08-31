@@ -1,5 +1,5 @@
-#ifndef _KV_DB_INDEXMANAGER_H_
-#define _KV_DB_INDEXMANAGER_H_
+#ifndef _HLKVDS_INDEXMANAGER_H_
+#define _HLKVDS_INDEXMANAGER_H_
 
 #include <string>
 #include <sys/time.h>
@@ -342,4 +342,4 @@ public:
 
 
 }// namespace hlkvds
-#endif //#ifndef _KV_DB_INDEXMANAGER_H_
+#endif //#ifndef _HLKVDS_INDEXMANAGER_H_

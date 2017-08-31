@@ -1,5 +1,5 @@
-#ifndef _KV_DB_SUPERBLOCK_H_
-#define _KV_DB_SUPERBLOCK_H_
+#ifndef _HLKVDS_SUPERBLOCK_H_
+#define _HLKVDS_SUPERBLOCK_H_
 
 #include <mutex>
 
@@ -170,4 +170,4 @@ private:
 };
 }// namespace hlkvds
 
-#endif //#ifndef _KV_DB_SUPERBLOCK_H_
+#endif //#ifndef _HLKVDS_SUPERBLOCK_H_

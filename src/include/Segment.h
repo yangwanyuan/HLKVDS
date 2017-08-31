@@ -1,5 +1,5 @@
-#ifndef _KV_DB_SEGMENT_H_
-#define _KV_DB_SEGMENT_H_
+#ifndef _HLKVDS_SEGMENT_H_
+#define _HLKVDS_SEGMENT_H_
 
 #include <string>
 #include <sys/types.h>
@@ -251,4 +251,4 @@ private:
 };
 
 }
-#endif //#ifndef _KV_DB_SEGMENT_H_
+#endif //#ifndef _HLKVDS_SEGMENT_H_

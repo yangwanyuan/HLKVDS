@@ -1,5 +1,5 @@
-#ifndef _KV_DB_GCMANAGER_H_
-#define _KV_DB_GCMANAGER_H_
+#ifndef _HLKVDS_GCMANAGER_H_
+#define _HLKVDS_GCMANAGER_H_
 
 #include <sys/types.h>
 #include <mutex>
@@ -46,4 +46,4 @@ private:
 
 }//namespace hlkvds
 
-#endif //#ifndef _KV_DB_GCMANAGER_H_
+#endif //#ifndef _HLKVDS_GCMANAGER_H_

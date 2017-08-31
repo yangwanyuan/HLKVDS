@@ -1,5 +1,5 @@
-#ifndef _KV_DB_DB_STRUCTURE_H_
-#define _KV_DB_DB_STRUCTURE_H_
+#ifndef _HLKVDS_DB_STRUCTURE_H_
+#define _HLKVDS_DB_STRUCTURE_H_
 
 #include <stdint.h>
 
@@ -90,4 +90,4 @@ enum struct OpType {
 };
 } // namespace hlkvds
 
-#endif  // #define _KV_DB_DB_STRUCTURE_H_
+#endif  // #define _HLKVDS_DB_STRUCTURE_H_
