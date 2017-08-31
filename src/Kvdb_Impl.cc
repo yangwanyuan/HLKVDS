@@ -380,10 +380,6 @@ Status KvdbDS::Get(const char* key, uint32_t key_len, string &data) {
         //The key is not exist
         return Status::NotFound("Key is not found.");
     }
-    if (slice.GetDataLen() == 0) {
-        //The key is not exist
-        return Status::NotFound("Key is not found.");
-    }
 
     return readData(slice, data);
 
@@ -431,7 +427,6 @@ Status KvdbDS::InsertBatch(WriteBatch *batch)
     uint32_t free_size = seg->GetFreeSize();
     segMgr_->Use(seg_id, free_size);
     seg->UpdateToIndex();
-
     delete seg;
     return Status::OK();
 }
@@ -471,6 +466,7 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     }
 
     uint16_t data_len = entry->GetDataSize();
+
     if (data_len == 0) {
         //The key is not exist
         return Status::NotFound("Key is not found.");
