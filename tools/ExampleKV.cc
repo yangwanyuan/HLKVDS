@@ -2,7 +2,7 @@
 #include <string>
 #include <sstream>
 #include <unistd.h>
-#include "hyperds/Kvdb.h"
+#include "hlkvds/Kvdb.h"
 
 #define TEST_RECORD_NUM 1
 

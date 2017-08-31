@@ -3,8 +3,8 @@
 #define TEST_BASE_H_
 
 #include "Kvdb_Impl.h"
-#include "hyperds/Options.h"
-#include "hyperds/Iterator.h"
+#include "hlkvds/Options.h"
+#include "hlkvds/Iterator.h"
 #include "gtest/gtest.h"
 #include <string>
 

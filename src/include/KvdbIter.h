@@ -2,7 +2,7 @@
 #define _KV_DB_KVDBITER_H_
 
 #include <string>
-#include "hyperds/Iterator.h"
+#include "hlkvds/Iterator.h"
 #include "Db_Structure.h"
 
 #ifdef WITH_ITERATOR

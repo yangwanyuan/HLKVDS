@@ -7,9 +7,9 @@
 #include <iostream>
 
 #include "Kvdb_Impl.h"
-#include "hyperds/Options.h"
-#include "hyperds/Write_batch.h"
-#include "hyperds/Iterator.h"
+#include "hlkvds/Options.h"
+#include "hlkvds/Write_batch.h"
+#include "hlkvds/Iterator.h"
 
 using namespace std;
 using namespace kvdb;
