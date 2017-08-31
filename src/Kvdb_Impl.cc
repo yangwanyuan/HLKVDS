@@ -466,6 +466,12 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     }
 
     uint16_t data_len = entry->GetDataSize();
+
+    if (data_len == 0) {
+        //The key is not exist
+        return Status::NotFound("Key is not found.");
+    }
+
     char *mdata = new char[data_len];
     if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
         __ERROR("Could not read data at position");
