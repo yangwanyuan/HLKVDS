@@ -6,9 +6,6 @@
 
 #define TEST_RECORD_NUM 1
 
-#define TEST_DB_FILENAME "/dev/sdb1"
-//#define TEST_DB_FILENAME "/dev/sdb3"
-
 void Get(kvdb::DB *db) {
     int key_len;
     for (int index = 0; index < TEST_RECORD_NUM; index++) {
@@ -52,27 +49,29 @@ void Delete(kvdb::DB *db) {
     }
 
 }
-void OpenExample() {
+void OpenExample(string filename) {
     kvdb::DB *db;
 
-    if (!kvdb::DB::OpenDB(TEST_DB_FILENAME, &db)) {
+    if (!kvdb::DB::OpenDB(filename, &db)) {
         return;
     }
 
     Get(db);
     Insert(db);
-    sleep(2);
+    //sleep(2);
     Get(db);
     Delete(db);
-    sleep(2);
+    //sleep(2);
     Get(db);
     Insert(db);
-    sleep(2);
+    //sleep(2);
+    Get(db);
 
     delete db;
 }
 
-int main() {
-    OpenExample();
+int main(int argc, char** argv) {
+    string filename = argv[1];
+    OpenExample(filename);
     return 0;
 }
