@@ -1,5 +1,5 @@
-#ifndef _KV_DB_KVDB_IMPL_H_
-#define _KV_DB_KVDB_IMPL_H_
+#ifndef _HLKVDS_KVDB_IMPL_H_
+#define _HLKVDS_KVDB_IMPL_H_
 
 #include <list>
 #include <queue>
@@ -9,10 +9,10 @@
 #include <thread>
 
 #include "Db_Structure.h"
-#include "hyperds/Options.h"
-#include "hyperds/Status.h"
-#include "hyperds/Write_batch.h"
-#include "hyperds/Iterator.h"
+#include "hlkvds/Options.h"
+#include "hlkvds/Status.h"
+#include "hlkvds/Write_batch.h"
+#include "hlkvds/Iterator.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
@@ -21,12 +21,12 @@
 #include "WorkQueue.h"
 #include "Segment.h"
 
-namespace kvdb {
+namespace hlkvds {
 
-class KvdbDS {
+class KVDS {
 public:
-    static KvdbDS* Create_KvdbDS(const char* filename, Options opts);
-    static KvdbDS* Open_KvdbDS(const char* filename, Options opts);
+    static KVDS* Create_KVDS(const char* filename, Options opts);
+    static KVDS* Open_KVDS(const char* filename, Options opts);
 
     Status Insert(const char* key, uint32_t key_len, const char* data,
                   uint16_t length);
@@ -53,10 +53,10 @@ public:
         return segReaperQue_.length();
     }
 
-    virtual ~KvdbDS();
+    virtual ~KVDS();
 
 private:
-    KvdbDS(const string& filename, Options opts);
+    KVDS(const string& filename, Options opts);
     Status openDB();
     Status closeDB();
     bool writeMetaDataToDevice();
@@ -116,6 +116,6 @@ private:
     void GCThdEntry();
 };
 
-} // namespace kvdb
+} // namespace hlkvds
 
-#endif  // #ifndef _KV_DB_KVDB_IMPL_H_
+#endif  // #ifndef _HLKVDS_KVDB_IMPL_H_

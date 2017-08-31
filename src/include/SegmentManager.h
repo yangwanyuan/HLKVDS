@@ -1,5 +1,5 @@
-#ifndef _KV_DB_SEGMENT_MANAGER_H_
-#define _KV_DB_SEGMENT_MANAGER_H_
+#ifndef _HLKVDS_SEGMENT_MANAGER_H_
+#define _HLKVDS_SEGMENT_MANAGER_H_
 
 #include <stdio.h>
 #include <vector>
@@ -8,14 +8,14 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-#include "hyperds/Options.h"
+#include "hlkvds/Options.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Utils.h"
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 
 class DataHeader;
 class HashEntry;
@@ -161,5 +161,5 @@ private:
 
 };
 
-} //end namespace kvdb
-#endif // #ifndef _KV_DB_SEGMENT_MANAGER_H_
+} //end namespace hlkvds
+#endif // #ifndef _HLKVDS_SEGMENT_MANAGER_H_

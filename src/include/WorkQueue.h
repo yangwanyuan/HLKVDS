@@ -1,12 +1,12 @@
-#ifndef WORKQUEUE_H
-#define WORKQUEUE_H
+#ifndef _HLKVDS_WORKQUEUE_H_
+#define _HLKVDS_WORKQUEUE_H_
 
 #include <queue>
 #include <mutex>
 #include <chrono>
 #include <iostream>
 
-namespace kvdb {
+namespace hlkvds {
 template <typename T> class WorkQueue {
 public:
     typedef T QueueType;
@@ -66,4 +66,4 @@ if    (cv_.wait_for(lck, std::chrono::milliseconds(msec), [this] {return !dataQu
 
             };
 }
-#endif
+#endif //#ifndef _HLKVDS_WORKQUEUE_H_

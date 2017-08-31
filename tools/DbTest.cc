@@ -2,12 +2,12 @@
 #include <iostream>
 
 #include "Kvdb_Impl.h"
-#include "hyperds/Options.h"
-#include "hyperds/Write_batch.h"
-#include "hyperds/Iterator.h"
+#include "hlkvds/Options.h"
+#include "hlkvds/Write_batch.h"
+#include "hlkvds/Iterator.h"
 
 using namespace std;
-using namespace kvdb;
+using namespace hlkvds;
 
 //#define FILENAME  "0000_db"
 //#define FILENAME  "/dev/loop0"
@@ -22,7 +22,7 @@ void Create_DB_Test(string filename) {
     opts.segment_size = 256 * 1024;
     opts.hashtable_size = ht_size;
 
-    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(filename.c_str(), opts);
 
     delete db;
 }
@@ -30,7 +30,7 @@ void Create_DB_Test(string filename) {
 void Open_DB_Test(string filename) {
 
     Options opts;
-    KvdbDS *db = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
+    KVDS *db = KVDS::Open_KVDS(filename.c_str(), opts);
 
     //DB Insert 
     string test_key = "test-key";

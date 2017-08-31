@@ -1,16 +1,16 @@
-#ifndef _KV_DB_SUPERBLOCK_H_
-#define _KV_DB_SUPERBLOCK_H_
+#ifndef _HLKVDS_SUPERBLOCK_H_
+#define _HLKVDS_SUPERBLOCK_H_
 
 #include <mutex>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-#include "hyperds/Options.h"
+#include "hlkvds/Options.h"
 #include "Utils.h"
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class SuperBlockManager;
 
 class DBSuperBlock {
@@ -168,6 +168,6 @@ private:
     mutable std::mutex mtx_;
 
 };
-}// namespace kvdb
+}// namespace hlkvds
 
-#endif //#ifndef _KV_DB_SUPERBLOCK_H_
+#endif //#ifndef _HLKVDS_SUPERBLOCK_H_

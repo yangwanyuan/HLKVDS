@@ -1,5 +1,5 @@
-#ifndef KV_DB_BLOCKDEVICE_H_
-#define KV_DB_BLOCKDEVICE_H_
+#ifndef _HLKVDS_BLOCKDEVICE_H_
+#define _HLKVDS_BLOCKDEVICE_H_
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class BlockDevice {
 public:
     static BlockDevice* CreateDevice();
@@ -35,6 +35,6 @@ public:
 
     virtual void ClearReadCache() = 0;
 };
-}//namespace kvdb
+}//namespace hlkvds
 
-#endif // #ifndef _KV_DB_BLOCKDEVICE_H_
+#endif // #ifndef _HLKVDS_BLOCKDEVICE_H_

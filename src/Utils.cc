@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "Utils.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 const char* KVTime::ToChar(KVTime& _time) {
     return asctime(localtime(&_time.tm_.tv_sec));
@@ -135,4 +135,4 @@ bool Thread::Am_self() const {
 pthread_t Thread::Self() {
     return tid_;
 }
-} // namespace kvdb
+} // namespace hlkvds

@@ -1,5 +1,5 @@
-#ifndef _KV_DB_INDEXMANAGER_H_
-#define _KV_DB_INDEXMANAGER_H_
+#ifndef _HLKVDS_INDEXMANAGER_H_
+#define _HLKVDS_INDEXMANAGER_H_
 
 #include <string>
 #include <sys/time.h>
@@ -8,7 +8,7 @@
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-#include "hyperds/Options.h"
+#include "hlkvds/Options.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
@@ -18,7 +18,7 @@
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 class KVSlice;
 class SegmentSlice;
 
@@ -341,5 +341,5 @@ public:
     };
 
 
-}// namespace kvdb
-#endif //#ifndef _KV_DB_INDEXMANAGER_H_
+}// namespace hlkvds
+#endif //#ifndef _HLKVDS_INDEXMANAGER_H_

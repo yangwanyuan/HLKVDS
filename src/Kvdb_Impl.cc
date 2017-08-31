@@ -8,9 +8,9 @@
 #include "KeyDigestHandle.h"
 #include "KvdbIter.h"
 
-namespace kvdb {
+namespace hlkvds {
 
-KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
+KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     if (filename == NULL) {
         return NULL;
     }
@@ -26,7 +26,7 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
     uint64_t device_capacity = 0;
     uint64_t data_theory_size = 0;
 
-    KvdbDS* ds = new KvdbDS(filename, opts);
+    KVDS* ds = new KVDS(filename, opts);
 
     uint32_t hash_table_size = ds->options_.hashtable_size;
     uint32_t segment_size = ds->options_.segment_size;
@@ -111,7 +111,7 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
                     data_theory_size);
     ds->sbMgr_->SetSuperBlock(sb);
 
-    __INFO("\nCreateKvdbDS table information:\n"
+    __INFO("\nCreateKVDS table information:\n"
             "\t hashtable_size            : %d\n"
             "\t num_entries               : %d\n"
             "\t segment_size              : %d Bytes\n"
@@ -136,7 +136,7 @@ KvdbDS* KvdbDS::Create_KvdbDS(const char* filename, Options opts) {
 
 }
 
-Iterator* KvdbDS::NewIterator() {
+Iterator* KVDS::NewIterator() {
 #ifdef WITH_ITERATOR
     return new KvdbIter(idxMgr_, segMgr_, bdev_);
 #else
@@ -144,7 +144,7 @@ Iterator* KvdbDS::NewIterator() {
 #endif
 }
 
-void KvdbDS::printDbStates() {
+void KVDS::printDbStates() {
 
     uint32_t hash_table_size = sbMgr_->GetHTSize();
     uint32_t num_entries = idxMgr_->GetKeyCounter();
@@ -181,7 +181,7 @@ void KvdbDS::printDbStates() {
             db_data_region_size, db_size, device_capacity,getReqQueSize(),getSegReaperQueSize(),getSegWriteQueSize());
 }
 
-bool KvdbDS::writeMetaDataToDevice() {
+bool KVDS::writeMetaDataToDevice() {
     if (!idxMgr_->WriteIndexToDevice()) {
         return false;
     }
@@ -197,7 +197,7 @@ bool KvdbDS::writeMetaDataToDevice() {
     return true;
 }
 
-bool KvdbDS::readMetaDataFromDevice() {
+bool KVDS::readMetaDataFromDevice() {
     uint64_t offset = 0;
     if (!sbMgr_->LoadSuperBlockFromDevice(offset)) {
         return false;
@@ -249,8 +249,8 @@ bool KvdbDS::readMetaDataFromDevice() {
     return true;
 }
 
-KvdbDS* KvdbDS::Open_KvdbDS(const char* filename, Options opts) {
-    KvdbDS *instance_ = new KvdbDS(filename, opts);
+KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
+    KVDS *instance_ = new KVDS(filename, opts);
 
     Status s = instance_->openDB();
     if (!s.ok()) {
@@ -261,7 +261,7 @@ KvdbDS* KvdbDS::Open_KvdbDS(const char* filename, Options opts) {
 
 }
 
-Status KvdbDS::openDB() {
+Status KVDS::openDB() {
     if (bdev_->Open(fileName_) < 0) {
         __ERROR("Could not open device\n");
         return Status::IOError("Could not open device");
@@ -274,7 +274,7 @@ Status KvdbDS::openDB() {
     return Status::OK();
 }
 
-Status KvdbDS::closeDB() {
+Status KVDS::closeDB() {
     if (!writeMetaDataToDevice()) {
         __ERROR("Could not to write metadata to device\n");
         return Status::IOError("Could not to write metadata to device");
@@ -283,26 +283,26 @@ Status KvdbDS::closeDB() {
     return Status::OK();
 }
 
-void KvdbDS::startThds() {
+void KVDS::startThds() {
     reqMergeT_stop_.store(false);
-    reqMergeT_ = std::thread(&KvdbDS::ReqMergeThdEntry, this);
+    reqMergeT_ = std::thread(&KVDS::ReqMergeThdEntry, this);
 
     segWriteT_stop_.store(false);
     for (int i = 0; i < options_.seg_write_thread; i++) {
-        segWriteTP_.push_back(std::thread(&KvdbDS::SegWriteThdEntry, this));
+        segWriteTP_.push_back(std::thread(&KVDS::SegWriteThdEntry, this));
     }
 
     segTimeoutT_stop_.store(false);
-    segTimeoutT_ = std::thread(&KvdbDS::SegTimeoutThdEntry, this);
+    segTimeoutT_ = std::thread(&KVDS::SegTimeoutThdEntry, this);
 
     segReaperT_stop_.store(false);
-    segReaperT_ = std::thread(&KvdbDS::SegReaperThdEntry, this);
+    segReaperT_ = std::thread(&KVDS::SegReaperThdEntry, this);
 
     gcT_stop_.store(false);
-    gcT_ = std::thread(&KvdbDS::GCThdEntry, this);
+    gcT_ = std::thread(&KVDS::GCThdEntry, this);
 }
 
-void KvdbDS::stopThds() {
+void KVDS::stopThds() {
     gcT_stop_.store(true);
     gcT_.join();
 
@@ -322,7 +322,7 @@ void KvdbDS::stopThds() {
     reqMergeT_.join();
 }
 
-KvdbDS::~KvdbDS() {
+KVDS::~KVDS() {
     closeDB();
     delete gcMgr_;
     delete idxMgr_;
@@ -333,7 +333,7 @@ KvdbDS::~KvdbDS() {
 
 }
 
-KvdbDS::KvdbDS(const string& filename, Options opts) :
+KVDS::KVDS(const string& filename, Options opts) :
     fileName_(filename), seg_(NULL), options_(opts), reqMergeT_stop_(false),
             segWriteT_stop_(false), segTimeoutT_stop_(false),
             segReaperT_stop_(false), gcT_stop_(false) {
@@ -344,7 +344,7 @@ KvdbDS::KvdbDS(const string& filename, Options opts) :
     gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_, options_);
 }
 
-Status KvdbDS::Insert(const char* key, uint32_t key_len, const char* data,
+Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
                       uint16_t length) {
     if (key == NULL || key[0] == '\0') {
         return Status::InvalidArgument("Key is null or empty.");
@@ -363,11 +363,11 @@ Status KvdbDS::Insert(const char* key, uint32_t key_len, const char* data,
 
 }
 
-Status KvdbDS::Delete(const char* key, uint32_t key_len) {
+Status KVDS::Delete(const char* key, uint32_t key_len) {
     return Insert(key, key_len, NULL, 0);
 }
 
-Status KvdbDS::Get(const char* key, uint32_t key_len, string &data) {
+Status KVDS::Get(const char* key, uint32_t key_len, string &data) {
     bool res = false;
     if (key == NULL) {
         return Status::InvalidArgument("Key is null.");
@@ -385,7 +385,7 @@ Status KvdbDS::Get(const char* key, uint32_t key_len, string &data) {
 
 }
 
-Status KvdbDS::InsertBatch(WriteBatch *batch)
+Status KVDS::InsertBatch(WriteBatch *batch)
 {
     if (batch->batch_.empty()) {
         return Status::OK();
@@ -431,7 +431,7 @@ Status KvdbDS::InsertBatch(WriteBatch *batch)
     return Status::OK();
 }
 
-Status KvdbDS::insertKey(KVSlice& slice) {
+Status KVDS::insertKey(KVSlice& slice) {
     Request *req = new Request(slice);
     reqQue_.Enqueue_Notify(req);
     req->Wait();
@@ -440,7 +440,7 @@ Status KvdbDS::insertKey(KVSlice& slice) {
     return s;
 }
 
-Status KvdbDS::updateMeta(Request *req) {
+Status KVDS::updateMeta(Request *req) {
     bool res = req->GetWriteStat();
     // update index
     if (!res) {
@@ -456,7 +456,7 @@ Status KvdbDS::updateMeta(Request *req) {
     return Status::OK();
 }
 
-Status KvdbDS::readData(KVSlice &slice, string &data) {
+Status KVDS::readData(KVSlice &slice, string &data) {
     HashEntry *entry;
     entry = &slice.GetHashEntry();
 
@@ -503,7 +503,7 @@ Status KvdbDS::readData(KVSlice &slice, string &data) {
     return Status::OK();
 }
 
-void KvdbDS::ReqMergeThdEntry() {
+void KVDS::ReqMergeThdEntry() {
     __DEBUG("Requests Merge thread start!!");
     std::unique_lock < std::mutex > lck_seg(segMtx_, std::defer_lock);
     while (!reqMergeT_stop_.load()) {
@@ -525,7 +525,7 @@ void KvdbDS::ReqMergeThdEntry() {
     } __DEBUG("Requests Merge thread stop!!");
 }
 
-void KvdbDS::SegWriteThdEntry() {
+void KVDS::SegWriteThdEntry() {
     __DEBUG("Segment write thread start!!");
     while (!segWriteT_stop_) {
         SegForReq *seg = segWriteQue_.Wait_Dequeue();
@@ -557,7 +557,7 @@ void KvdbDS::SegWriteThdEntry() {
     } __DEBUG("Segment write thread stop!!");
 }
 
-void KvdbDS::SegTimeoutThdEntry() {
+void KVDS::SegTimeoutThdEntry() {
     __DEBUG("Segment Timeout thread start!!");
     std::unique_lock < std::mutex > lck(segMtx_, std::defer_lock);
     while (!segTimeoutT_stop_) {
@@ -575,7 +575,7 @@ void KvdbDS::SegTimeoutThdEntry() {
     } __DEBUG("Segment Timeout thread stop!!");
 }
 
-void KvdbDS::SegReaperThdEntry() {
+void KVDS::SegReaperThdEntry() {
     __DEBUG("Segment reaper thread start!!");
 
     while (!segReaperT_stop_) {
@@ -598,12 +598,12 @@ void KvdbDS::SegReaperThdEntry() {
     }
 }
 
-void KvdbDS::Do_GC() {
+void KVDS::Do_GC() {
     __INFO("Application call GC!!!!!");
     return gcMgr_->FullGC();
 }
 
-void KvdbDS::GCThdEntry() {
+void KVDS::GCThdEntry() {
     __DEBUG("GC thread start!!");
     while (!gcT_stop_) {
         gcMgr_->BackGC();

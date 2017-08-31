@@ -1,19 +1,19 @@
-#ifndef KV_DB_KVDB_H_
-#define KV_DB_KVDB_H_
+#ifndef _HLKVDS_KVDB_H_
+#define _HLKVDS_KVDB_H_
 
 #include <iostream>
 #include <string>
 
-#include "hyperds/Options.h"
-#include "hyperds/Status.h"
-#include "hyperds/Write_batch.h"
-#include "hyperds/Iterator.h"
+#include "hlkvds/Options.h"
+#include "hlkvds/Status.h"
+#include "hlkvds/Write_batch.h"
+#include "hlkvds/Iterator.h"
 
 using namespace std;
 
-namespace kvdb {
+namespace hlkvds {
 
-class KvdbDS;
+class KVDS;
 
 class DB {
 public:
@@ -39,10 +39,10 @@ private:
     DB& operator=(const DB &);
 
     string fileName_;
-    KvdbDS *kvdb_;
+    KVDS *kvds_;
     static DB *instance_;
 };
 
-} // namespace kvdb
+} // namespace hlkvds
 
-#endif //KV_DB_KVDB_H_
+#endif //_HLKVDS_KVDB_H_

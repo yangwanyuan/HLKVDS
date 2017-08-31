@@ -105,10 +105,10 @@ clean:
 
 .PHONY : install
 install:
-	cp -r src/include/hyperds /usr/local/include
+	cp -r src/include/hlkvds /usr/local/include
 	cp src/libhlkvds.so /usr/local/lib
 
 .PHONY : uninstall
 uninstall:
-	rm -fr /usr/local/include/hyperds
+	rm -fr /usr/local/include/hlkvds
 	rm -f /usr/local/lib/libhlkvds.so

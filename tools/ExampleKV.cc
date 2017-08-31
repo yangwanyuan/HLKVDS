@@ -2,11 +2,11 @@
 #include <string>
 #include <sstream>
 #include <unistd.h>
-#include "hyperds/Kvdb.h"
+#include "hlkvds/Kvdb.h"
 
 #define TEST_RECORD_NUM 1
 
-void Get(kvdb::DB *db) {
+void Get(hlkvds::DB *db) {
     int key_len;
     for (int index = 0; index < TEST_RECORD_NUM; index++) {
         stringstream key_ss;
@@ -20,7 +20,7 @@ void Get(kvdb::DB *db) {
     }
 
 }
-void Insert(kvdb::DB *db) {
+void Insert(hlkvds::DB *db) {
     int key_len;
     int value_len;
     for (int index = 0; index < TEST_RECORD_NUM; index++) {
@@ -37,7 +37,7 @@ void Insert(kvdb::DB *db) {
 
 }
 
-void Delete(kvdb::DB *db) {
+void Delete(hlkvds::DB *db) {
     int key_len;
     for (int index = 0; index < TEST_RECORD_NUM; index++) {
         stringstream key_ss;
@@ -50,9 +50,9 @@ void Delete(kvdb::DB *db) {
 
 }
 void OpenExample(string filename) {
-    kvdb::DB *db;
+    hlkvds::DB *db;
 
-    if (!kvdb::DB::OpenDB(filename, &db)) {
+    if (!hlkvds::DB::OpenDB(filename, &db)) {
         return;
     }
 

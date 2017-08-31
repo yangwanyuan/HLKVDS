@@ -1,13 +1,13 @@
-#ifndef _KV_DB_WRITE_BATCH_H_
-#define _KV_DB_WRITE_BATCH_H_
+#ifndef _HLKVDS_WRITE_BATCH_H_
+#define _HLKVDS_WRITE_BATCH_H_
 
 #include <list>
 #include <string>
 
 
-namespace kvdb {
+namespace hlkvds {
 
-class KvdbDS;
+class KVDS;
 class KVSlice;
 
 class WriteBatch {
@@ -22,9 +22,9 @@ public:
 
 private:
     std::list<KVSlice *> batch_;
-    friend class KvdbDS;
+    friend class KVDS;
 };
 
-} // namespace kvdb
+} // namespace hlkvds
 
-#endif //#define _KV_DB_WRITE_BATCH_H_
+#endif //#define _HLKVDS_WRITE_BATCH_H_

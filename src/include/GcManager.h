@@ -1,17 +1,17 @@
-#ifndef _KV_DB_GCMANAGER_H_
-#define _KV_DB_GCMANAGER_H_
+#ifndef _HLKVDS_GCMANAGER_H_
+#define _HLKVDS_GCMANAGER_H_
 
 #include <sys/types.h>
 #include <mutex>
 
 #include "Db_Structure.h"
 #include "BlockDevice.h"
-#include "hyperds/Options.h"
+#include "hlkvds/Options.h"
 #include "IndexManager.h"
 #include "SegmentManager.h"
 #include "Segment.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 class GcManager {
 public:
@@ -44,6 +44,6 @@ private:
     char *dataBuf_;
 };
 
-}//namespace kvdb
+}//namespace hlkvds
 
-#endif //#ifndef _KV_DB_GCMANAGER_H_
+#endif //#ifndef _HLKVDS_GCMANAGER_H_

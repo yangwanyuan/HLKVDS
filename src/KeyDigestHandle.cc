@@ -3,7 +3,7 @@
 
 #include "KeyDigestHandle.h"
 
-namespace kvdb {
+namespace hlkvds {
 
 Kvdb_Key::~Kvdb_Key() {
 }

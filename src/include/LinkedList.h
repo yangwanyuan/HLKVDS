@@ -1,12 +1,12 @@
-#ifndef _KV_DB_LINKEDLIST_H_
-#define _KV_DB_LINKEDLIST_H_
+#ifndef _HLKVDS_LINKEDLIST_H_
+#define _HLKVDS_LINKEDLIST_H_
 
 #include <string.h>
 #include <unistd.h>
 #include <vector>
 
 using namespace std;
-namespace kvdb {
+namespace hlkvds {
 
 template<typename T>
 class Node {
@@ -236,4 +236,4 @@ int LinkedList<T>::searchNo(T& toBeSearched) {
 
 }
 
-#endif
+#endif //#ifndef _HLKVDS_LINKEDLIST_H_

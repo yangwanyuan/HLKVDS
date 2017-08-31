@@ -1,8 +1,8 @@
 #include "BlockDevice.h"
 #include "KernelDevice.h"
 
-namespace kvdb {
+namespace hlkvds {
 BlockDevice* BlockDevice::CreateDevice() {
     return new KernelDevice();
 }
-}//namespace kvdb
+}//namespace hlkvds

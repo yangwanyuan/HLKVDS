@@ -5,7 +5,7 @@
 #include "Db_Structure.h"
 
 #ifdef WITH_ITERATOR
-namespace kvdb {
+namespace hlkvds {
 
 KvdbIter::KvdbIter(IndexManager* im, SegmentManager* sm, BlockDevice* bdev) :
     idxMgr_(im), segMgr_(sm), bdev_(bdev), valid_(false), hashEntry_(NULL){

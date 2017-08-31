@@ -3,7 +3,7 @@
 class TestIterator : public TestBase {
 public:
     int db_size = 100;
-    KvdbDS *db = Create_DB(db_size);
+    KVDS *db = Create_DB(db_size);
 
     WriteBatch writeBatch;
     int count = 10;

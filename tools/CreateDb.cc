@@ -1,15 +1,15 @@
 #include <iostream>
 #include <string>
 #include <sstream>
-#include "hyperds/Kvdb.h"
-#include "hyperds/Options.h"
+#include "hlkvds/Kvdb.h"
+#include "hlkvds/Options.h"
 
-using namespace kvdb;
+using namespace hlkvds;
 
 void CreateExample(string filename) {
 
     Options opts;
-    if (!kvdb::DB::CreateDB(filename, opts)) {
+    if (!hlkvds::DB::CreateDB(filename, opts)) {
         std::cout << "CreateDB Failed!" << std::endl;
         return;
     }

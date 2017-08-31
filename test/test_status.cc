@@ -6,7 +6,7 @@ class test_status : public TestBase {
 TEST_F(test_status,invalidargs)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     int test_key_size = 8;
     string test_value = "test-value";

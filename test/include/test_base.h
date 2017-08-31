@@ -3,17 +3,17 @@
 #define TEST_BASE_H_
 
 #include "Kvdb_Impl.h"
-#include "hyperds/Options.h"
-#include "hyperds/Iterator.h"
+#include "hlkvds/Options.h"
+#include "hlkvds/Iterator.h"
 #include "gtest/gtest.h"
 #include <string>
 
 #define FILENAME  "/dev/loop2"
-using namespace kvdb;
+using namespace hlkvds;
 
 class TestBase : public ::testing::Test {
 public:
-    KvdbDS* Create_DB(int db_size);
+    KVDS* Create_DB(int db_size);
 protected:
     Options opts;
 
