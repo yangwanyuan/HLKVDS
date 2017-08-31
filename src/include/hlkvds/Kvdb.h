@@ -39,7 +39,7 @@ private:
     DB& operator=(const DB &);
 
     string fileName_;
-    KVDS *kvdb_;
+    KVDS *kvds_;
     static DB *instance_;
 };
 

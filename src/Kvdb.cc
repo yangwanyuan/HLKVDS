@@ -6,14 +6,14 @@ namespace hlkvds {
 DB* DB::instance_ = NULL;
 
 bool DB::CreateDB(string filename, Options opts) {
-    KVDS* kvdb_db;
-    kvdb_db = KVDS::Create_KVDS(filename.c_str(), opts);
-    if (!kvdb_db) {
+    KVDS* new_kvds;
+    new_kvds = KVDS::Create_KVDS(filename.c_str(), opts);
+    if (!new_kvds) {
         std::cout << "CreateDB failed" << std::endl;
         return false;
     }
 
-    delete kvdb_db;
+    delete new_kvds;
     return true;
 }
 
@@ -22,8 +22,8 @@ bool DB::OpenDB(string filename, DB** db, Options opts) {
         instance_ = new DB();
     }
 
-    instance_->kvdb_ = KVDS::Open_KVDS(filename.c_str(), opts);
-    if (!instance_->kvdb_) {
+    instance_->kvds_ = KVDS::Open_KVDS(filename.c_str(), opts);
+    if (!instance_->kvds_) {
         std::cout << "OpenDB failed" << std::endl;
         return false;
     }
@@ -38,15 +38,15 @@ DB::DB() {
 
 DB::~DB() {
     if (instance_) {
-        delete instance_->kvdb_;
-        instance_->kvdb_ = NULL;
+        delete instance_->kvds_;
+        instance_->kvds_ = NULL;
     }
     instance_ = NULL;
 }
 
 Status DB::Insert(const char* key, uint32_t key_len, const char* data,
                 uint16_t length) {
-    Status s = kvdb_->Insert(key, key_len, data, length);
+    Status s = kvds_->Insert(key, key_len, data, length);
     if (!s.ok()) {
         std::cout << "DB Insert failed" << std::endl;
     }
@@ -55,7 +55,7 @@ Status DB::Insert(const char* key, uint32_t key_len, const char* data,
 }
 
 Status DB::Delete(const char* key, uint32_t key_len) {
-    Status s = kvdb_->Delete(key, key_len);
+    Status s = kvds_->Delete(key, key_len);
     if (!s.ok()) {
         std::cout << "DB Delete failed" << std::endl;
     }
@@ -63,7 +63,7 @@ Status DB::Delete(const char* key, uint32_t key_len) {
 }
 
 Status DB::Get(const char* key, uint32_t key_len, string &data) {
-    Status s = kvdb_->Get(key, key_len, data);
+    Status s = kvds_->Get(key, key_len, data);
     if (!s.ok()) {
         std::cout << "DB Get failed" << std::endl;
     }
@@ -71,20 +71,20 @@ Status DB::Get(const char* key, uint32_t key_len, string &data) {
 }
 
 void DB::Do_GC() {
-    kvdb_->Do_GC();
+    kvds_->Do_GC();
 }
 
 Status DB::InsertBatch(WriteBatch *batch) {
-    return kvdb_->InsertBatch(batch);
+    return kvds_->InsertBatch(batch);
 }
 
 Iterator* DB::NewIterator() {
-    return kvdb_->NewIterator();
+    return kvds_->NewIterator();
 }
 
 void DB::printDbStates()
 {
-    return kvdb_->printDbStates();
+    return kvds_->printDbStates();
 }
 
 }// end namespace hlkvds
