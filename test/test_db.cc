@@ -5,7 +5,7 @@
 class TestDb : public TestBase {
 public:
     string path="/dev/loop2";
-    double insert(KvdbDS *db) {
+    double insert(KVDS *db) {
         //insert something
         string test_key = "test_key";
         int test_key_size = 8;
@@ -26,7 +26,7 @@ public:
 
 TEST_F(TestDb, readinopen)
 {
-    KvdbDS *db= Create_DB(100);
+    KVDS *db= Create_DB(100);
 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -48,7 +48,7 @@ TEST_F(TestDb, readinopen)
     //open db and read that key
     Options opts;
     opts.hashtable_size=100;
-    KvdbDS *db2=KvdbDS::Open_KvdbDS(path.c_str(), opts);
+    KVDS *db2=KVDS::Open_KVDS(path.c_str(), opts);
 
     get_data="";
     s=db2->Get(test_key.c_str(), test_key_size, get_data);
@@ -61,19 +61,19 @@ TEST_F(TestDb, readinopen)
 TEST_F(TestDb,uninitializeBlockDevice)
 {
 
-    KvdbDS *db = KvdbDS::Create_KvdbDS("/dev/loop3", opts);
+    KVDS *db = KVDS::Create_KVDS("/dev/loop3", opts);
 
     EXPECT_EQ(NULL,db);
 }
 
 TEST_F(TestDb,reopendb)
 {
-    KvdbDS *db = Create_DB(100);
+    KVDS *db = Create_DB(100);
 
     delete db;
-    KvdbDS::Open_KvdbDS(path.c_str(), opts);
+    KVDS::Open_KVDS(path.c_str(), opts);
 
-    KvdbDS* db2=KvdbDS::Open_KvdbDS(path.c_str(), opts);
+    KVDS* db2=KVDS::Open_KVDS(path.c_str(), opts);
     EXPECT_FALSE(NULL==db2);
 
     delete db2;
@@ -81,11 +81,11 @@ TEST_F(TestDb,reopendb)
 
 TEST_F(TestDb,usedbwithoutdeleting)
 {
-    KvdbDS *db = KvdbDS::Create_KvdbDS(path.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     insert(db);
     //delete db;
-    //KvdbDS::Open_KvdbDS(path.c_str(), opts);
+    //KVDS::Open_KVDS(path.c_str(), opts);
     //throw exception
     //Floating point exception (core dumped)
 }
@@ -94,7 +94,7 @@ TEST_F(TestDb,usedbwithoutdeleting)
 TEST_F(TestDb,zerosegmentsize)
 {
     opts.segment_size=0;
-    KvdbDS *db = KvdbDS::Create_KvdbDS(path.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_TRUE(NULL==db);
 
@@ -107,7 +107,7 @@ TEST_F(TestDb,zerohashtablesize)
 {
     opts.hashtable_size=0;
     string path="/dev/loop2";
-    KvdbDS *db = KvdbDS::Create_KvdbDS(path.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_FALSE(NULL==db);
 
@@ -118,12 +118,12 @@ TEST_F(TestDb,zeroexpiretime)
 {
     opts.expired_time=0;
     string path="/dev/loop2";
-    KvdbDS *db = KvdbDS::Create_KvdbDS(path.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_FALSE(NULL==db);
     delete db;
 
-    KvdbDS* db2=KvdbDS::Open_KvdbDS(path.c_str(), opts);
+    KVDS* db2=KVDS::Open_KVDS(path.c_str(), opts);
     EXPECT_FALSE(NULL==db2);
 
     insert(db2);
@@ -133,12 +133,12 @@ TEST_F(TestDb,expiretime)
 {
     opts.expired_time=10000; // 10ms
     string path="/dev/loop2";
-    KvdbDS *db = KvdbDS::Create_KvdbDS(path.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_FALSE(NULL==db);
     delete db;
 
-    KvdbDS* db2=KvdbDS::Open_KvdbDS(path.c_str(), opts);
+    KVDS* db2=KVDS::Open_KVDS(path.c_str(), opts);
     EXPECT_FALSE(NULL==db2);
 
     double time=insert(db2);

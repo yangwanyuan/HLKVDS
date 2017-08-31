@@ -9,7 +9,7 @@ class test_operations : public TestBase {
 TEST_F(test_operations,insert)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -32,7 +32,7 @@ TEST_F(test_operations,insert)
 TEST_F(test_operations,emptykey)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "";
     int test_key_size = 8;
@@ -48,7 +48,7 @@ TEST_F(test_operations,emptykey)
 TEST_F(test_operations, nonexistkey)
 {
     int db_size = 100;
-    KvdbDS *db = Create_DB(db_size);
+    KVDS *db = Create_DB(db_size);
 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -65,7 +65,7 @@ TEST_F(test_operations, nonexistkey)
 TEST_F(test_operations,zerosize)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -86,7 +86,7 @@ TEST_F(test_operations,zerosize)
 TEST_F(test_operations,bigsizevalue)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -112,7 +112,7 @@ TEST_F(test_operations,bigsizevalue)
 TEST_F(test_operations,wrongvaluesize)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -135,7 +135,7 @@ TEST_F(test_operations,wrongvaluesize)
 TEST_F(test_operations,insertmorethandbsize)
 {
     int db_size=100;//128 actually the db size should be equal to 128
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "key_";
     int test_key_size = 8;
@@ -169,7 +169,7 @@ TEST_F(test_operations,insertmorethandbsize)
 TEST_F(test_operations,updatevalue)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -197,7 +197,7 @@ TEST_F(test_operations,updatevalue)
 TEST_F(test_operations,deletekey)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -221,7 +221,7 @@ TEST_F(test_operations,deletekey)
 TEST_F(test_operations,updateafterdelete)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -247,7 +247,7 @@ TEST_F(test_operations,updateafterdelete)
 TEST_F(test_operations,deleteagain)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -270,7 +270,7 @@ TEST_F(test_operations,deleteagain)
 TEST_F(test_operations,readAfterUpdateAndDelete)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     string test_key = "test_key";
     int test_key_size = 8;
@@ -312,7 +312,7 @@ TEST_F(test_operations,readAfterUpdateAndDelete)
 TEST_F(test_operations,singlesegment)
 {
     int db_size=100;
-    KvdbDS *db= Create_DB(db_size);
+    KVDS *db= Create_DB(db_size);
 
     //std::cout<<"total used segments:"<<db->segMgr_->GetTotalUsedSegs()<<std::endl;;//TODO segMgr_ is private
 

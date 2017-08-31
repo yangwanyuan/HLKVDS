@@ -21,7 +21,7 @@ using namespace std;
 using namespace hlkvds;
 
 struct thread_arg {
-    KvdbDS *db;
+    KVDS *db;
     int key_start;
     int key_end;
     vector<string> *key_list;
@@ -129,7 +129,7 @@ int Create_DB(string filename, int db_size, int segment_K) {
     opts.segment_size = segment_size;
 
     KVTime tv_start;
-    KvdbDS *db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
+    KVDS *db = KVDS::Create_KVDS(filename.c_str(), opts);
 
     KVTime tv_end;
     double diff_time = (tv_end - tv_start) / 1000000.0;
@@ -142,11 +142,11 @@ int Create_DB(string filename, int db_size, int segment_K) {
     return 0;
 }
 
-KvdbDS* Open_DB(string filename) {
+KVDS* Open_DB(string filename) {
     cout << "Start OpenDB, Please wait ..." << endl;
     Options opts;
     KVTime tv_start;
-    KvdbDS *db = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
+    KVDS *db = KVDS::Open_KVDS(filename.c_str(), opts);
     KVTime tv_end;
     double diff_time = (tv_end - tv_start) / 1000000.0;
     cout << "Open DB use time: " << diff_time << "s" << endl;
@@ -167,7 +167,7 @@ void Create_Keys(int record_num, vector<string> &key_list) {
 
 void* fun_insert(void *arg) {
     thread_arg *t_args = (thread_arg*) arg;
-    KvdbDS *db = t_args->db;
+    KVDS *db = t_args->db;
     int key_start = t_args->key_start;
     int key_end = t_args->key_end;
     vector<string> &key_list = *t_args->key_list;
@@ -194,7 +194,7 @@ void* fun_insert(void *arg) {
 
 }
 
-double Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list,
+double Bench_Insert(KVDS *db, int record_num, vector<string> &key_list,
                     int thread_num, LatMgr *total_lat_mgr = NULL) {
     cout << "Start Benchmark Test: Insert , record_num = " << record_num << ", Please wait ..." << endl;
 
@@ -263,7 +263,7 @@ double Bench_Insert(KvdbDS *db, int record_num, vector<string> &key_list,
 
 void* fun_get(void *arg) {
     thread_arg *t_args = (thread_arg*) arg;
-    KvdbDS *db = t_args->db;
+    KVDS *db = t_args->db;
     int key_start = t_args->key_start;
     int key_end = t_args->key_end;
     vector<string> &key_list = *t_args->key_list;
@@ -293,7 +293,7 @@ void* fun_get(void *arg) {
     return NULL;
 }
 
-void Bench_Get_Seq(KvdbDS *db, int record_num, vector<string> &key_list,
+void Bench_Get_Seq(KVDS *db, int record_num, vector<string> &key_list,
                     int thread_num) {
     cout << "Start Benchmark Test: Get , record_num = " << record_num << ", Please wait ..." << endl;
 
@@ -418,7 +418,7 @@ void Bench_Write(benchmark_arg bm_arg) {
         return;
     }
 
-    KvdbDS *db = Open_DB(file_path);
+    KVDS *db = Open_DB(file_path);
 
     Bench_Insert(db, record_num, key_list, thread_num);
     delete db;
@@ -438,7 +438,7 @@ void Bench_Overwrite(benchmark_arg bm_arg) {
         return;
     }
 
-    KvdbDS *db = Open_DB(file_path);
+    KVDS *db = Open_DB(file_path);
 
     double total_time;
     LatMgr *total_lat_mgr = new LatMgr;
@@ -492,7 +492,7 @@ void Bench_Read(benchmark_arg bm_arg)
     vector<string> key_list;
     Create_Keys(record_num, key_list);
 
-    KvdbDS *db = Open_DB(file_path);
+    KVDS *db = Open_DB(file_path);
     db->ClearReadCache();
     Bench_Get_Seq(db, record_num, key_list, thread_num);
     delete db;

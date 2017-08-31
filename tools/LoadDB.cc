@@ -18,7 +18,7 @@ using namespace hlkvds;
 void Open_DB_Test(string filename) {
 
     Options opts;
-    KvdbDS *db = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
+    KVDS *db = KVDS::Open_KVDS(filename.c_str(), opts);
 
     Iterator* it = db->NewIterator();
     cout << "Iterator the db: First to Last" << endl;

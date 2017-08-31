@@ -5,7 +5,7 @@ class TestBatch : public TestBase {
 TEST_F(TestBatch,batch)
 {
     int db_size = 100;
-    KvdbDS *db = Create_DB(db_size);
+    KVDS *db = Create_DB(db_size);
 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -39,7 +39,7 @@ TEST_F(TestBatch,batch)
 TEST_F(TestBatch,emptyBatch)
 {
     int db_size = 100;
-    KvdbDS *db = Create_DB(db_size);
+    KVDS *db = Create_DB(db_size);
     //int total1=db->segMgr_->GetTotalFreeSegs();
     WriteBatch writeBatch;
     Status s=db->InsertBatch(&writeBatch);
@@ -52,7 +52,7 @@ TEST_F(TestBatch,emptyBatch)
 TEST_F(TestBatch,update)
 {
     int db_size = 100;
-    KvdbDS *db = Create_DB(db_size);
+    KVDS *db = Create_DB(db_size);
 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -78,7 +78,7 @@ TEST_F(TestBatch,update)
 TEST_F(TestBatch,deleteInBatch)
 {
     int db_size = 100;
-    KvdbDS *db = Create_DB(db_size);
+    KVDS *db = Create_DB(db_size);
 
     string test_key = "test-key";
     int test_key_size = 8;
@@ -104,7 +104,7 @@ TEST_F(TestBatch,deleteInBatch)
 //TEST_F(TestBatch,largeBatch)
 //{
 //    int db_size = 100;
-//    KvdbDS *db = Create_DB(db_size);
+//    KVDS *db = Create_DB(db_size);
 //
 //    WriteBatch writeBatch;
 //
@@ -140,7 +140,7 @@ TEST_F(TestBatch,deleteInBatch)
 //TEST_F(TestBatch,mixedBatchAndSingleOps)
 //{
 //    int db_size=100;
-//    KvdbDS *db= Create_DB(db_size);
+//    KVDS *db= Create_DB(db_size);
 //
 //    string test_key = "test-key";
 //    int test_key_size = 8;

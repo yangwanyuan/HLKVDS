@@ -23,10 +23,10 @@
 
 namespace hlkvds {
 
-class KvdbDS {
+class KVDS {
 public:
-    static KvdbDS* Create_KvdbDS(const char* filename, Options opts);
-    static KvdbDS* Open_KvdbDS(const char* filename, Options opts);
+    static KVDS* Create_KVDS(const char* filename, Options opts);
+    static KVDS* Open_KVDS(const char* filename, Options opts);
 
     Status Insert(const char* key, uint32_t key_len, const char* data,
                   uint16_t length);
@@ -53,10 +53,10 @@ public:
         return segReaperQue_.length();
     }
 
-    virtual ~KvdbDS();
+    virtual ~KVDS();
 
 private:
-    KvdbDS(const string& filename, Options opts);
+    KVDS(const string& filename, Options opts);
     Status openDB();
     Status closeDB();
     bool writeMetaDataToDevice();

@@ -13,7 +13,7 @@ using namespace std;
 
 namespace hlkvds {
 
-class KvdbDS;
+class KVDS;
 
 class DB {
 public:
@@ -39,7 +39,7 @@ private:
     DB& operator=(const DB &);
 
     string fileName_;
-    KvdbDS *kvdb_;
+    KVDS *kvdb_;
     static DB *instance_;
 };
 

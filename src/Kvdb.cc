@@ -6,8 +6,8 @@ namespace hlkvds {
 DB* DB::instance_ = NULL;
 
 bool DB::CreateDB(string filename, Options opts) {
-    KvdbDS* kvdb_db;
-    kvdb_db = KvdbDS::Create_KvdbDS(filename.c_str(), opts);
+    KVDS* kvdb_db;
+    kvdb_db = KVDS::Create_KVDS(filename.c_str(), opts);
     if (!kvdb_db) {
         std::cout << "CreateDB failed" << std::endl;
         return false;
@@ -22,7 +22,7 @@ bool DB::OpenDB(string filename, DB** db, Options opts) {
         instance_ = new DB();
     }
 
-    instance_->kvdb_ = KvdbDS::Open_KvdbDS(filename.c_str(), opts);
+    instance_->kvdb_ = KVDS::Open_KVDS(filename.c_str(), opts);
     if (!instance_->kvdb_) {
         std::cout << "OpenDB failed" << std::endl;
         return false;

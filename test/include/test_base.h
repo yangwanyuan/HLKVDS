@@ -13,7 +13,7 @@ using namespace hlkvds;
 
 class TestBase : public ::testing::Test {
 public:
-    KvdbDS* Create_DB(int db_size);
+    KVDS* Create_DB(int db_size);
 protected:
     Options opts;
 
