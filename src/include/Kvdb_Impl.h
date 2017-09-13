@@ -22,6 +22,8 @@
 #include "Segment.h"
 #include "WorkQueue.hpp"
 
+using namespace dslab;
+
 namespace hlkvds {
 
 class KVDS {
@@ -48,7 +50,8 @@ public:
         return reqQue_.length();
     }
     uint32_t getSegWriteQueSize() {
-        return segWriteQue_.length();
+        //return segWriteQue_.length();
+        return 0;
     }
     uint32_t getSegReaperQueSize() {
         return segReaperQue_.length();
@@ -91,10 +94,8 @@ private:
 
     // Seg Write to device thread
 private:
-    std::vector<std::thread> segWriteTP_;
-    std::atomic<bool> segWriteT_stop_;
-    HlkvQueue<SegForReq*> segWriteQue_;
-    void SegWriteThdEntry();
+    WorkQueue *segWriteWQ_;
+    void SegWriteTask(SegForReq *seg);
 
     // Seg Timeout thread
 private:
