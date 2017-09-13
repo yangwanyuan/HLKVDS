@@ -47,7 +47,8 @@ public:
     void printDbStates();
 
     uint32_t getReqQueSize() {
-        return reqQue_.length();
+        //return reqQue_.length();
+        return 0;
     }
     uint32_t getSegWriteQueSize() {
         //return segWriteQue_.length();
@@ -87,10 +88,8 @@ private:
 
     // Request Merge thread
 private:
-    std::thread reqMergeT_;
-    std::atomic<bool> reqMergeT_stop_;
-    HlkvQueue<Request*> reqQue_;
-    void ReqMergeThdEntry();
+    WorkQueue *reqWQ_;
+    void ReqMergeTask(Request *req);
 
     // Seg Write to device thread
 private:
