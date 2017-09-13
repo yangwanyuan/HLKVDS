@@ -18,7 +18,7 @@
 #include "IndexManager.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
-#include "WorkQueue.h"
+#include "HlkvQueue.h"
 #include "Segment.h"
 
 namespace hlkvds {
@@ -85,14 +85,14 @@ private:
 private:
     std::thread reqMergeT_;
     std::atomic<bool> reqMergeT_stop_;
-    WorkQueue<Request*> reqQue_;
+    HlkvQueue<Request*> reqQue_;
     void ReqMergeThdEntry();
 
     // Seg Write to device thread
 private:
     std::vector<std::thread> segWriteTP_;
     std::atomic<bool> segWriteT_stop_;
-    WorkQueue<SegForReq*> segWriteQue_;
+    HlkvQueue<SegForReq*> segWriteQue_;
     void SegWriteThdEntry();
 
     // Seg Timeout thread
@@ -105,7 +105,7 @@ private:
 private:
     std::thread segReaperT_;
     std::atomic<bool> segReaperT_stop_;
-    WorkQueue<SegForReq*> segReaperQue_;
+    HlkvQueue<SegForReq*> segReaperQue_;
     void SegReaperThdEntry();
 
     //GC thread

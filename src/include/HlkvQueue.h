@@ -1,5 +1,5 @@
-#ifndef _HLKVDS_WORKQUEUE_H_
-#define _HLKVDS_WORKQUEUE_H_
+#ifndef _HLKVDS_HLKVQUEUE_H_
+#define _HLKVDS_HLKVQUEUE_H_
 
 #include <queue>
 #include <mutex>
@@ -7,7 +7,7 @@
 #include <iostream>
 
 namespace hlkvds {
-template <typename T> class WorkQueue {
+template <typename T> class HlkvQueue {
 public:
     typedef T QueueType;
 
