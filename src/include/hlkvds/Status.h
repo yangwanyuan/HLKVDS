@@ -10,7 +10,7 @@ public:
         code_(kOk), state_(nullptr) {
     }
     ~Status() {
-        delete state_;
+        delete[] state_;
     }
 
     enum Code {
