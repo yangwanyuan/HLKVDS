@@ -291,8 +291,7 @@ void KVDS::startThds() {
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&KVDS::SegTimeoutThdEntry, this);
 
-    segReaperT_stop_.store(false);
-    segReaperT_ = std::thread(&KVDS::SegReaperThdEntry, this);
+    segReaperWQ_ = new WorkQueue();
 
     gcT_stop_.store(false);
     gcT_ = std::thread(&KVDS::GCThdEntry, this);
@@ -302,8 +301,7 @@ void KVDS::stopThds() {
     gcT_stop_.store(true);
     gcT_.join();
 
-    segReaperT_stop_.store(true);
-    segReaperT_.join();
+    delete segReaperWQ_;
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
@@ -327,7 +325,7 @@ KVDS::~KVDS() {
 KVDS::KVDS(const string& filename, Options opts) :
     fileName_(filename), seg_(NULL), options_(opts),
             segTimeoutT_stop_(false),
-            segReaperT_stop_(false), gcT_stop_(false) {
+            gcT_stop_(false) {
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
     segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
@@ -444,7 +442,7 @@ Status KVDS::updateMeta(Request *req) {
     // minus the segment delete counter
     SegForReq *seg = req->GetSeg();
     if (!seg->CommitedAndGetNum()) {
-        segReaperQue_.Enqueue_Notify(seg);
+        segReaperWQ_->add_task(std::bind(&KVDS::SegReaperTask, this, seg));
     }
     return Status::OK();
 }
@@ -552,27 +550,10 @@ void KVDS::SegTimeoutThdEntry() {
     } __DEBUG("Segment Timeout thread stop!!");
 }
 
-void KVDS::SegReaperThdEntry() {
-    __DEBUG("Segment reaper thread start!!");
-
-    while (!segReaperT_stop_) {
-        SegForReq *seg = segReaperQue_.Wait_Dequeue();
-        if (seg) {
-            seg->CleanDeletedEntry();
-            __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-            delete seg;
-        }
-    } __DEBUG("Segment write thread stop!!");
-
-    //Clean the Queue
-    while (!segReaperQue_.empty()) {
-        SegForReq *seg = segReaperQue_.Wait_Dequeue();
-        if (seg) {
-            seg->CleanDeletedEntry();
-            __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-            delete seg;
-        }
-    }
+void KVDS::SegReaperTask(SegForReq *seg) {
+    seg->CleanDeletedEntry();
+    __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+    delete seg;
 }
 
 void KVDS::Do_GC() {
