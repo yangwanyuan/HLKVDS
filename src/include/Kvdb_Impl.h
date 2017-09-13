@@ -20,6 +20,7 @@
 #include "GcManager.h"
 #include "HlkvQueue.h"
 #include "Segment.h"
+#include "WorkQueue.hpp"
 
 namespace hlkvds {
 
