@@ -284,8 +284,8 @@ Status KVDS::closeDB() {
 }
 
 void KVDS::startThds() {
-    reqMergeT_stop_.store(false);
-    reqMergeT_ = std::thread(&KVDS::ReqMergeThdEntry, this);
+    reqWQ_ = new ReqsMergeWQ(this, 1);
+    reqWQ_->Start();
 
     segWriteT_stop_.store(false);
     for (int i = 0; i < options_.seg_write_thread; i++) {
@@ -318,8 +318,8 @@ void KVDS::stopThds() {
         th.join();
     }
 
-    reqMergeT_stop_.store(true);
-    reqMergeT_.join();
+    reqWQ_->Stop();
+    delete reqWQ_;
 }
 
 KVDS::~KVDS() {
@@ -337,7 +337,7 @@ KVDS::~KVDS() {
 }
 
 KVDS::KVDS(const string& filename, Options opts) :
-    fileName_(filename), seg_(NULL), options_(opts), reqMergeT_stop_(false),
+    fileName_(filename), seg_(NULL), options_(opts), reqWQ_(NULL),
             segWriteT_stop_(false), segTimeoutT_stop_(false),
             segReaperT_stop_(false), gcT_stop_(false) {
     bdev_ = BlockDevice::CreateDevice();
@@ -462,7 +462,7 @@ Status KVDS::InsertBatch(WriteBatch *batch)
 
 Status KVDS::insertKey(KVSlice& slice) {
     Request *req = new Request(slice);
-    reqQue_.Enqueue_Notify(req);
+    reqWQ_->Add_task(req);
     req->Wait();
     Status s = updateMeta(req);
     delete req;
@@ -532,26 +532,17 @@ Status KVDS::readData(KVSlice &slice, string &data) {
     return Status::OK();
 }
 
-void KVDS::ReqMergeThdEntry() {
-    __DEBUG("Requests Merge thread start!!");
-    std::unique_lock < std::mutex > lck_seg(segMtx_, std::defer_lock);
-    while (!reqMergeT_stop_.load()) {
-        Request *req = reqQue_.Wait_Dequeue();
-        if (req) {
-            lck_seg.lock();
-            if (seg_->TryPut(req)) {
-                seg_->Put(req);
-            } else {
-                seg_->Complete();
-                segWriteQue_.Enqueue_Notify(seg_);
-                seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
-                                    options_.expired_time);
-                seg_->Put(req);
-            }
-            lck_seg.unlock();
-        }
-
-    } __DEBUG("Requests Merge thread stop!!");
+void KVDS::ReqMerge(Request* req) {
+    std::unique_lock < std::mutex > lck_seg(segMtx_);
+    if (seg_->TryPut(req)) {
+        seg_->Put(req);
+    } else {
+        seg_->Complete();
+        segWriteQue_.Enqueue_Notify(seg_);
+        seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
+                            options_.expired_time);
+        seg_->Put(req);
+    }
 }
 
 void KVDS::SegWriteThdEntry() {

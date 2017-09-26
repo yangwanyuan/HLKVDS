@@ -21,7 +21,9 @@
 #include "WorkQueue.h"
 #include "Segment.h"
 #include "ReadCache.h"
+#include "WorkQueue_.h"
 
+using namespace dslab;
 namespace hlkvds {
 
 class KVDS {
@@ -45,7 +47,8 @@ public:
     void printDbStates();
 
     uint32_t getReqQueSize() {
-        return reqQue_.length();
+        //return reqQue_.length();
+        return 0;
     }
     uint32_t getSegWriteQueSize() {
         return segWriteQue_.length();
@@ -85,10 +88,19 @@ private:
 
     // Request Merge thread
 private:
-    std::thread reqMergeT_;
-    std::atomic<bool> reqMergeT_stop_;
-    WorkQueue<Request*> reqQue_;
-    void ReqMergeThdEntry();
+    class ReqsMergeWQ : public WorkQueue_<Request> {
+    public:
+        explicit ReqsMergeWQ(KVDS *ds, int thd_num=1) : WorkQueue_<Request>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(Request* req) override {
+            ds_->ReqMerge(req);
+        }
+    private:
+        KVDS *ds_;
+    };
+    ReqsMergeWQ * reqWQ_;
+    void ReqMerge(Request* req);
 
     // Seg Write to device thread
 private:
