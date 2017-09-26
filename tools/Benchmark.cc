@@ -32,7 +32,8 @@ struct thread_arg {
 enum Benchmark_Type {
     WRITE,
     OVERWRITE,
-    READ
+    READ,
+    CREATE
 };
 
 struct benchmark_arg {
@@ -369,6 +370,9 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     else if (!strcmp(argv[1], "read")) {
         bm_arg.bench_type = Benchmark_Type::READ;
     }
+    else if (!strcmp(argv[1], "create")) {
+        bm_arg.bench_type = Benchmark_Type::CREATE;
+    }
     else {
         cout << "Please Input Correct benchmarks !" << endl;
         return -1;
@@ -404,19 +408,29 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     return 0;
 }
 
-void Bench_Write(benchmark_arg bm_arg) {
+void Create_DB(benchmark_arg bm_arg) {
     string file_path = bm_arg.file_path;
     int db_size = bm_arg.db_size;
-    int record_num =bm_arg.record_num;
-    int thread_num = bm_arg.thread_num;
     int segment_K = bm_arg.segment_K;
 
     vector<string> key_list;
-    Create_Keys(record_num, key_list);
     if (Create_DB(file_path, db_size, segment_K) < 0) {
         cout << "Create DB Fail!!!" <<endl;
         return;
     }
+}
+
+void Bench_Write(benchmark_arg bm_arg) {
+    string file_path = bm_arg.file_path;
+    int record_num =bm_arg.record_num;
+    int thread_num = bm_arg.thread_num;
+
+    vector<string> key_list;
+    Create_Keys(record_num, key_list);
+    //if (Create_DB(file_path, db_size, segment_K) < 0) {
+    //    cout << "Create DB Fail!!!" <<endl;
+    //    return;
+    //}
 
     KVDS *db = Open_DB(file_path);
 
@@ -508,6 +522,9 @@ int main(int argc, char** argv) {
     }
 
     switch(bm_arg.bench_type) {
+        case CREATE:
+            Create_DB(bm_arg);
+            break;
         case WRITE:
             Bench_Write(bm_arg);
             break;
