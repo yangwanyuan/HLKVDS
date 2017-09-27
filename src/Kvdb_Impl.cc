@@ -397,7 +397,6 @@ Status KVDS::Get(const char* key, uint32_t key_len, string &data) {
         }
     }else{
         Status _status = readData(slice, data);
-        cout<<_status.ToString()<<endl;
         return _status;
     }
 }
