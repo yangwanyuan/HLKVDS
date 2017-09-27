@@ -18,10 +18,11 @@
 #include "IndexManager.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
-#include "WorkQueue.h"
 #include "Segment.h"
 #include "ReadCache.h"
+#include "WorkQueue_.h"
 
+using namespace dslab;
 namespace hlkvds {
 
 class KVDS {
@@ -45,13 +46,16 @@ public:
     void printDbStates();
 
     uint32_t getReqQueSize() {
-        return reqQue_.length();
+        //return reqQue_.length();
+        return 0;
     }
     uint32_t getSegWriteQueSize() {
-        return segWriteQue_.length();
+        //return segWriteQue_.length();
+        return 0;
     }
     uint32_t getSegReaperQueSize() {
-        return segReaperQue_.length();
+        //return segReaperQue_.length();
+        return 0;
     }
 
     virtual ~KVDS();
@@ -85,17 +89,35 @@ private:
 
     // Request Merge thread
 private:
-    std::thread reqMergeT_;
-    std::atomic<bool> reqMergeT_stop_;
-    WorkQueue<Request*> reqQue_;
-    void ReqMergeThdEntry();
+    class ReqsMergeWQ : public WorkQueue_<Request> {
+    public:
+        explicit ReqsMergeWQ(KVDS *ds, int thd_num=1) : WorkQueue_<Request>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(Request* req) override {
+            ds_->ReqMerge(req);
+        }
+    private:
+        KVDS *ds_;
+    };
+    ReqsMergeWQ * reqWQ_;
+    void ReqMerge(Request* req);
 
     // Seg Write to device thread
 private:
-    std::vector<std::thread> segWriteTP_;
-    std::atomic<bool> segWriteT_stop_;
-    WorkQueue<SegForReq*> segWriteQue_;
-    void SegWriteThdEntry();
+    class SegmentWriteWQ : public WorkQueue_<SegForReq> {
+    public:
+        explicit SegmentWriteWQ(KVDS *ds, int thd_num=1) : WorkQueue_<SegForReq>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(SegForReq* seg) override {
+            ds_->SegWrite(seg);
+        }
+    private:
+        KVDS *ds_;
+    };
+    SegmentWriteWQ * segWteWQ_;
+    void SegWrite(SegForReq* seg);
 
     // Seg Timeout thread
 private:
@@ -105,10 +127,19 @@ private:
 
     // Seg Reaper thread
 private:
-    std::thread segReaperT_;
-    std::atomic<bool> segReaperT_stop_;
-    WorkQueue<SegForReq*> segReaperQue_;
-    void SegReaperThdEntry();
+    class SegmentReaperWQ : public WorkQueue_<SegForReq> {
+    public:
+        explicit SegmentReaperWQ(KVDS *ds, int thd_num=1) : WorkQueue_<SegForReq>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(SegForReq* seg) override {
+            ds_->SegReaper(seg);
+        }
+    private:
+        KVDS *ds_;
+    };
+    SegmentReaperWQ *segRprWQ_;
+    void SegReaper(SegForReq* seg);
 
     //GC thread
 private:

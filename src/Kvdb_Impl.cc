@@ -284,19 +284,17 @@ Status KVDS::closeDB() {
 }
 
 void KVDS::startThds() {
-    reqMergeT_stop_.store(false);
-    reqMergeT_ = std::thread(&KVDS::ReqMergeThdEntry, this);
+    reqWQ_ = new ReqsMergeWQ(this, 1);
+    reqWQ_->Start();
 
-    segWriteT_stop_.store(false);
-    for (int i = 0; i < options_.seg_write_thread; i++) {
-        segWriteTP_.push_back(std::thread(&KVDS::SegWriteThdEntry, this));
-    }
+    segWteWQ_ = new SegmentWriteWQ(this, options_.seg_write_thread);
+    segWteWQ_->Start();
 
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&KVDS::SegTimeoutThdEntry, this);
 
-    segReaperT_stop_.store(false);
-    segReaperT_ = std::thread(&KVDS::SegReaperThdEntry, this);
+    segRprWQ_ = new SegmentReaperWQ(this, 1);
+    segRprWQ_->Start();
 
     gcT_stop_.store(false);
     gcT_ = std::thread(&KVDS::GCThdEntry, this);
@@ -306,20 +304,17 @@ void KVDS::stopThds() {
     gcT_stop_.store(true);
     gcT_.join();
 
-    segReaperT_stop_.store(true);
-    segReaperT_.join();
+    segRprWQ_->Stop();
+    delete segRprWQ_;
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
 
-    segWriteT_stop_.store(true);
-    for(auto &th : segWriteTP_)
-    {
-        th.join();
-    }
+    reqWQ_->Stop();
+    delete reqWQ_;
 
-    reqMergeT_stop_.store(true);
-    reqMergeT_.join();
+    segWteWQ_->Stop();
+    delete segWteWQ_;
 }
 
 KVDS::~KVDS() {
@@ -337,9 +332,9 @@ KVDS::~KVDS() {
 }
 
 KVDS::KVDS(const string& filename, Options opts) :
-    fileName_(filename), seg_(NULL), options_(opts), reqMergeT_stop_(false),
-            segWriteT_stop_(false), segTimeoutT_stop_(false),
-            segReaperT_stop_(false), gcT_stop_(false) {
+    fileName_(filename), seg_(NULL), options_(opts), reqWQ_(NULL),
+            segWteWQ_(NULL), segTimeoutT_stop_(false),
+            segRprWQ_(NULL), gcT_stop_(false) {
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
     segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
@@ -462,7 +457,7 @@ Status KVDS::InsertBatch(WriteBatch *batch)
 
 Status KVDS::insertKey(KVSlice& slice) {
     Request *req = new Request(slice);
-    reqQue_.Enqueue_Notify(req);
+    reqWQ_->Add_task(req);
     req->Wait();
     Status s = updateMeta(req);
     delete req;
@@ -480,7 +475,7 @@ Status KVDS::updateMeta(Request *req) {
     // minus the segment delete counter
     SegForReq *seg = req->GetSeg();
     if (!seg->CommitedAndGetNum()) {
-        segReaperQue_.Enqueue_Notify(seg);
+        segRprWQ_->Add_task(seg);
     }
     return Status::OK();
 }
@@ -532,58 +527,38 @@ Status KVDS::readData(KVSlice &slice, string &data) {
     return Status::OK();
 }
 
-void KVDS::ReqMergeThdEntry() {
-    __DEBUG("Requests Merge thread start!!");
-    std::unique_lock < std::mutex > lck_seg(segMtx_, std::defer_lock);
-    while (!reqMergeT_stop_.load()) {
-        Request *req = reqQue_.Wait_Dequeue();
-        if (req) {
-            lck_seg.lock();
-            if (seg_->TryPut(req)) {
-                seg_->Put(req);
-            } else {
-                seg_->Complete();
-                segWriteQue_.Enqueue_Notify(seg_);
-                seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
-                                    options_.expired_time);
-                seg_->Put(req);
-            }
-            lck_seg.unlock();
-        }
-
-    } __DEBUG("Requests Merge thread stop!!");
+void KVDS::ReqMerge(Request* req) {
+    std::unique_lock < std::mutex > lck_seg(segMtx_);
+    if (seg_->TryPut(req)) {
+        seg_->Put(req);
+    } else {
+        seg_->Complete();
+        segWteWQ_->Add_task(seg_);
+        seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
+                            options_.expired_time);
+        seg_->Put(req);
+    }
 }
 
-void KVDS::SegWriteThdEntry() {
-    __DEBUG("Segment write thread start!!");
-    while (!segWriteT_stop_) {
-        SegForReq *seg = segWriteQue_.Wait_Dequeue();
-        if (seg) {
-            uint32_t seg_id = 0;
-            bool res;
-            while (!segMgr_->Alloc(seg_id)) {
-                res = gcMgr_->ForeGC();
-                if (!res) {
-                    __ERROR("Cann't get a new Empty Segment.\n");
-                    seg->Notify(res);
-                }
-            }
-
-            uint32_t free_size = seg->GetFreeSize();
-            seg->SetSegId(seg_id);
-            res = seg->WriteSegToDevice();
-            if (res) {
-                segMgr_->Use(seg_id, free_size);
-            } else {
-                segMgr_->FreeForFailed(seg_id);
-            }
+void KVDS::SegWrite(SegForReq *seg) {
+    uint32_t seg_id = 0;
+    bool res;
+    while (!segMgr_->Alloc(seg_id)) {
+        res = gcMgr_->ForeGC();
+        if (!res) {
+            __ERROR("Cann't get a new Empty Segment.\n");
             seg->Notify(res);
-
-            __DEBUG("Segment thread write seg to device, seg_id:%d %s",
-                    seg_id, res==true? "Success":"Failed");
-
         }
-    } __DEBUG("Segment write thread stop!!");
+    }
+    uint32_t free_size = seg->GetFreeSize();
+    seg->SetSegId(seg_id);
+    res = seg->WriteSegToDevice();
+    if (res) {
+        segMgr_->Use(seg_id, free_size);
+    } else {
+        segMgr_->FreeForFailed(seg_id);
+    }
+    seg->Notify(res);
 }
 
 void KVDS::SegTimeoutThdEntry() {
@@ -594,7 +569,7 @@ void KVDS::SegTimeoutThdEntry() {
         if (seg_->IsExpired()) {
             seg_->Complete();
 
-            segWriteQue_.Enqueue_Notify(seg_);
+            segWteWQ_->Add_task(seg_);
             seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
                                 options_.expired_time);
         }
@@ -604,27 +579,10 @@ void KVDS::SegTimeoutThdEntry() {
     } __DEBUG("Segment Timeout thread stop!!");
 }
 
-void KVDS::SegReaperThdEntry() {
-    __DEBUG("Segment reaper thread start!!");
-
-    while (!segReaperT_stop_) {
-        SegForReq *seg = segReaperQue_.Wait_Dequeue();
-        if (seg) {
-            seg->CleanDeletedEntry();
-            __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-            delete seg;
-        }
-    } __DEBUG("Segment write thread stop!!");
-
-    //Clean the Queue
-    while (!segReaperQue_.empty()) {
-        SegForReq *seg = segReaperQue_.Wait_Dequeue();
-        if (seg) {
-            seg->CleanDeletedEntry();
-            __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-            delete seg;
-        }
-    }
+void KVDS::SegReaper(SegForReq *seg) {
+    seg->CleanDeletedEntry();
+    __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+    delete seg;
 }
 
 void KVDS::Do_GC() {
