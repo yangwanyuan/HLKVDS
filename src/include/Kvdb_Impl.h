@@ -55,7 +55,8 @@ public:
         return 0;
     }
     uint32_t getSegReaperQueSize() {
-        return segReaperQue_.length();
+        //return segReaperQue_.length();
+        return 0;
     }
 
     virtual ~KVDS();
@@ -127,10 +128,19 @@ private:
 
     // Seg Reaper thread
 private:
-    std::thread segReaperT_;
-    std::atomic<bool> segReaperT_stop_;
-    WorkQueue<SegForReq*> segReaperQue_;
-    void SegReaperThdEntry();
+    class SegmentReaperWQ : public WorkQueue_<SegForReq> {
+    public:
+        explicit SegmentReaperWQ(KVDS *ds, int thd_num=1) : WorkQueue_<SegForReq>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(SegForReq* seg) override {
+            ds_->SegReaper(seg);
+        }
+    private:
+        KVDS *ds_;
+    };
+    SegmentReaperWQ *segRprWQ_;
+    void SegReaper(SegForReq* seg);
 
     //GC thread
 private:
