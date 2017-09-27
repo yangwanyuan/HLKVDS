@@ -9,31 +9,16 @@
 
 namespace hlkvds {
 
-#ifdef WITH_ITERATOR
 DataHeader::DataHeader() :
     key_digest(Kvdb_Digest()), key_size(0), data_size(0), data_offset(0),
             next_header_offset(0) {
 }
-#else
-DataHeader::DataHeader() :
-    key_digest(Kvdb_Digest()), data_size(0), data_offset(0),
-            next_header_offset(0) {
-}
-#endif
 
-#ifdef WITH_ITERATOR
 DataHeader::DataHeader(const Kvdb_Digest &digest, uint16_t key_len, uint16_t data_len,
                        uint32_t offset, uint32_t next_offset) :
     key_digest(digest), key_size(key_len), data_size(data_len), data_offset(offset),
             next_header_offset(next_offset) {
 }
-#else
-DataHeader::DataHeader(const Kvdb_Digest &digest, uint16_t size,
-                        uint32_t offset, uint32_t next_offset) :
-    key_digest(digest), data_size(size), data_offset(offset),
-            next_header_offset(next_offset) {
-}
-#endif
 
 DataHeader::~DataHeader() {
 }

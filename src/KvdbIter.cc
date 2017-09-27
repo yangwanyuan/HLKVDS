@@ -4,7 +4,6 @@
 #include "BlockDevice.h"
 #include "Db_Structure.h"
 
-#ifdef WITH_ITERATOR
 namespace hlkvds {
 
 KvdbIter::KvdbIter(IndexManager* im, SegmentManager* sm, BlockDevice* bdev) :
@@ -224,5 +223,3 @@ Status KvdbIter::status() const {
 }
 
 }
-
-#endif

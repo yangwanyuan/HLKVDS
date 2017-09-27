@@ -10,8 +10,6 @@ enum CachePolicy {LRU, SLRU};
 namespace hlkvds {
 #define MAGIC_NUMBER 0xffff0001
 
-#define WITH_ITERATOR 1
-
 #define DISABLE_CACHE 1
 #define CACHE_SIZE 1024
 #define CACHE_POLICY dslab::SLRU
