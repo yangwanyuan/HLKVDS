@@ -137,11 +137,7 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
 }
 
 Iterator* KVDS::NewIterator() {
-#ifdef WITH_ITERATOR
     return new KvdbIter(idxMgr_, segMgr_, bdev_);
-#else
-    return NULL;
-#endif
 }
 
 void KVDS::printDbStates() {
@@ -503,23 +499,6 @@ Status KVDS::readData(KVSlice &slice, string &data) {
     }
     data.assign(mdata, data_len);
     delete[] mdata;
-
-#ifdef WITH_ITERATOR
-    ////TODO: test read key, need remove to other place
-    //uint64_t key_offset = 0;
-    //uint16_t key_len = entry->GetKeySize();
-    //segMgr_->ComputeSegOffsetFromOffset(data_offset, key_offset);
-    //key_offset += entry->GetNextHeadOffsetInSeg() - key_len;
-    //char *mkey = new char[key_len];
-    //if (bdev_->pRead(mkey, key_len, key_offset) != (ssize_t) key_len) {
-    //    __ERROR("Could not read key at position");
-    //    delete[] mkey;
-    //    return Status::IOError("Could not read key at position.");
-    //}
-    //__INFO("!!!!!!!!!!!!!!!!!! Key is %s!!!!", mkey);
-    //delete[] mkey;
-    ////test read key END!
-#endif
 
     __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffsetPhy());
 

@@ -36,12 +36,8 @@ public:
     KVSlice& operator=(const KVSlice& toBeCopied);
 
     KVSlice(const char* key, int key_len, const char* data, int data_len, bool deep_copy = false);
-#ifdef WITH_ITERATOR
     KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
             const char* data, int data_len);
-#else
-    KVSlice(Kvdb_Digest *digest, const char* data, int data_len);
-#endif
 
     const Kvdb_Digest& GetDigest() const {
         return *digest_;

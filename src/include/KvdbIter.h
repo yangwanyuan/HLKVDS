@@ -5,7 +5,6 @@
 #include "hlkvds/Iterator.h"
 #include "Db_Structure.h"
 
-#ifdef WITH_ITERATOR
 namespace hlkvds {
 
 class IndexManager;
@@ -43,6 +42,5 @@ private:
     int entryListCur_;
 };
 } 
-#endif
 
 #endif // #ifndef _HLKVDS_KVDBITER_H_

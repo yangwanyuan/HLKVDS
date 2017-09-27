@@ -173,7 +173,6 @@ bool SegmentManager::ComputeDataOffsetPhyFromEntry(HashEntry* entry,
     return true;
 }
 
-#ifdef WITH_ITERATOR
 bool SegmentManager::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
                                                     uint64_t& key_offset) {
     uint64_t seg_offset = 0;
@@ -189,7 +188,6 @@ bool SegmentManager::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
     }
     return true;
 }
-#endif
 
 bool SegmentManager::Alloc(uint32_t& seg_id) {
     std::unique_lock < std::mutex > l(mtx_);

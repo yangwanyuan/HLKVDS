@@ -25,30 +25,21 @@ class SegmentSlice;
 class DataHeader {
 private:
     Kvdb_Digest key_digest;
-#ifdef WITH_ITERATOR
     uint16_t key_size;
-#endif
     uint16_t data_size;
     uint32_t data_offset;
     uint32_t next_header_offset;
 
 public:
     DataHeader();
-#ifdef WITH_ITERATOR
     DataHeader(const Kvdb_Digest &digest, uint16_t key_len, uint16_t data_len,
                uint32_t data_offset, uint32_t next_header_offset);
-#else
-    DataHeader(const Kvdb_Digest &digest, uint16_t data_size,
-               uint32_t data_offset, uint32_t next_header_offset);
-#endif
 
     ~DataHeader();
 
-#ifdef WITH_ITERATOR
     uint16_t GetKeySize() const {
         return key_size;
     }
-#endif
     uint16_t GetDataSize() const {
         return data_size;
     }
@@ -63,11 +54,9 @@ public:
     }
 
     void SetDigest(const Kvdb_Digest& digest);
-#ifdef WITH_ITERATOR
     void SetKeySize(uint16_t size) {
         key_size = size;
     }
-#endif
     void SetDataSize(uint16_t size) {
         data_size = size;
     }
@@ -115,11 +104,9 @@ public:
     uint64_t GetHeaderOffsetPhy() const {
         return header_offset.GetHeaderOffset();
     }
-#ifdef WITH_ITERATOR
     uint16_t GetKeySize() const {
         return header.GetKeySize();
     }
-#endif
     uint16_t GetDataSize() const {
         return header.GetDataSize();
     }
@@ -212,11 +199,9 @@ public:
             return entryPtr_->GetHeaderOffsetPhy();
         }
 
-#ifdef WITH_ITERATOR
         uint16_t GetKeySize() const {
             return entryPtr_->GetKeySize();
         }
-#endif
 
         uint16_t GetDataSize() const {
             return entryPtr_->GetDataSize();
