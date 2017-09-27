@@ -18,7 +18,6 @@
 #include "IndexManager.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
-#include "WorkQueue.h"
 #include "Segment.h"
 #include "ReadCache.h"
 #include "WorkQueue_.h"
