@@ -9,7 +9,7 @@ INCLUDES = -I ${SRC_DIR}/include \
 		   -I ${TEST_DIR}/include
 GTEST_INCLUDES = -I ${TEST_DIR}/include/gtest ${TEST_DIR}/lib/libgmock.a
 
-LIBS = -pthread
+LIBS = -pthread -lboost_thread -lboost_system 
 
 CC = gcc
 CXX = g++
@@ -43,7 +43,8 @@ TESTS_LIST =  ${TEST_DIR}/test_block_manager \
 	    ${TEST_DIR}/test_db \
 	    ${TEST_DIR}/test_status\
 		${TEST_DIR}/test_batch\
-		${TEST_DIR}/test_iterator
+		${TEST_DIR}/test_iterator\
+		${TEST_DIR}/test_cache
 
 PROGNAME := ${TOOLS_LIST} ${SHARED_LIB}
 
@@ -95,6 +96,8 @@ ${TEST_DIR}/test_status: ${TEST_DIR}/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJ
 ${TEST_DIR}/test_batch: ${TEST_DIR}/test_batch.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 ${TEST_DIR}/test_iterator: ${TEST_DIR}/test_iterator.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_cache: ${TEST_DIR}/test_cache.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 
 .PHONY : clean
