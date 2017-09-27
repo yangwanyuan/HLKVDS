@@ -12,7 +12,7 @@ namespace hlkvds {
 
 #define WITH_ITERATOR 1
 
-#define DISABLE_CACHE 0
+#define DISABLE_CACHE 1
 #define CACHE_SIZE 1024
 #define CACHE_POLICY dslab::SLRU
 #define SLRU_PARTITION 50
