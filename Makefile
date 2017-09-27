@@ -1,5 +1,5 @@
-#OPT ?= -g
-OPT ?= -g2
+OPT ?= -g2 -O3
+#OPT ?= -g2
 
 SRC_DIR = ./src
 TOOLS_DIR = ./tools
