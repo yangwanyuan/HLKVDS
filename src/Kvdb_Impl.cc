@@ -287,10 +287,8 @@ void KVDS::startThds() {
     reqWQ_ = new ReqsMergeWQ(this, 1);
     reqWQ_->Start();
 
-    segWriteT_stop_.store(false);
-    for (int i = 0; i < options_.seg_write_thread; i++) {
-        segWriteTP_.push_back(std::thread(&KVDS::SegWriteThdEntry, this));
-    }
+    segWteWQ_ = new SegmentWriteWQ(this, options_.seg_write_thread);
+    segWteWQ_->Start();
 
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&KVDS::SegTimeoutThdEntry, this);
@@ -312,14 +310,11 @@ void KVDS::stopThds() {
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
 
-    segWriteT_stop_.store(true);
-    for(auto &th : segWriteTP_)
-    {
-        th.join();
-    }
-
     reqWQ_->Stop();
     delete reqWQ_;
+
+    segWteWQ_->Stop();
+    delete segWteWQ_;
 }
 
 KVDS::~KVDS() {
@@ -338,7 +333,7 @@ KVDS::~KVDS() {
 
 KVDS::KVDS(const string& filename, Options opts) :
     fileName_(filename), seg_(NULL), options_(opts), reqWQ_(NULL),
-            segWriteT_stop_(false), segTimeoutT_stop_(false),
+            segWteWQ_(NULL), segTimeoutT_stop_(false),
             segReaperT_stop_(false), gcT_stop_(false) {
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
@@ -538,43 +533,32 @@ void KVDS::ReqMerge(Request* req) {
         seg_->Put(req);
     } else {
         seg_->Complete();
-        segWriteQue_.Enqueue_Notify(seg_);
+        segWteWQ_->Add_task(seg_);
         seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
                             options_.expired_time);
         seg_->Put(req);
     }
 }
 
-void KVDS::SegWriteThdEntry() {
-    __DEBUG("Segment write thread start!!");
-    while (!segWriteT_stop_) {
-        SegForReq *seg = segWriteQue_.Wait_Dequeue();
-        if (seg) {
-            uint32_t seg_id = 0;
-            bool res;
-            while (!segMgr_->Alloc(seg_id)) {
-                res = gcMgr_->ForeGC();
-                if (!res) {
-                    __ERROR("Cann't get a new Empty Segment.\n");
-                    seg->Notify(res);
-                }
-            }
-
-            uint32_t free_size = seg->GetFreeSize();
-            seg->SetSegId(seg_id);
-            res = seg->WriteSegToDevice();
-            if (res) {
-                segMgr_->Use(seg_id, free_size);
-            } else {
-                segMgr_->FreeForFailed(seg_id);
-            }
+void KVDS::SegWrite(SegForReq *seg) {
+    uint32_t seg_id = 0;
+    bool res;
+    while (!segMgr_->Alloc(seg_id)) {
+        res = gcMgr_->ForeGC();
+        if (!res) {
+            __ERROR("Cann't get a new Empty Segment.\n");
             seg->Notify(res);
-
-            __DEBUG("Segment thread write seg to device, seg_id:%d %s",
-                    seg_id, res==true? "Success":"Failed");
-
         }
-    } __DEBUG("Segment write thread stop!!");
+    }
+    uint32_t free_size = seg->GetFreeSize();
+    seg->SetSegId(seg_id);
+    res = seg->WriteSegToDevice();
+    if (res) {
+        segMgr_->Use(seg_id, free_size);
+    } else {
+        segMgr_->FreeForFailed(seg_id);
+    }
+    seg->Notify(res);
 }
 
 void KVDS::SegTimeoutThdEntry() {
@@ -585,7 +569,7 @@ void KVDS::SegTimeoutThdEntry() {
         if (seg_->IsExpired()) {
             seg_->Complete();
 
-            segWriteQue_.Enqueue_Notify(seg_);
+            segWteWQ_->Add_task(seg_);
             seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
                                 options_.expired_time);
         }

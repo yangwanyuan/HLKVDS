@@ -51,7 +51,8 @@ public:
         return 0;
     }
     uint32_t getSegWriteQueSize() {
-        return segWriteQue_.length();
+        //return segWriteQue_.length();
+        return 0;
     }
     uint32_t getSegReaperQueSize() {
         return segReaperQue_.length();
@@ -104,10 +105,19 @@ private:
 
     // Seg Write to device thread
 private:
-    std::vector<std::thread> segWriteTP_;
-    std::atomic<bool> segWriteT_stop_;
-    WorkQueue<SegForReq*> segWriteQue_;
-    void SegWriteThdEntry();
+    class SegmentWriteWQ : public WorkQueue_<SegForReq> {
+    public:
+        explicit SegmentWriteWQ(KVDS *ds, int thd_num=1) : WorkQueue_<SegForReq>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(SegForReq* seg) override {
+            ds_->SegWrite(seg);
+        }
+    private:
+        KVDS *ds_;
+    };
+    SegmentWriteWQ * segWteWQ_;
+    void SegWrite(SegForReq* seg);
 
     // Seg Timeout thread
 private:
