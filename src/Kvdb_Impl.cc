@@ -15,118 +15,15 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
         return NULL;
     }
 
-    uint32_t num_entries = 0;
-    uint32_t number_segments = 0;
-    uint64_t db_sb_size = 0;
-    uint64_t db_index_size = 0;
-    uint64_t db_seg_table_size = 0;
-    uint64_t db_meta_size = 0;
-    uint64_t db_data_region_size = 0;
-    uint64_t db_size = 0;
-    uint64_t device_capacity = 0;
-    uint64_t data_theory_size = 0;
-
     KVDS* ds = new KVDS(filename, opts);
 
-    uint32_t hash_table_size = ds->options_.hashtable_size;
-    uint32_t segment_size = ds->options_.segment_size;
-
-    int r = 0;
-    r = ds->bdev_->Open(filename);
-    if (r < 0) {
-        delete ds;
-        return NULL;
-    } __DEBUG("Open device success.");
-
-    device_capacity = ds->bdev_->GetDeviceCapacity();
-    //device capacity should be larger than size of (sb+index)
-    if (device_capacity < 8192) {
-        __ERROR("The capacity of device is too small.");
+    if (!ds->metaStor_->CreateMetaData()) {
         delete ds;
         return NULL;
     }
 
-    //Init Superblock region
-    db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-    __DEBUG("super block size; %ld",db_sb_size);
-    if (!ds->sbMgr_->InitSuperBlockForCreateDB(0)) {
-        delete ds;
-        return NULL;
-    }
-
-    __DEBUG("Init super block region success.");
-    //Init Index region
-    if (hash_table_size == 0) {
-        hash_table_size = (device_capacity / ALIGNED_SIZE) * 2;
-    }
-
-    hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
-
-    db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
-    __DEBUG("index region size; %ld",db_index_size);
-
-    if (!ds->idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size)) {
-        delete ds;
-        return NULL;
-    } __DEBUG("Init index region success.");
-
-    //Init Segment region
-    uint64_t seg_total_size = device_capacity - db_sb_size - db_index_size;
-
-    if (segment_size <= 0 || segment_size > seg_total_size) {
-        __ERROR("Improper segment size, %d",segment_size);
-        //delete ds;
-        return NULL;
-    }
-
-    number_segments = SegmentManager::ComputeSegNum(seg_total_size,
-                                                    segment_size);
-
-    uint64_t segtable_offset = db_sb_size + db_index_size;
-
-    if (!ds->segMgr_->InitSegmentForCreateDB(segtable_offset, segment_size,
-                                             number_segments)) {
-        __ERROR("Segment region init failed.");
-        delete ds;
-        return NULL;
-    }
-
-    __DEBUG("Init segment region success.");
-    db_seg_table_size
-            = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
-
-    db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
-    db_data_region_size = ds->segMgr_->GetDataRegionSize();
-    db_size = db_meta_size + db_data_region_size;
-
-    r = ds->bdev_->SetNewDBZero(db_meta_size);
-    if (r < 0) {
-        delete ds;
-        return NULL;
-    }
-
-    DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, segment_size,
-                    number_segments, 0, db_sb_size, db_index_size,
-                    db_seg_table_size, db_data_region_size, device_capacity,
-                    data_theory_size);
-    ds->sbMgr_->SetSuperBlock(sb);
-
-    __INFO("\nCreateKVDS table information:\n"
-            "\t hashtable_size            : %d\n"
-            "\t num_entries               : %d\n"
-            "\t segment_size              : %d Bytes\n"
-            "\t number_segments           : %d\n"
-            "\t Database Superblock Size  : %ld Bytes\n"
-            "\t Database Index Size       : %ld Bytes\n"
-            "\t Database Seg Table Size   : %ld Bytes\n"
-            "\t Total DB Meta Region Size : %ld Bytes\n"
-            "\t Total DB Data Region Size : %ld Bytes\n"
-            "\t Total DB Total Size       : %ld Bytes\n"
-            "\t Total Device Size         : %ld Bytes",
-            hash_table_size, num_entries,
-            segment_size, number_segments, db_sb_size,
-            db_index_size, db_seg_table_size, db_meta_size,
-            db_data_region_size, db_size, device_capacity);
+    __INFO("\nCreateKVDS Success!!!\n");
+    ds->printDbStates();
 
     ds->seg_ = new SegForReq(ds->segMgr_, ds->idxMgr_, ds->bdev_,
                                 ds->options_.expired_time);
@@ -155,73 +52,8 @@ void KVDS::printDbStates() {
     uint64_t db_size = db_meta_size + db_data_region_size;
     uint64_t device_capacity = sbMgr_->GetDeviceCapacity();
 
-    __INFO("\nDB state information:\n"
-            "\t HashTable size            : %d\n"
-            "\t # of entries              : %d\n"
-            "\t Segment size              : %d Bytes\n"
-            "\t # of total segments       : %d\n"
-            "\t # of free segments        : %d\n"
-            "\t Database Superblock Size  : %ld Bytes\n"
-            "\t Database Index Size       : %ld Bytes\n"
-            "\t Database Seg Table Size   : %ld Bytes\n"
-            "\t Total DB Meta Region Size : %ld Bytes\n"
-            "\t Total DB Data Region Size : %ld Bytes\n"
-            "\t Total DB Total Size       : %ld Bytes\n"
-            "\t Total Device Size         : %ld Bytes\n"
-            "\t Request Queue Size        : %d\n"
-            "\t Segment Reaper Queue Size : %d\n"
-            "\t Segment Write Queue Size  : %d",
-            hash_table_size, num_entries,
-            segment_size, number_segments,free_segment, db_sb_size,
-            db_index_size, db_seg_table_size, db_meta_size,
-            db_data_region_size, db_size, device_capacity,getReqQueSize(),getSegReaperQueSize(),getSegWriteQueSize());
-}
-
-bool KVDS::writeMetaDataToDevice() {
-    if (!idxMgr_->WriteIndexToDevice()) {
-        return false;
-    }
-
-    if (!segMgr_->WriteSegmentTableToDevice()) {
-        return false;
-    }
-
-    if (!sbMgr_->WriteSuperBlockToDevice()) {
-        return false;
-    }
-
-    return true;
-}
-
-bool KVDS::readMetaDataFromDevice() {
-    uint64_t offset = 0;
-    if (!sbMgr_->LoadSuperBlockFromDevice(offset)) {
-        return false;
-    }
-
-    uint32_t hashtable_size = sbMgr_->GetHTSize();
-    uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-    offset += db_sb_size;
-    if (!idxMgr_->LoadIndexFromDevice(offset, hashtable_size)) {
-        return false;
-    }
-
-    uint64_t db_index_size =
-            IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
-    offset += db_index_size;
-    uint32_t segment_size = sbMgr_->GetSegmentSize();
-    uint32_t number_segments = sbMgr_->GetSegmentNum();
-    uint32_t current_seg = sbMgr_->GetCurSegmentId();
-    if (!segMgr_->LoadSegmentTableFromDevice(offset, segment_size,
-                                             number_segments, current_seg)) {
-        return false;
-    }
-
-    seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
-
-    __INFO("\nReading meta information from file:\n"
+    __INFO("\n DB Static information:\n"
             "\t hashtable_size            : %d\n"
-            "\t num_entries               : %d\n"
             "\t segment_size              : %d Bytes\n"
             "\t number_segments           : %d\n"
             "\t Database Superblock Size  : %ld Bytes\n"
@@ -230,19 +62,24 @@ bool KVDS::readMetaDataFromDevice() {
             "\t Total DB Meta Region Size : %ld Bytes\n"
             "\t Total DB Data Region Size : %ld Bytes\n"
             "\t Total DB Total Size       : %ld Bytes\n"
-            "\t Total Device Size         : %ld Bytes\n"
-            "\t Current Segment ID        : %d\n"
-            "\t DB Data Theory Size       : %ld Bytes",
-            sbMgr_->GetHTSize(), sbMgr_->GetElementNum(),
-            sbMgr_->GetSegmentSize(),
-            sbMgr_->GetSegmentNum(), sbMgr_->GetSbSize(),
-            sbMgr_->GetIndexSize(), sbMgr_->GetSegTableSize(),
-            (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize()),
-            sbMgr_->GetDataRegionSize(),
-            (sbMgr_->GetSbSize() + sbMgr_->GetIndexSize() + sbMgr_->GetSegTableSize() + sbMgr_->GetDataRegionSize()),
-            sbMgr_->GetDeviceCapacity(), sbMgr_->GetCurSegmentId(), sbMgr_->GetDataTheorySize());
+            "\t Total Device Size         : %ld Bytes",
+            hash_table_size, segment_size,
+            number_segments, db_sb_size,
+            db_index_size, db_seg_table_size, db_meta_size,
+            db_data_region_size, db_size, device_capacity);
 
-    return true;
+    __INFO("\n DB Dynamic information: \n"
+            "\t # of entries              : %d\n"
+            "\t # of free segments        : %d\n"
+            "\t Current Segment ID        : %d\n"
+            "\t DB Data Theory Size       : %ld Bytes\n"
+            "\t Request Queue Size        : %d\n"
+            "\t Segment Reaper Queue Size : %d\n"
+            "\t Segment Write Queue Size  : %d",
+            num_entries, free_segment,
+            sbMgr_->GetCurSegmentId(),
+            sbMgr_->GetDataTheorySize(), getReqQueSize(),
+            getSegReaperQueSize(), getSegWriteQueSize());
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
@@ -258,20 +95,19 @@ KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
 }
 
 Status KVDS::openDB() {
-    if (bdev_->Open(fileName_) < 0) {
-        __ERROR("Could not open device\n");
-        return Status::IOError("Could not open device");
+    if (!metaStor_->LoadMetaData()) {
+        return Status::IOError("Could not read meta data");
     }
-    if (!readMetaDataFromDevice()) {
-        __ERROR("Could not read  hash table file\n");
-        return Status::IOError("Could not read  hash table file");
-    }
+
+    printDbStates();
+
+    seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
     startThds();
     return Status::OK();
 }
 
 Status KVDS::closeDB() {
-    if (!writeMetaDataToDevice()) {
+    if (!metaStor_->PersistMetaData()) {
         __ERROR("Could not to write metadata to device\n");
         return Status::IOError("Could not to write metadata to device");
     }
@@ -324,12 +160,13 @@ KVDS::~KVDS() {
     if(!options_.disable_cache){
         delete rdCache_;
     }
+    delete metaStor_;
 
 }
 
 KVDS::KVDS(const string& filename, Options opts) :
-    fileName_(filename), seg_(NULL), options_(opts), reqWQ_(NULL),
-            segWteWQ_(NULL), segTimeoutT_stop_(false),
+    fileName_(filename), seg_(NULL), options_(opts), metaStor_(NULL),
+            reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
             segRprWQ_(NULL), gcT_stop_(false) {
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
@@ -339,6 +176,7 @@ KVDS::KVDS(const string& filename, Options opts) :
     if(!options_.disable_cache){
         rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
+    metaStor_ = new MetaStor(filename.c_str(), options_, bdev_, sbMgr_, idxMgr_, segMgr_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
@@ -347,11 +185,8 @@ Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
         return Status::InvalidArgument("Key is null or empty.");
     }
 
-    //__INFO("!!!%d", segMgr_->GetMaxValueLength());
-
     if (length > segMgr_->GetMaxValueLength()) {
-        return Status::NotSupported(
-                                    "Data length cann't be longer than max segment size");
+        return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
     KVSlice slice(key, key_len, data, length);

@@ -21,6 +21,7 @@
 #include "Segment.h"
 #include "ReadCache.h"
 #include "WorkQueue_.h"
+#include "MetaStor.h"
 
 using namespace dslab;
 namespace hlkvds {
@@ -64,8 +65,6 @@ private:
     KVDS(const string& filename, Options opts);
     Status openDB();
     Status closeDB();
-    bool writeMetaDataToDevice();
-    bool readMetaDataFromDevice();
     void startThds();
     void stopThds();
 
@@ -86,6 +85,8 @@ private:
     SegForReq *seg_;
     std::mutex segMtx_;
     Options options_;
+
+    MetaStor *metaStor_;
 
     // Request Merge thread
 private:
