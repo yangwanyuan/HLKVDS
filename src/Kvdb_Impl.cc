@@ -25,8 +25,9 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     __INFO("\nCreateKVDS Success!!!\n");
     ds->printDbStates();
 
-    ds->seg_ = new SegForReq(ds->segMgr_, ds->idxMgr_, ds->bdev_,
-                                ds->options_.expired_time);
+    //ds->seg_ = new SegForReq(ds->segMgr_, ds->idxMgr_, ds->bdev_,
+    //                            ds->options_.expired_time);
+    ds->dataStor_->InitSegment();
     ds->startThds();
 
     return ds;
@@ -101,7 +102,8 @@ Status KVDS::openDB() {
 
     printDbStates();
 
-    seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
+    //seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
+    dataStor_->InitSegment();
     startThds();
     return Status::OK();
 }
@@ -116,67 +118,41 @@ Status KVDS::closeDB() {
 }
 
 void KVDS::startThds() {
-    reqWQ_ = new ReqsMergeWQ(this, 1);
-    reqWQ_->Start();
-
-    segWteWQ_ = new SegmentWriteWQ(this, options_.seg_write_thread);
-    segWteWQ_->Start();
-
-    segTimeoutT_stop_.store(false);
-    segTimeoutT_ = std::thread(&KVDS::SegTimeoutThdEntry, this);
-
-    segRprWQ_ = new SegmentReaperWQ(this, 1);
-    segRprWQ_->Start();
-
-    gcT_stop_.store(false);
-    gcT_ = std::thread(&KVDS::GCThdEntry, this);
+    dataStor_->startThds();
 }
 
 void KVDS::stopThds() {
-    gcT_stop_.store(true);
-    gcT_.join();
-
-    segRprWQ_->Stop();
-    delete segRprWQ_;
-
-    segTimeoutT_stop_.store(true);
-    segTimeoutT_.join();
-
-    reqWQ_->Stop();
-    delete reqWQ_;
-
-    segWteWQ_->Stop();
-    delete segWteWQ_;
+    dataStor_->stopThds();
 }
 
 KVDS::~KVDS() {
     closeDB();
-    delete gcMgr_;
     delete idxMgr_;
     delete segMgr_;
     delete sbMgr_;
     delete bdev_;
-    delete seg_;
     if(!options_.disable_cache){
         delete rdCache_;
     }
     delete metaStor_;
+    delete dataStor_;
 
 }
 
 KVDS::KVDS(const string& filename, Options opts) :
-    fileName_(filename), seg_(NULL), options_(opts), metaStor_(NULL),
-            reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
-            segRprWQ_(NULL), gcT_stop_(false) {
+    fileName_(filename), options_(opts), metaStor_(NULL), dataStor_(NULL) {
+
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
     segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
     idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_, options_);
-    gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_, options_);
+
     if(!options_.disable_cache){
         rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
+
     metaStor_ = new MetaStor(filename.c_str(), options_, bdev_, sbMgr_, idxMgr_, segMgr_);
+    dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, segMgr_, idxMgr_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
@@ -191,12 +167,15 @@ Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
 
     KVSlice slice(key, key_len, data, length);
 
-    if(!options_.disable_cache && !slice.GetDataLen()){
-        rdCache_->Put(slice.GetKeyStr(),slice.GetDataStr());
+    Status s = dataStor_->WriteData(slice);
+
+    if (s.ok()) {
+        if(!options_.disable_cache && !slice.GetDataLen()){
+            rdCache_->Put(slice.GetKeyStr(),slice.GetDataStr());
+        }
     }
 
-    return insertKey(slice);
-
+    return s;
 }
 
 Status KVDS::Delete(const char* key, uint32_t key_len) {
@@ -211,204 +190,54 @@ Status KVDS::Get(const char* key, uint32_t key_len, string &data) {
 
     KVSlice slice(key, key_len, NULL, 0);
 
+    if(!options_.disable_cache) {
+        if(rdCache_->Get(slice.GetKeyStr(), data)) {
+            rdCache_->Put(slice.GetKeyStr(), data);
+            return Status::OK();
+        }
+    }
+
     res = idxMgr_->GetHashEntry(&slice);
     if (!res) {
         //The key is not exist
         return Status::NotFound("Key is not found.");
     }
-    if(!options_.disable_cache){
-	if(rdCache_->Get(slice.GetKeyStr(), data)){
-            return  Status::OK();
-        }else{
-	    Status _status = readData(slice, data);
-            if(_status.ok()){
-		rdCache_->Put(slice.GetKeyStr(), data);
-	    }
-	    return _status;
+
+    Status s = dataStor_->ReadData(slice, data);
+
+    if (s.ok()) {
+        if(!options_.disable_cache) {
+            rdCache_->Put(slice.GetKeyStr(), data);
         }
-    }else{
-        Status _status = readData(slice, data);
-        return _status;
     }
+
+    return s;
 }
 
-Status KVDS::InsertBatch(WriteBatch *batch)
-{
+Status KVDS::InsertBatch(WriteBatch *batch) {
     if (batch->batch_.empty()) {
         return Status::OK();
     }
 
-    uint32_t seg_id = 0;
-    bool ret;
-    //TODO: use GcSegment first, need abstract segment.
-    while (!segMgr_->Alloc(seg_id)) {
-        ret = gcMgr_->ForeGC();
-        if (!ret) {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            return Status::Aborted("Can't allocate a Empty Segment.");
+    Status s = dataStor_->WriteBatchData(batch);
+
+    if (s.ok()) {
+        if(!options_.disable_cache) {
+            for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
+                    iter != batch->batch_.end(); iter++) {
+                if(!(*iter)->GetDataLen()) {//no "" should be put in to the cache
+                    rdCache_->Put((*iter)->GetKeyStr(), (*iter)->GetDataStr());
+                }
+            }
         }
     }
 
-    SegForSlice *seg = new SegForSlice(segMgr_, idxMgr_, bdev_);
-    for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
-            iter != batch->batch_.end(); iter++) {
-        if (seg->TryPut(*iter)) {
-            seg->Put(*iter);
-        }
-        else {
-            __ERROR("The Batch is too large, can't put in one segment");
-            delete seg;
-            return Status::Aborted("Batch is too large.");
-        }
-    }
-    if(!options_.disable_cache){
-        for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
-            iter != batch->batch_.end(); iter++) {
-	    if(!(*iter)->GetDataLen()){//no "" should be put in to the cache
-	    	rdCache_->Put((*iter)->GetKeyStr(), (*iter)->GetDataStr());
-    	    }
-        }
-    }
-    seg->SetSegId(seg_id);
-    ret = seg->WriteSegToDevice();
-    if(!ret) {
-        __ERROR("Write batch segment to device failed");
-        segMgr_->FreeForFailed(seg_id);
-        delete seg;
-        return Status::IOError("could not write batch segment to device ");
-    }
-
-    uint32_t free_size = seg->GetFreeSize();
-    segMgr_->Use(seg_id, free_size);
-    seg->UpdateToIndex();
-    delete seg;
-    return Status::OK();
-}
-
-Status KVDS::insertKey(KVSlice& slice) {
-    Request *req = new Request(slice);
-    reqWQ_->Add_task(req);
-    req->Wait();
-    Status s = updateMeta(req);
-    delete req;
     return s;
 }
 
-Status KVDS::updateMeta(Request *req) {
-    bool res = req->GetWriteStat();
-    // update index
-    if (!res) {
-        return Status::Aborted("Write failed");
-    }
-    KVSlice *slice = &req->GetSlice();
-    res = idxMgr_->UpdateIndex(slice);
-    // minus the segment delete counter
-    SegForReq *seg = req->GetSeg();
-    if (!seg->CommitedAndGetNum()) {
-        segRprWQ_->Add_task(seg);
-    }
-    return Status::OK();
-}
-
-Status KVDS::readData(KVSlice &slice, string &data) {
-    HashEntry *entry;
-    entry = &slice.GetHashEntry();
-
-    uint64_t data_offset = 0;
-    if (!segMgr_->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
-        return Status::Aborted("Compute data offset failed.");
-    }
-
-    uint16_t data_len = entry->GetDataSize();
-
-    if (data_len == 0) {
-        //The key is not exist
-        return Status::NotFound("Key is not found.");
-    }
-
-    char *mdata = new char[data_len];
-    if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
-        __ERROR("Could not read data at position");
-        delete[] mdata;
-        return Status::IOError("Could not read data at position.");
-    }
-    data.assign(mdata, data_len);
-    delete[] mdata;
-
-    __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffsetPhy());
-
-    return Status::OK();
-}
-
-void KVDS::ReqMerge(Request* req) {
-    std::unique_lock < std::mutex > lck_seg(segMtx_);
-    if (seg_->TryPut(req)) {
-        seg_->Put(req);
-    } else {
-        seg_->Complete();
-        segWteWQ_->Add_task(seg_);
-        seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
-                            options_.expired_time);
-        seg_->Put(req);
-    }
-}
-
-void KVDS::SegWrite(SegForReq *seg) {
-    uint32_t seg_id = 0;
-    bool res;
-    while (!segMgr_->Alloc(seg_id)) {
-        res = gcMgr_->ForeGC();
-        if (!res) {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            seg->Notify(res);
-        }
-    }
-    uint32_t free_size = seg->GetFreeSize();
-    seg->SetSegId(seg_id);
-    res = seg->WriteSegToDevice();
-    if (res) {
-        segMgr_->Use(seg_id, free_size);
-    } else {
-        segMgr_->FreeForFailed(seg_id);
-    }
-    seg->Notify(res);
-}
-
-void KVDS::SegTimeoutThdEntry() {
-    __DEBUG("Segment Timeout thread start!!");
-    std::unique_lock < std::mutex > lck(segMtx_, std::defer_lock);
-    while (!segTimeoutT_stop_) {
-        lck.lock();
-        if (seg_->IsExpired()) {
-            seg_->Complete();
-
-            segWteWQ_->Add_task(seg_);
-            seg_ = new SegForReq(segMgr_, idxMgr_, bdev_,
-                                options_.expired_time);
-        }
-        lck.unlock();
-
-        usleep(options_.expired_time);
-    } __DEBUG("Segment Timeout thread stop!!");
-}
-
-void KVDS::SegReaper(SegForReq *seg) {
-    seg->CleanDeletedEntry();
-    __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-    delete seg;
-}
-
 void KVDS::Do_GC() {
-    __INFO("Application call GC!!!!!");
-    return gcMgr_->FullGC();
+    dataStor_->Do_GC();
 }
 
-void KVDS::GCThdEntry() {
-    __DEBUG("GC thread start!!");
-    while (!gcT_stop_) {
-        gcMgr_->BackGC();
-        usleep(1000000);
-    } __DEBUG("GC thread stop!!");
-}
 }
 
