@@ -3,10 +3,11 @@
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
+#include "DataStor.h"
 
 namespace hlkvds {
 
-MetaStor::MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SegmentManager *sm) : paths_(paths), options_(opt), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), segMgr_(sm) {}
+MetaStor::MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds) : paths_(paths), options_(opt), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), dataStor_(ds) {}
 
 MetaStor::~MetaStor() {}
 
@@ -84,7 +85,7 @@ bool MetaStor::CreateMetaData() {
 
     uint64_t segtable_offset = db_sb_size + db_index_size;
 
-    if (!segMgr_->InitSegmentForCreateDB(segtable_offset, segment_size,
+    if (!dataStor_->segMgr_->InitSegmentForCreateDB(segtable_offset, segment_size,
                                              number_segments)) {
         __ERROR("Segment region init failed.");
         return false;
@@ -94,7 +95,7 @@ bool MetaStor::CreateMetaData() {
     db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
 
     db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
-    db_data_region_size = segMgr_->GetDataRegionSize();
+    db_data_region_size = dataStor_->segMgr_->GetDataRegionSize();
     db_size = db_meta_size + db_data_region_size;
 
     r = metaDev_->SetNewDBZero(db_meta_size);
@@ -134,7 +135,7 @@ bool MetaStor::LoadMetaData() {
     uint32_t segment_size = sbMgr_->GetSegmentSize();
     uint32_t number_segments = sbMgr_->GetSegmentNum();
     uint32_t current_seg = sbMgr_->GetCurSegmentId();
-    if (!segMgr_->LoadSegmentTableFromDevice(offset, segment_size,
+    if (!dataStor_->segMgr_->LoadSegmentTableFromDevice(offset, segment_size,
                                              number_segments, current_seg)) {
         return false;
     }
@@ -147,7 +148,7 @@ bool MetaStor::PersistMetaData() {
         return false;
     }
 
-    if (!segMgr_->WriteSegmentTableToDevice()) {
+    if (!dataStor_->segMgr_->WriteSegmentTableToDevice()) {
         return false;
     }
 

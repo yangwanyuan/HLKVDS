@@ -10,7 +10,7 @@ class BlockDevice;
 class Options;
 class SuperBlockManager;
 class IndexManager;
-class SegmentManager;
+class SimpleDS_Impl;
 
 class MetaStor {
 public:
@@ -21,7 +21,7 @@ public:
     bool PersistSSTsToDevice();
     bool FastRecovery();
 
-    MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SegmentManager *sm); 
+    MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds); 
     ~MetaStor();
 
 private:
@@ -32,7 +32,7 @@ private:
     uint64_t endOffset_;
     SuperBlockManager *sbMgr_;
     IndexManager* idxMgr_;
-    SegmentManager *segMgr_;
+    SimpleDS_Impl* dataStor_;
 };
     
 }// namespace hlkvds

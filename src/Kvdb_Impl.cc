@@ -35,7 +35,6 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
 }
 
 Iterator* KVDS::NewIterator() {
-    //return new KvdbIter(idxMgr_, segMgr_, bdev_);
     return new KvdbIter(idxMgr_, dataStor_, bdev_);
 }
 
@@ -152,8 +151,8 @@ KVDS::KVDS(const string& filename, Options opts) :
         rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
 
-    metaStor_ = new MetaStor(filename.c_str(), options_, bdev_, sbMgr_, idxMgr_, segMgr_);
     dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, segMgr_, idxMgr_);
+    metaStor_ = new MetaStor(filename.c_str(), options_, bdev_, sbMgr_, idxMgr_, dataStor_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
