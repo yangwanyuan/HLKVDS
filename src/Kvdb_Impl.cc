@@ -35,7 +35,8 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
 }
 
 Iterator* KVDS::NewIterator() {
-    return new KvdbIter(idxMgr_, segMgr_, bdev_);
+    //return new KvdbIter(idxMgr_, segMgr_, bdev_);
+    return new KvdbIter(idxMgr_, dataStor_, bdev_);
 }
 
 void KVDS::printDbStates() {

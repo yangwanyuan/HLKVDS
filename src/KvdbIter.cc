@@ -1,13 +1,13 @@
 #include "KvdbIter.h"
 #include "IndexManager.h"
-#include "SegmentManager.h"
+#include "DataStor.h"
 #include "BlockDevice.h"
 #include "Db_Structure.h"
 
 namespace hlkvds {
 
-KvdbIter::KvdbIter(IndexManager* im, SegmentManager* sm, BlockDevice* bdev) :
-    idxMgr_(im), segMgr_(sm), bdev_(bdev), valid_(false), hashEntry_(NULL){
+KvdbIter::KvdbIter(IndexManager* im, SimpleDS_Impl* ds, BlockDevice* bdev) :
+    idxMgr_(im), dataStor_(ds), bdev_(bdev), valid_(false), hashEntry_(NULL){
         //ht_ = idxMgr_->GetHashTable();
         htSize_ = idxMgr_->GetHashTableSize();
 }
@@ -166,7 +166,7 @@ string KvdbIter::Key() {
     }
 
     uint64_t key_offset = 0;
-    if (!segMgr_->ComputeKeyOffsetPhyFromEntry(hashEntry_, key_offset)) {
+    if (!dataStor_->segMgr_->ComputeKeyOffsetPhyFromEntry(hashEntry_, key_offset)) {
         return "";
     }
     __DEBUG("key offset: %lu",key_offset);
@@ -191,7 +191,7 @@ string KvdbIter::Value() {
     }
 
     uint64_t data_offset = 0;
-    if (!segMgr_->ComputeDataOffsetPhyFromEntry(hashEntry_, data_offset)) {
+    if (!dataStor_->segMgr_->ComputeDataOffsetPhyFromEntry(hashEntry_, data_offset)) {
         return "";
     }
 

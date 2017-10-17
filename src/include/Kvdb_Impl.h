@@ -17,6 +17,7 @@
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "SegmentManager.h"
+#include "DataStor.h"
 #include "GcManager.h"
 #include "Segment.h"
 #include "ReadCache.h"
