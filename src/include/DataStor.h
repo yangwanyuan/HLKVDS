@@ -7,12 +7,13 @@
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
 #include "hlkvds/Write_batch.h"
-#include "GcManager.h"
 #include "Segment.h"
 #include "WorkQueue_.h"
 
 using namespace std;
 using namespace dslab;
+
+namespace hlkvds {
 
 class KVSlice;
 class HashEntry;
@@ -24,7 +25,7 @@ class BlockDevice;
 class SegmentManager;
 class SegForReq;
 
-namespace hlkvds {
+class GcManager;
 
 class DataStor {
 public:

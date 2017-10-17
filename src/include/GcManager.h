@@ -9,6 +9,7 @@
 #include "hlkvds/Options.h"
 #include "IndexManager.h"
 #include "SegmentManager.h"
+#include "DataStor.h"
 #include "Segment.h"
 
 namespace hlkvds {
@@ -16,8 +17,7 @@ namespace hlkvds {
 class GcManager {
 public:
     ~GcManager();
-    GcManager(BlockDevice* bdev, IndexManager* im, SegmentManager* sm,
-              Options &opt);
+    GcManager(BlockDevice* bdev, IndexManager* im, SimpleDS_Impl* ds, Options &opt);
 
     bool ForeGC();
     void BackGC();
@@ -34,7 +34,7 @@ private:
     void cleanKvList(std::list<KVSlice*> &slice_list);
 
 private:
-    SegmentManager* segMgr_;
+    SimpleDS_Impl* dataStor_;
     IndexManager* idxMgr_;
     BlockDevice* bdev_;
     Options &options_;

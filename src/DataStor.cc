@@ -1,4 +1,5 @@
 #include "DataStor.h"
+#include "GcManager.h"
 //#include "IndexManager.h"
 
 namespace hlkvds {
@@ -12,7 +13,7 @@ SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager*
         gcMgr_(NULL), seg_(NULL),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
         segRprWQ_(NULL), gcT_stop_(false) {
-    gcMgr_ = new GcManager(bdev_, idxMgr_, segMgr_, options_);
+    gcMgr_ = new GcManager(bdev_, idxMgr_, this, options_);
     }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
