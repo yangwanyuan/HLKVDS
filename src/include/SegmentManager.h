@@ -10,7 +10,6 @@
 #include "BlockDevice.h"
 #include "hlkvds/Options.h"
 #include "SuperBlockManager.h"
-#include "IndexManager.h"
 #include "Utils.h"
 
 using namespace std;

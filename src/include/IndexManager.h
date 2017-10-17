@@ -13,8 +13,8 @@
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
 #include "SuperBlockManager.h"
-#include "SegmentManager.h"
 #include "Segment.h"
+#include "SegmentManager.h"
 
 using namespace std;
 

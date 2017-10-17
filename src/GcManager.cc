@@ -145,7 +145,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     std::list<KVSlice*>::iterator slice_iter;
 
     //handle first segment
-    SegForSlice *seg_first = new SegForSlice(dataStor_->segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg_first = new SegForSlice(dataStor_, idxMgr_, bdev_);
     for (std::multimap<uint32_t, uint32_t>::iterator iter = cands_map.begin(); iter
             != cands_map.end(); ++iter) {
         uint32_t seg_id = iter->second;
@@ -208,7 +208,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     }
 
     //handle second segment
-    SegForSlice *seg_second = new SegForSlice(dataStor_->segMgr_, idxMgr_, bdev_);
+    SegForSlice *seg_second = new SegForSlice(dataStor_, idxMgr_, bdev_);
     uint32_t seg_second_id;
     dataStor_->segMgr_->AllocForGC(seg_second_id);
 

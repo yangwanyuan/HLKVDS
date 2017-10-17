@@ -1,6 +1,6 @@
 #include "KvdbIter.h"
-#include "IndexManager.h"
 #include "DataStor.h"
+#include "IndexManager.h"
 #include "BlockDevice.h"
 #include "Db_Structure.h"
 

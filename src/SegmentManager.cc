@@ -1,4 +1,5 @@
 #include "SegmentManager.h"
+#include "IndexManager.h"
 #include <math.h>
 
 namespace hlkvds {
