@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "IndexManager.h"
+#include "DataStor.h"
 
 namespace hlkvds {
 
@@ -239,7 +240,7 @@ bool IndexManager::UpdateIndex(KVSlice* slice) {
         }
         else {
             //It's a invalid delete operation
-            segMgr_->ModifyDeathEntry(entry);
+            dataStor_->ModifyDeathEntry(entry);
             __DEBUG("Ignore the UpdateIndex request, because this is a delete operation but not exist in Memory");
         }
     }
@@ -249,12 +250,12 @@ bool IndexManager::UpdateIndex(KVSlice* slice) {
         HashEntry::LogicStamp *lts_inMem = entry_inMem->GetLogicStamp();
 
         if ( *lts < *lts_inMem) {
-            segMgr_->ModifyDeathEntry(entry);
+            dataStor_->ModifyDeathEntry(entry);
             __DEBUG("Ignore the UpdateIndex request, because request is expired!");
         }
         else {
             //this operation is need to do
-            segMgr_->ModifyDeathEntry(*entry_inMem);
+            dataStor_->ModifyDeathEntry(*entry_inMem);
 
             uint16_t data_size = entry.GetDataSize() ;
             uint16_t data_inMem_size = entry_inMem->GetDataSize();
@@ -313,7 +314,7 @@ void IndexManager::RemoveEntry(HashEntry entry) {
     KVTime &t_inMem = lts_inMem->GetSegTime();
     if (t_inMem == t && entry_inMem->GetDataSize() == 0) {
         entry_list->remove(entry);
-        segMgr_->ModifyDeathEntry(entry);
+        dataStor_->ModifyDeathEntry(entry);
 
         meta_lck.lock();
         keyCounter_--;
@@ -391,10 +392,9 @@ uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
     return (index_size_pages + 1) * getpagesize();
 }
 
-IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr,
-                           SegmentManager* segMgr, Options &opt) :
+IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt) :
     hashtable_(NULL), htSize_(0), keyCounter_(0), dataTheorySize_(0),
-            startOff_(0), bdev_(bdev), sbMgr_(sbMgr), segMgr_(segMgr),
+            startOff_(0), bdev_(bdev), sbMgr_(sbm), dataStor_(NULL),
             options_(opt) {
     lastTime_ = new KVTime();
     return;

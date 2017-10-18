@@ -14,13 +14,13 @@
 #include "LinkedList.h"
 #include "SuperBlockManager.h"
 #include "Segment.h"
-#include "SegmentManager.h"
 
 using namespace std;
 
 namespace hlkvds {
 class KVSlice;
 class SegmentSlice;
+class SimpleDS_Impl;
 
 class DataHeader {
 private:
@@ -260,6 +260,8 @@ public:
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice();
 
+        void InitDataStor(SimpleDS_Impl *ds) { dataStor_ = ds; }
+
         bool UpdateIndex(KVSlice* slice);
         void UpdateIndexes(list<KVSlice*> &slice_list);
         bool GetHashEntry(KVSlice *slice);
@@ -272,7 +274,7 @@ public:
         uint64_t GetDataTheorySize() const ;
         uint32_t GetKeyCounter() const ;
 
-        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_, Options &opt);
+        IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt);
         ~IndexManager();
 
         bool IsSameInMem(HashEntry entry);
@@ -316,7 +318,7 @@ public:
         uint64_t startOff_;
         BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
-        SegmentManager* segMgr_;
+        SimpleDS_Impl* dataStor_;
         Options &options_;
 
         KVTime* lastTime_;

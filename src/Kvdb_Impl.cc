@@ -28,6 +28,7 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     //ds->seg_ = new SegForReq(ds->segMgr_, ds->idxMgr_, ds->bdev_,
     //                            ds->options_.expired_time);
     ds->dataStor_->InitSegment();
+    ds->idxMgr_->InitDataStor(ds->dataStor_);
     ds->startThds();
 
     return ds;
@@ -104,6 +105,7 @@ Status KVDS::openDB() {
 
     //seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
     dataStor_->InitSegment();
+    idxMgr_->InitDataStor(dataStor_);
     startThds();
     return Status::OK();
 }
@@ -145,7 +147,7 @@ KVDS::KVDS(const string& filename, Options opts) :
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
     segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
-    idxMgr_ = new IndexManager(bdev_, sbMgr_, segMgr_, options_);
+    idxMgr_ = new IndexManager(bdev_, sbMgr_, options_);
 
     if(!options_.disable_cache){
         rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);

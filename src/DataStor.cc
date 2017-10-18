@@ -1,6 +1,5 @@
 #include "DataStor.h"
 #include "GcManager.h"
-//#include "IndexManager.h"
 
 namespace hlkvds {
 
@@ -170,6 +169,46 @@ void SimpleDS_Impl::stopThds() {
     delete segWteWQ_;
 }
 
+////////////////////////////////////////////////////
+
+bool SimpleDS_Impl::ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset) {
+    return segMgr_->ComputeDataOffsetPhyFromEntry(entry, data_offset);
+}
+
+bool SimpleDS_Impl::ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset) {
+    return segMgr_->ComputeKeyOffsetPhyFromEntry(entry, key_offset);
+}
+
+void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
+    segMgr_->ModifyDeathEntry(entry);
+}
+
+uint32_t SimpleDS_Impl::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
+    return SegmentManager::ComputeSegNum(total_size, seg_size);
+}
+
+uint64_t SimpleDS_Impl::ComputeSegTableSizeOnDisk(uint32_t seg_num) {
+    return SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
+}
+
+
+bool SimpleDS_Impl::InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size, uint32_t number_segments) {
+    return segMgr_->InitSegmentForCreateDB(start_offset, segment_size, number_segments);
+}
+
+bool SimpleDS_Impl::LoadSegmentTableFromDevice(uint64_t start_offset, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg) {
+    return segMgr_->LoadSegmentTableFromDevice(start_offset, segment_size, num_seg, current_seg);
+}
+
+bool SimpleDS_Impl::WriteSegmentTableToDevice() {
+    return segMgr_->WriteSegmentTableToDevice();
+}
+
+uint64_t SimpleDS_Impl::GetDataRegionSize() {
+    return segMgr_->GetDataRegionSize();
+}
+
+/////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ReqMerge(Request* req) {
     std::unique_lock < std::mutex > lck_seg(segMtx_);

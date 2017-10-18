@@ -80,22 +80,22 @@ bool MetaStor::CreateMetaData() {
         return false;
     }
 
-    number_segments = SegmentManager::ComputeSegNum(seg_total_size,
+    number_segments = SimpleDS_Impl::ComputeSegNum(seg_total_size,
                                                     segment_size);
 
     uint64_t segtable_offset = db_sb_size + db_index_size;
 
-    if (!dataStor_->segMgr_->InitSegmentForCreateDB(segtable_offset, segment_size,
+    if (!dataStor_->InitSegmentForCreateDB(segtable_offset, segment_size,
                                              number_segments)) {
         __ERROR("Segment region init failed.");
         return false;
     }
 
     __DEBUG("Init segment region success.");
-    db_seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(number_segments);
+    db_seg_table_size = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
 
     db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
-    db_data_region_size = dataStor_->segMgr_->GetDataRegionSize();
+    db_data_region_size = dataStor_->GetDataRegionSize();
     db_size = db_meta_size + db_data_region_size;
 
     r = metaDev_->SetNewDBZero(db_meta_size);
@@ -135,7 +135,7 @@ bool MetaStor::LoadMetaData() {
     uint32_t segment_size = sbMgr_->GetSegmentSize();
     uint32_t number_segments = sbMgr_->GetSegmentNum();
     uint32_t current_seg = sbMgr_->GetCurSegmentId();
-    if (!dataStor_->segMgr_->LoadSegmentTableFromDevice(offset, segment_size,
+    if (!dataStor_->LoadSegmentTableFromDevice(offset, segment_size,
                                              number_segments, current_seg)) {
         return false;
     }
@@ -148,7 +148,7 @@ bool MetaStor::PersistMetaData() {
         return false;
     }
 
-    if (!dataStor_->segMgr_->WriteSegmentTableToDevice()) {
+    if (!dataStor_->WriteSegmentTableToDevice()) {
         return false;
     }
 

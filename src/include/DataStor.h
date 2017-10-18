@@ -29,10 +29,8 @@ class GcManager;
 
 class DataStor {
 public:
-    //static DataStor* Create();
     virtual Status WriteData(KVSlice& slice) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
-    //virtual Status ReadData(HashEntry* entry, string &data) = 0;
     virtual Status ReadData(KVSlice &slice, string &data) = 0;
     virtual bool UpdateSST() = 0;
     virtual bool GetAllSSTs() = 0;
@@ -50,8 +48,8 @@ public:
     ~SimpleDS_Impl();
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
-    //Status ReadData(HashEntry* entry, string &data) override;
     Status ReadData(KVSlice &slice, string &data) override;
+
     bool UpdateSST() override;
     bool GetAllSSTs() override;
     bool SetAllSSTs() override;
@@ -60,6 +58,29 @@ public:
     void startThds();
     void stopThds();
     void Do_GC();
+
+    // interface for SegmentManager
+    //use in KvdbIter
+    bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
+    bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
+
+    //use in IndexManager
+    void ModifyDeathEntry(HashEntry &entry);
+
+    //use in MetaStor
+    static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
+    static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
+
+    bool InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size,
+                                uint32_t number_segments);
+
+    bool LoadSegmentTableFromDevice(uint64_t start_offset,
+                                    uint32_t segment_size, uint32_t num_seg,
+                                    uint32_t current_seg);
+
+    bool WriteSegmentTableToDevice();
+
+    uint64_t GetDataRegionSize();
 
 private:
     Status updateMeta(Request *req);
