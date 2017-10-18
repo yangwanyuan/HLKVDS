@@ -25,8 +25,6 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     __INFO("\nCreateKVDS Success!!!\n");
     ds->printDbStates();
 
-    //ds->seg_ = new SegForReq(ds->segMgr_, ds->idxMgr_, ds->bdev_,
-    //                            ds->options_.expired_time);
     ds->dataStor_->InitSegment();
     ds->idxMgr_->InitDataStor(ds->dataStor_);
     ds->startThds();
@@ -45,7 +43,7 @@ void KVDS::printDbStates() {
     uint32_t num_entries = idxMgr_->GetKeyCounter();
     uint32_t segment_size = sbMgr_->GetSegmentSize();
     uint32_t number_segments = sbMgr_->GetSegmentNum();
-    uint32_t free_segment = segMgr_->GetTotalFreeSegs();
+    uint32_t free_segment = dataStor_->GetTotalFreeSegs();
     uint64_t db_sb_size = sbMgr_->GetSbSize();
     uint64_t db_index_size = sbMgr_->GetIndexSize();
     uint64_t db_seg_table_size = sbMgr_->GetSegTableSize();
@@ -103,7 +101,6 @@ Status KVDS::openDB() {
 
     printDbStates();
 
-    //seg_ = new SegForReq(segMgr_, idxMgr_, bdev_, options_.expired_time);
     dataStor_->InitSegment();
     idxMgr_->InitDataStor(dataStor_);
     startThds();
@@ -130,7 +127,6 @@ void KVDS::stopThds() {
 KVDS::~KVDS() {
     closeDB();
     delete idxMgr_;
-    delete segMgr_;
     delete sbMgr_;
     delete bdev_;
     if(!options_.disable_cache){
@@ -146,14 +142,13 @@ KVDS::KVDS(const string& filename, Options opts) :
 
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(bdev_, options_);
-    segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
     idxMgr_ = new IndexManager(bdev_, sbMgr_, options_);
 
     if(!options_.disable_cache){
         rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
 
-    dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, segMgr_, idxMgr_);
+    dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, idxMgr_);
     metaStor_ = new MetaStor(filename.c_str(), options_, bdev_, sbMgr_, idxMgr_, dataStor_);
 }
 
@@ -163,7 +158,7 @@ Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
         return Status::InvalidArgument("Key is null or empty.");
     }
 
-    if (length > segMgr_->GetMaxValueLength()) {
+    if (length > dataStor_->GetMaxValueLength()) {
         return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 

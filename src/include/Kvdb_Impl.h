@@ -16,7 +16,6 @@
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
-#include "SegmentManager.h"
 #include "DataStor.h"
 #include "GcManager.h"
 #include "Segment.h"
@@ -74,7 +73,6 @@ private:
     SuperBlockManager* sbMgr_;
     IndexManager* idxMgr_;
     BlockDevice* bdev_;
-    SegmentManager* segMgr_;
 
     ReadCache* rdCache_;// readcache, rmd160, slru/lru
 

@@ -44,7 +44,7 @@ public:
 class SimpleDS_Impl : public DataStor {
 public:
 
-    SimpleDS_Impl(Options &opts, BlockDevice* dev, SuperBlockManager* sb, SegmentManager* sm, IndexManager* idx);
+    SimpleDS_Impl(Options &opts, BlockDevice* dev, SuperBlockManager* sb, IndexManager* idx);
     ~SimpleDS_Impl();
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
@@ -81,6 +81,10 @@ public:
     bool WriteSegmentTableToDevice();
 
     uint64_t GetDataRegionSize();
+
+    //use in Kvdb_Impl
+    uint32_t GetTotalFreeSegs();
+    uint32_t GetMaxValueLength();
 
 private:
     Status updateMeta(Request *req);

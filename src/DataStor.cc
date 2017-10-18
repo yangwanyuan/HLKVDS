@@ -7,15 +7,17 @@ namespace hlkvds {
 //    return new SimpleDS_Impl();
 //}
 
-SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager* sb, SegmentManager* sm, IndexManager* idx) :
-        options_(opts), bdev_(dev), sbMgr_(sb), segMgr_(sm), idxMgr_(idx),
+SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager* sb, IndexManager* idx) :
+        options_(opts), bdev_(dev), sbMgr_(sb), idxMgr_(idx),
         gcMgr_(NULL), seg_(NULL),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
         segRprWQ_(NULL), gcT_stop_(false) {
+    segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
     gcMgr_ = new GcManager(bdev_, idxMgr_, this, options_);
-    }
+}
 
 SimpleDS_Impl::~SimpleDS_Impl() {
+    delete segMgr_;
     delete gcMgr_;
     delete seg_;
 }
@@ -208,6 +210,14 @@ uint64_t SimpleDS_Impl::GetDataRegionSize() {
     return segMgr_->GetDataRegionSize();
 }
 
+
+uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
+    return segMgr_->GetTotalFreeSegs();
+}
+
+uint32_t SimpleDS_Impl::GetMaxValueLength() {
+    return segMgr_->GetMaxValueLength();
+}
 /////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ReqMerge(Request* req) {
