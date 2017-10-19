@@ -11,7 +11,7 @@
 #include "hlkvds/Status.h"
 #include "hlkvds/Write_batch.h"
 #include "Segment.h"
-#include "WorkQueue_.h"
+#include "WorkQueue.h"
 
 using namespace std;
 using namespace dslab;
@@ -127,9 +127,9 @@ public:
 
     // Request Merge thread
 private:
-    class ReqsMergeWQ : public WorkQueue_<Request> {
+    class ReqsMergeWQ : public WorkQueue<Request> {
     public:
-        explicit ReqsMergeWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue_<Request>(thd_num), ds_(ds) {}
+        explicit ReqsMergeWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue<Request>(thd_num), ds_(ds) {}
 
     protected:
         void _process(Request* req) override {
@@ -143,9 +143,9 @@ private:
 
     // Seg Write to device thread
 private:
-    class SegmentWriteWQ : public WorkQueue_<SegForReq> {
+    class SegmentWriteWQ : public WorkQueue<SegForReq> {
     public:
-        explicit SegmentWriteWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue_<SegForReq>(thd_num), ds_(ds) {}
+        explicit SegmentWriteWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue<SegForReq>(thd_num), ds_(ds) {}
 
     protected:
         void _process(SegForReq* seg) override {
@@ -165,9 +165,9 @@ private:
 
     // Seg Reaper thread
 private:
-    class SegmentReaperWQ : public WorkQueue_<SegForReq> {
+    class SegmentReaperWQ : public WorkQueue<SegForReq> {
     public:
-        explicit SegmentReaperWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue_<SegForReq>(thd_num), ds_(ds) {}
+        explicit SegmentReaperWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue<SegForReq>(thd_num), ds_(ds) {}
 
     protected:
         void _process(SegForReq* seg) override {

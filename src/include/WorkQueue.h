@@ -1,5 +1,5 @@
-#ifndef _WORKQUEUE__H_
-#define _WORKQUEUE__H_
+#ifndef _WORKQUEUE_H_
+#define _WORKQUEUE_H_
 
 #include <queue>
 #include <mutex>
@@ -8,7 +8,7 @@
 #include <thread>
 #include <atomic>
 
-/* WorkQueue_ base on product, need instantiation before use
+/* WorkQueue base on product, need instantiation before use
  * example : 
  *
  *   class IntQueue : public MyQueue<int> {
@@ -28,7 +28,7 @@
  *
  */
 namespace dslab {
-template <typename T> class WorkQueue_ {
+template <typename T> class WorkQueue {
 public:
 
     void Add_task(T* _work) {
@@ -37,12 +37,12 @@ public:
         cv_.notify_one();
     }
 
-    WorkQueue_(int thd_num=1) : thdNum_(thd_num), stop_(false) {}
-    virtual ~WorkQueue_() {}
+    WorkQueue(int thd_num=1) : thdNum_(thd_num), stop_(false) {}
+    virtual ~WorkQueue() {}
 
     void Start() {
         for (int i = 0; i < thdNum_; i++) {
-            threads_.push_back(std::move(std::thread(&WorkQueue_::worker, this)));
+            threads_.push_back(std::move(std::thread(&WorkQueue::worker, this)));
         }
     }
 
@@ -96,4 +96,4 @@ private:
 
 };
 }
-#endif //#ifndef _HLKVDS_WORKQUEUE__H_
+#endif //#ifndef _HLKVDS_WORKQUEUE_H_
