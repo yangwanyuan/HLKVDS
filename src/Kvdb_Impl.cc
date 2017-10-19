@@ -1,4 +1,3 @@
-//#include <thread>
 #include <stdlib.h>
 #include "Kvdb_Impl.h"
 #include "KvdbIter.h"
