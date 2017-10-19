@@ -3,7 +3,6 @@
 
 #include <string>
 #include "hlkvds/Iterator.h"
-#include "Db_Structure.h"
 
 namespace hlkvds {
 
@@ -36,7 +35,6 @@ private:
     bool valid_;
     HashEntry *hashEntry_;
     Status status_;
-    //HashtableSlot *ht_;
     int htSize_;
     int hashTableCur_;
     int entryListCur_;

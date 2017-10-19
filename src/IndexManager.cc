@@ -6,6 +6,9 @@
 #include <iostream>
 
 #include "IndexManager.h"
+#include "Db_Structure.h"
+#include "BlockDevice.h"
+#include "SuperBlockManager.h"
 #include "DataStor.h"
 
 namespace hlkvds {

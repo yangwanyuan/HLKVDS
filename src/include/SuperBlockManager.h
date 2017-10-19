@@ -3,14 +3,14 @@
 
 #include <mutex>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "hlkvds/Options.h"
 #include "Utils.h"
 
 using namespace std;
 
 namespace hlkvds {
+
+class BlockDevice;
 class SuperBlockManager;
 
 class DBSuperBlock {

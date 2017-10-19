@@ -9,16 +9,15 @@
 #include <condition_variable>
 #include <atomic>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "KeyDigestHandle.h"
-#include "IndexManager.h"
-#include "SuperBlockManager.h"
+#include "Db_Structure.h"
+#include "Utils.h"
 
 using namespace std;
 
 namespace hlkvds {
 
+class BlockDevice;
 class SegmentOnDisk;
 class DataHeader;
 class DataHeaderOffset;

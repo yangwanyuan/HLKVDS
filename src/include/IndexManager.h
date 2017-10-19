@@ -6,20 +6,18 @@
 #include <mutex>
 #include <list>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "hlkvds/Options.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
-#include "SuperBlockManager.h"
-#include "Segment.h"
 
 using namespace std;
 
 namespace hlkvds {
+
+class BlockDevice;
+class SuperBlockManager;
 class KVSlice;
-class SegmentSlice;
 class SimpleDS_Impl;
 
 class DataHeader {

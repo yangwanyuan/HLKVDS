@@ -6,10 +6,7 @@
 #include <mutex>
 #include <map>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "hlkvds/Options.h"
-#include "SuperBlockManager.h"
 #include "Utils.h"
 
 using namespace std;
@@ -18,6 +15,8 @@ namespace hlkvds {
 
 class DataHeader;
 class HashEntry;
+class BlockDevice;
+class SuperBlockManager;
 class IndexManager;
 
 enum struct SegUseStat {

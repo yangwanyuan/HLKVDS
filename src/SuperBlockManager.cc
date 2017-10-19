@@ -4,6 +4,8 @@
 #include <unistd.h>
 
 #include "SuperBlockManager.h"
+#include "Db_Structure.h"
+#include "BlockDevice.h"
 
 namespace hlkvds {
 bool SuperBlockManager::InitSuperBlockForCreateDB(uint64_t offset) {

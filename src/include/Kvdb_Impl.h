@@ -1,31 +1,22 @@
 #ifndef _HLKVDS_KVDB_IMPL_H_
 #define _HLKVDS_KVDB_IMPL_H_
 
-#include <list>
-#include <queue>
-#include <atomic>
-#include <mutex>
-#include <condition_variable>
-#include <thread>
-
-#include "Db_Structure.h"
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
 #include "hlkvds/Write_batch.h"
 #include "hlkvds/Iterator.h"
-#include "BlockDevice.h"
-#include "SuperBlockManager.h"
-#include "IndexManager.h"
-#include "DataStor.h"
-#include "GcManager.h"
-#include "Segment.h"
-#include "ReadCache.h"
-#include "WorkQueue_.h"
-#include "MetaStor.h"
-#include "DataStor.h"
 
-using namespace dslab;
+#include "ReadCache.h"
+
+using namespace std;
+
 namespace hlkvds {
+
+class BlockDevice;
+class SuperBlockManager;
+class IndexManager;
+class MetaStor;
+class SimpleDS_Impl;
 
 class KVDS {
 public:
@@ -42,9 +33,7 @@ public:
     Iterator* NewIterator();
 
     void Do_GC();
-    void ClearReadCache() {
-        bdev_->ClearReadCache();
-    }
+    void ClearReadCache();
     void printDbStates();
 
     uint32_t getReqQueSize() {
@@ -74,7 +63,7 @@ private:
     IndexManager* idxMgr_;
     BlockDevice* bdev_;
 
-    ReadCache* rdCache_;// readcache, rmd160, slru/lru
+    dslab::ReadCache* rdCache_;// readcache, rmd160, slru/lru
 
     string fileName_;
 

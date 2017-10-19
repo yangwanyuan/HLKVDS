@@ -3,16 +3,17 @@
 
 #include <sys/types.h>
 #include <mutex>
+#include <list>
+#include <map>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "hlkvds/Options.h"
-#include "IndexManager.h"
-#include "SegmentManager.h"
-#include "DataStor.h"
-#include "Segment.h"
 
 namespace hlkvds {
+
+class BlockDevice;
+class IndexManager;
+class SimpleDS_Impl;
+class KVSlice;
 
 class GcManager {
 public:
@@ -27,7 +28,7 @@ private:
     uint32_t doMerge(std::multimap<uint32_t, uint32_t> &cands_map);
 
     bool readSegment(uint64_t seg_offset);
-    void loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
+    void loadSegKV(std::list<KVSlice*> &slice_list, uint32_t num_keys,
                    uint64_t phy_offset);
 
     bool loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list);
@@ -35,8 +36,8 @@ private:
 
 private:
     SimpleDS_Impl* dataStor_;
-    IndexManager* idxMgr_;
     BlockDevice* bdev_;
+    IndexManager* idxMgr_;
     Options &options_;
 
     std::mutex gcMtx_;

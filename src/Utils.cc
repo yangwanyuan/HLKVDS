@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "Utils.h"
+#include "Db_Structure.h"
 
 namespace hlkvds {
 

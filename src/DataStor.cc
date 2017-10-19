@@ -1,5 +1,9 @@
 #include "DataStor.h"
+#include "Db_Structure.h"
+#include "BlockDevice.h"
+#include "IndexManager.h"
 #include "GcManager.h"
+#include "SegmentManager.h"
 
 namespace hlkvds {
 
@@ -218,6 +222,39 @@ uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
 uint32_t SimpleDS_Impl::GetMaxValueLength() {
     return segMgr_->GetMaxValueLength();
 }
+
+uint32_t SimpleDS_Impl::GetTotalUsedSegs() {
+    return segMgr_->GetTotalUsedSegs();
+}
+
+void SimpleDS_Impl::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils) {
+return segMgr_->SortSegsByUtils(cand_map, utils);
+}
+
+uint32_t SimpleDS_Impl::GetSegmentSize() {
+return segMgr_->GetSegmentSize();
+}
+uint32_t SimpleDS_Impl::GetNumberOfSeg() {
+return segMgr_->GetNumberOfSeg();
+}
+
+bool SimpleDS_Impl::AllocForGC(uint32_t& seg_id) {
+return segMgr_->AllocForGC(seg_id);
+}
+void SimpleDS_Impl::FreeForFailed(uint32_t seg_id) {
+return segMgr_->FreeForFailed(seg_id);
+}
+void SimpleDS_Impl::FreeForGC(uint32_t seg_id) {
+return segMgr_->FreeForGC(seg_id);
+}
+void SimpleDS_Impl::Use(uint32_t seg_id, uint32_t free_size) {
+return segMgr_->Use(seg_id, free_size);
+}
+
+bool SimpleDS_Impl::ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
+return segMgr_->ComputeSegOffsetFromId(seg_id, offset);
+}
+
 /////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ReqMerge(Request* req) {

@@ -7,7 +7,9 @@
 
 #include "Segment.h"
 #include "SegmentManager.h"
+#include "IndexManager.h"
 #include "DataStor.h"
+#include "BlockDevice.h"
 
 namespace hlkvds {
 
@@ -193,7 +195,7 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
 
 SegBase::SegBase(SimpleDS_Impl *ds, BlockDevice* bdev) :
     segId_(-1), dataStor_(ds), bdev_(bdev),
-        segSize_(dataStor_->segMgr_->GetSegmentSize()),
+        segSize_(dataStor_->GetSegmentSize()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
@@ -244,7 +246,7 @@ void SegBase::fillEntryToSlice() {
                                    data_offset, next_offset);
 
             uint64_t seg_offset = 0;
-            dataStor_->segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+            dataStor_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
             HashEntry hash_entry(data_header, header_offset, NULL);
@@ -261,7 +263,7 @@ void SegBase::fillEntryToSlice() {
             DataHeader data_header(slice->GetDigest(), slice->GetKeyLen(), slice->GetDataLen(),
                                    data_offset, next_offset);
             uint64_t seg_offset = 0;
-            dataStor_->segMgr_->ComputeSegOffsetFromId(segId_, seg_offset);
+            dataStor_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
             HashEntry hash_entry(data_header, header_offset, NULL);
@@ -286,7 +288,7 @@ bool SegBase::_writeDataToDevice() {
 
     copyToDataBuf();
     uint64_t offset = 0;
-    dataStor_->segMgr_->ComputeSegOffsetFromId(segId_, offset);
+    dataStor_->ComputeSegOffsetFromId(segId_, offset);
 
     if (bdev_->pWrite(dataBuf_, segSize_, offset) != segSize_) {
         __ERROR("Write Segment front data error, seg_id:%u", segId_);
@@ -303,7 +305,7 @@ bool SegBase::newDataBuffer() {
 
 void SegBase::copyToDataBuf() {
     uint64_t offset = 0;
-    dataStor_->segMgr_->ComputeSegOffsetFromId(segId_, offset);
+    dataStor_->ComputeSegOffsetFromId(segId_, offset);
 
     uint32_t offset_begin = 0;
     uint32_t offset_end = segSize_;

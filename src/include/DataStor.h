@@ -3,6 +3,9 @@
 
 #include <string>
 #include <mutex>
+#include <thread>
+#include <atomic>
+#include <map>
 
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
@@ -85,6 +88,27 @@ public:
     //use in Kvdb_Impl
     uint32_t GetTotalFreeSegs();
     uint32_t GetMaxValueLength();
+
+    //use in GcManagrr
+    //uint32_t GetTotalFreeSegs();
+    uint32_t GetTotalUsedSegs();
+
+    void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);
+
+    uint32_t GetSegmentSize();
+    uint32_t GetNumberOfSeg();
+
+    bool AllocForGC(uint32_t& seg_id);
+    void FreeForFailed(uint32_t seg_id);
+    void FreeForGC(uint32_t seg_id);
+    void Use(uint32_t seg_id, uint32_t free_size);
+    
+    bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
+
+    //use in Segment
+    //uint32_t GetSegmentSize();
+    //bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
+
 
 private:
     Status updateMeta(Request *req);

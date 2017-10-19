@@ -15,8 +15,6 @@ namespace hlkvds {
 #define CACHE_POLICY dslab::SLRU
 #define SLRU_PARTITION 50
 
-#define RMDsize 160
-#define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 #define SEG_RESERVED_FOR_GC 2
 
 //default Options

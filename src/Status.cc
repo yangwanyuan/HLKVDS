@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <string>
-#include <cstring>
+
 #include "hlkvds/Status.h"
 #include "Db_Structure.h"
 

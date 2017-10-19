@@ -1,12 +1,14 @@
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include <thread>
-#include <map>
-
+//#include <thread>
+#include <stdlib.h>
 #include "Kvdb_Impl.h"
-#include "KeyDigestHandle.h"
 #include "KvdbIter.h"
+#include "Db_Structure.h"
+
+#include "BlockDevice.h"
+#include "SuperBlockManager.h"
+#include "IndexManager.h"
+#include "MetaStor.h"
+#include "DataStor.h"
 
 namespace hlkvds {
 
@@ -234,6 +236,10 @@ Status KVDS::InsertBatch(WriteBatch *batch) {
 
 void KVDS::Do_GC() {
     dataStor_->Do_GC();
+}
+
+void KVDS::ClearReadCache() {
+    bdev_->ClearReadCache();
 }
 
 }

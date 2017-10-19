@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <pthread.h>
 #include <signal.h>
-#include "Db_Structure.h"
 
 namespace hlkvds {
 class KVTime {

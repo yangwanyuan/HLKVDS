@@ -3,11 +3,12 @@
 
 #include <string>
 
+#include "hlkvds/Options.h"
+
 using namespace std;
 namespace hlkvds {
 
 class BlockDevice;
-class Options;
 class SuperBlockManager;
 class IndexManager;
 class SimpleDS_Impl;

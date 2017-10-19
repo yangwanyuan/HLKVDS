@@ -12,6 +12,7 @@
 
 #include <vector>
 #include "KernelDevice.h"
+#include "Db_Structure.h"
 
 namespace hlkvds {
 KernelDevice::KernelDevice() :
