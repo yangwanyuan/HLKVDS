@@ -398,7 +398,7 @@ uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
 IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt) :
     hashtable_(NULL), htSize_(0), keyCounter_(0), dataTheorySize_(0),
             startOff_(0), bdev_(bdev), sbMgr_(sbm), dataStor_(NULL),
-            options_(opt) {
+            options_(opt), segRprWQ_(NULL) {
     lastTime_ = new KVTime();
     return;
 }
@@ -549,5 +549,26 @@ bool IndexManager::persistHashTable(uint64_t offset)
     return true;
 
 }
+
+void IndexManager::StartThds(){
+    segRprWQ_ = new SegmentReaperWQ(this, 1);
+    segRprWQ_->Start();
+}
+
+void IndexManager::StopThds(){
+    segRprWQ_->Stop();
+    delete segRprWQ_;
+}
+
+void IndexManager::SegReaper(SegForReq *seg) {
+    seg->CleanDeletedEntry();
+    __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
+    delete seg;
+}
+
+void IndexManager::AddToReaper(SegForReq* seg) {
+    segRprWQ_->Add_task(seg);
+}
+
 }
 

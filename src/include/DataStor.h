@@ -163,22 +163,6 @@ private:
     std::atomic<bool> segTimeoutT_stop_;
     void SegTimeoutThdEntry();
 
-    // Seg Reaper thread
-private:
-    class SegmentReaperWQ : public WorkQueue<SegForReq> {
-    public:
-        explicit SegmentReaperWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue<SegForReq>(thd_num), ds_(ds) {}
-
-    protected:
-        void _process(SegForReq* seg) override {
-            ds_->SegReaper(seg);
-        }
-    private:
-        SimpleDS_Impl *ds_;
-    };
-    SegmentReaperWQ *segRprWQ_;
-    void SegReaper(SegForReq* seg);
-
     //GC thread
 private:
     std::thread gcT_;

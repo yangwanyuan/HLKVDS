@@ -15,7 +15,7 @@ SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager*
         options_(opts), bdev_(dev), sbMgr_(sb), idxMgr_(idx),
         gcMgr_(NULL), seg_(NULL),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
-        segRprWQ_(NULL), gcT_stop_(false) {
+        gcT_stop_(false) {
     segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
     gcMgr_ = new GcManager(bdev_, idxMgr_, this, options_);
 }
@@ -47,7 +47,7 @@ Status SimpleDS_Impl::updateMeta(Request *req) {
     // minus the segment delete counter
     SegForReq *seg = req->GetSeg();
     if (!seg->CommitedAndGetNum()) {
-        segRprWQ_->Add_task(seg);
+        idxMgr_->AddToReaper(seg);
     }
     return Status::OK();
 }
@@ -151,8 +151,7 @@ void SimpleDS_Impl::startThds() {
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&SimpleDS_Impl::SegTimeoutThdEntry, this);
 
-    segRprWQ_ = new SegmentReaperWQ(this, 1);
-    segRprWQ_->Start();
+    idxMgr_->StartThds();
 
     gcT_stop_.store(false);
     gcT_ = std::thread(&SimpleDS_Impl::GCThdEntry, this);
@@ -162,8 +161,7 @@ void SimpleDS_Impl::stopThds() {
     gcT_stop_.store(true);
     gcT_.join();
 
-    segRprWQ_->Stop();
-    delete segRprWQ_;
+    idxMgr_->StopThds();
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
@@ -305,12 +303,6 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
 
         usleep(options_.expired_time);
     } __DEBUG("Segment Timeout thread stop!!");
-}
-
-void SimpleDS_Impl::SegReaper(SegForReq *seg) {
-    seg->CleanDeletedEntry();
-    __DEBUG("Segment reaper delete seg_id = %d", seg->GetSegId());
-    delete seg;
 }
 
 void SimpleDS_Impl::Do_GC() {

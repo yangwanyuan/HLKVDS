@@ -11,7 +11,11 @@
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
 
+#include "Segment.h"
+#include "WorkQueue.h"
+
 using namespace std;
+using namespace dslab;
 
 namespace hlkvds {
 
@@ -272,6 +276,10 @@ public:
         uint64_t GetDataTheorySize() const ;
         uint32_t GetKeyCounter() const ;
 
+        void StartThds();
+        void StopThds();
+        void AddToReaper(SegForReq*);
+
         IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt);
         ~IndexManager();
 
@@ -323,8 +331,24 @@ public:
         mutable std::mutex mtx_;
         std::mutex batch_mtx_;
 
-    };
+    // Seg Reaper thread
+    private:
+    class SegmentReaperWQ : public WorkQueue<SegForReq> {
+        public:
+            explicit SegmentReaperWQ(IndexManager *im, int thd_num=1) : WorkQueue<SegForReq>(thd_num), idxMgr_(im) {}
 
+        protected:
+            void _process(SegForReq* seg) override {
+                idxMgr_->SegReaper(seg);
+            }
+        private:
+            IndexManager *idxMgr_;
+        };
+
+    SegmentReaperWQ *segRprWQ_;
+    void SegReaper(SegForReq* seg);
+
+    };
 
 }// namespace hlkvds
 #endif //#ifndef _HLKVDS_INDEXMANAGER_H_
