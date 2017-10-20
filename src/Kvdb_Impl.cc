@@ -142,7 +142,7 @@ KVDS::KVDS(const string& filename, Options opts) :
     fileName_(filename), options_(opts), metaStor_(NULL), dataStor_(NULL) {
 
     bdev_ = BlockDevice::CreateDevice();
-    sbMgr_ = new SuperBlockManager(bdev_, options_);
+    sbMgr_ = new SuperBlockManager(options_);
     idxMgr_ = new IndexManager(bdev_, sbMgr_, options_);
 
     if(!options_.disable_cache){

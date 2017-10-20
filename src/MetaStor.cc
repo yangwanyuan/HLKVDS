@@ -7,7 +7,7 @@
 
 namespace hlkvds {
 
-MetaStor::MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds) : paths_(paths), options_(opt), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), dataStor_(ds) {}
+MetaStor::MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds) : paths_(paths), options_(opt), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), dataStor_(ds), sbOff_(-1), idxOff_(-1), sstOff_(-1) {}
 
 MetaStor::~MetaStor() {}
 
@@ -46,7 +46,8 @@ bool MetaStor::CreateMetaData() {
         return NULL;
     }
 
-    if (!sbMgr_->InitSuperBlockForCreateDB(0)) {
+    sbOff_ = 0;
+    if (!LoadSuperBlockFromDevice(1)) {
         return false;
     }
 
@@ -68,7 +69,8 @@ bool MetaStor::CreateMetaData() {
         return NULL;
     }
 
-    if (!idxMgr_->InitIndexForCreateDB(db_sb_size, hash_table_size)) {
+    idxOff_ = db_sb_size;
+    if (!idxMgr_->InitIndexForCreateDB(idxOff_, hash_table_size)) {
         return false;
     } __DEBUG("Init index region success.");
 
@@ -85,7 +87,8 @@ bool MetaStor::CreateMetaData() {
 
     uint64_t segtable_offset = db_sb_size + db_index_size;
 
-    if (!dataStor_->InitSegmentForCreateDB(segtable_offset, segment_size,
+    sstOff_ = segtable_offset;
+    if (!dataStor_->InitSegmentForCreateDB(sstOff_, segment_size,
                                              number_segments)) {
         __ERROR("Segment region init failed.");
         return false;
@@ -118,24 +121,25 @@ bool MetaStor::LoadMetaData() {
         return false;
     }
 
-    uint64_t offset = 0;
-    if (!sbMgr_->LoadSuperBlockFromDevice(offset)) {
+    sbOff_ = 0;
+    if (!LoadSuperBlockFromDevice()) {
         return false;
     }
 
     uint32_t hashtable_size = sbMgr_->GetHTSize();
     uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-    offset += db_sb_size;
-    if (!idxMgr_->LoadIndexFromDevice(offset, hashtable_size)) {
+
+    idxOff_ = sbOff_ + db_sb_size;
+    if (!idxMgr_->LoadIndexFromDevice(idxOff_, hashtable_size)) {
         return false;
     }
 
     uint64_t db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
-    offset += db_index_size;
+    sstOff_ = idxOff_ + db_index_size;
     uint32_t segment_size = sbMgr_->GetSegmentSize();
     uint32_t number_segments = sbMgr_->GetSegmentNum();
     uint32_t current_seg = sbMgr_->GetCurSegmentId();
-    if (!dataStor_->LoadSegmentTableFromDevice(offset, segment_size,
+    if (!dataStor_->LoadSegmentTableFromDevice(sstOff_, segment_size,
                                              number_segments, current_seg)) {
         return false;
     }
@@ -152,10 +156,59 @@ bool MetaStor::PersistMetaData() {
         return false;
     }
 
-    if (!sbMgr_->WriteSuperBlockToDevice()) {
+    if (!PersistSuperBlockToDevice()) {
         return false;
     }
 
+    return true;
+}
+
+bool MetaStor::LoadSuperBlockFromDevice(int first_create){
+    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    char *buff = new char[length];
+    memset(buff, 0, length);
+    if (!first_create) {
+        if ((uint64_t) metaDev_->pRead(buff, length, sbOff_) != length){
+            __ERROR("Could not read superblock from device at %ld\n", sbOff_);
+            delete buff;
+            return false;
+        }
+    }
+
+    if (!sbMgr_->Set(buff, length))
+    {
+        __ERROR("Can't Set SuperBlock, Load Failed!");
+        delete buff;
+        return false;
+    }
+    delete buff;
+    return true;
+}
+
+bool MetaStor::PersistSuperBlockToDevice(){
+    int ret = false;
+    char *align_buf;
+    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    ret = posix_memalign((void **)&align_buf, 4096, length);
+    if (ret < 0) {
+        __ERROR("Can't allocate memory for SuperBlock, Persist Failed!");
+        return false;
+    }
+
+    memset(align_buf, 0, length);
+
+    if (!sbMgr_->Get(align_buf, length)) {
+        __ERROR("Can't Get SuperBlock, Persist Failed!");
+        return false;
+    }
+
+    if ((uint64_t) metaDev_->pWrite(align_buf, length, sbOff_) != length) {
+        __ERROR("Could not write superblock at position %ld\n", sbOff_);
+        free(align_buf);
+        return false;
+    }
+
+    free(align_buf);
     return true;
 }
 

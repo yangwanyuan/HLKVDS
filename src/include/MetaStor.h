@@ -18,6 +18,12 @@ public:
     bool CreateMetaData();
     bool LoadMetaData();
     bool PersistMetaData();
+
+    bool LoadSuperBlockFromDevice(int first_create = 0);
+    bool LoadIndexFromDevice();
+    bool LoadSSTsFromDevice();
+
+    bool PersistSuperBlockToDevice();
     bool PersistIndexToDevice();
     bool PersistSSTsToDevice();
     bool FastRecovery();
@@ -29,11 +35,14 @@ private:
     const char* paths_;
     Options &options_;
     BlockDevice *metaDev_;
-    uint64_t startOffset_;
-    uint64_t endOffset_;
     SuperBlockManager *sbMgr_;
     IndexManager* idxMgr_;
     SimpleDS_Impl* dataStor_;
+
+    int64_t sbOff_;
+    int64_t idxOff_;
+    int64_t sstOff_;
+    //uint64_t endOffset_;
 };
     
 }// namespace hlkvds

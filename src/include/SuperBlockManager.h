@@ -10,7 +10,6 @@ using namespace std;
 
 namespace hlkvds {
 
-class BlockDevice;
 class SuperBlockManager;
 
 class DBSuperBlock {
@@ -100,10 +99,8 @@ public:
     }
     static uint64_t GetSuperBlockSizeOnDevice();
 
-    bool InitSuperBlockForCreateDB(uint64_t offset);
-
-    bool LoadSuperBlockFromDevice(uint64_t offset);
-    bool WriteSuperBlockToDevice();
+    bool Get(char* buff, uint64_t length);
+    bool Set(char* buff, uint64_t length);
 
     void SetSuperBlock(DBSuperBlock& sb);
     const DBSuperBlock& GetSuperBlock() const {
@@ -154,18 +151,17 @@ public:
     void SetCurSegId(uint32_t id);
     void SetDataTheorySize(uint64_t size);
 
-    SuperBlockManager(BlockDevice* bdev, Options &opt);
+    SuperBlockManager(Options &opt);
     ~SuperBlockManager();
 
 private:
-    BlockDevice* bdev_;
     DBSuperBlock* sb_;
 
     Options &options_;
 
     uint64_t startOff_;
 
-    mutable std::mutex mtx_;
+    std::mutex mtx_;
 
 };
 }// namespace hlkvds

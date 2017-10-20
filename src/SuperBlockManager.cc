@@ -8,47 +8,22 @@
 #include "BlockDevice.h"
 
 namespace hlkvds {
-bool SuperBlockManager::InitSuperBlockForCreateDB(uint64_t offset) {
-    sb_ = new DBSuperBlock;
-    startOff_ = offset;
 
-    memset(sb_, 0, SuperBlockManager::SizeOfDBSuperBlock());
+bool SuperBlockManager::Get(char* buff, uint64_t length) {
+    if (length != SuperBlockManager::GetSuperBlockSizeOnDevice()) {
+        return false;
+    }
+    memcpy((void *)buff, (const void*)sb_, SuperBlockManager::SizeOfDBSuperBlock());
     return true;
 }
 
-bool SuperBlockManager::LoadSuperBlockFromDevice(uint64_t offset) {
+bool SuperBlockManager::Set(char* buff, uint64_t length) {
+    if (length != SuperBlockManager::GetSuperBlockSizeOnDevice()) {
+        return false;
+    }
     sb_ = new DBSuperBlock;
-    startOff_ = offset;
-
-    uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
-    if ((uint64_t) bdev_->pRead(sb_, length, offset) != length) {
-        __ERROR("Could not read superblock from device\n");
-        return false;
-    }
-
+    memcpy((void*)sb_, (const void*)buff, SuperBlockManager::SizeOfDBSuperBlock());
     return true;
-}
-
-bool SuperBlockManager::WriteSuperBlockToDevice() {
-    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
-    char *align_buf;
-    posix_memalign((void **)&align_buf, 4096, length);
-    memset(align_buf, 0, length);
-    memcpy((void *)align_buf, (const void*)sb_, SuperBlockManager::SizeOfDBSuperBlock());
-    if ((uint64_t) bdev_->pWrite(align_buf, length, startOff_) != length) {
-        __ERROR("Could not write superblock at position %ld\n", startOff_);
-        free(align_buf);
-        return false;
-    }
-    free(align_buf);
-    return true;
-
-    //uint64_t length = SuperBlockManager::SizeOfDBSuperBlock();
-    //if ((uint64_t) bdev_->pWrite(sb_, length, startOff_) != length) {
-    //    __ERROR("Could not write superblock at position %ld\n", startOff_);
-    //    return false;
-    //}
-    //return true;
 }
 
 void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
@@ -72,8 +47,8 @@ uint64_t SuperBlockManager::GetSuperBlockSizeOnDevice() {
     return (sb_size_pages + 1) * getpagesize();
 }
 
-SuperBlockManager::SuperBlockManager(BlockDevice* bdev, Options &opt) :
-    bdev_(bdev), sb_(NULL), options_(opt), startOff_(0) {
+SuperBlockManager::SuperBlockManager(Options &opt) :
+    sb_(NULL), options_(opt) {
 }
 
 SuperBlockManager::~SuperBlockManager() {
@@ -94,4 +69,5 @@ void SuperBlockManager::SetDataTheorySize(uint64_t size) {
     std::lock_guard < std::mutex > l(mtx_);
     sb_->data_theory_size = size;
 }
+
 } // namespace hlkvds
