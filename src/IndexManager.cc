@@ -7,7 +7,6 @@
 
 #include "IndexManager.h"
 #include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "DataStor.h"
 
@@ -204,7 +203,7 @@ bool IndexManager::Set(char* buff, uint64_t length) {
     char * counter_table_ptr = buf_ptr;
     char * ht_ptr = buf_ptr + counter_table_len;
 
-    int total_entry = 0;
+    uint32_t total_entry = 0;
     uint64_t counter_size = sizeof(int);
     uint64_t entry_ondisk_size = IndexManager::SizeOfHashEntryOnDisk();
 
@@ -422,9 +421,9 @@ uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
     return (index_size_pages + 1) * getpagesize();
 }
 
-IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt) :
+IndexManager::IndexManager(SuperBlockManager* sbm, Options &opt) :
     hashtable_(NULL), htSize_(0), sizeOndisk_(0), keyCounter_(0), dataTheorySize_(0),
-            startOff_(0), bdev_(bdev), sbMgr_(sbm), dataStor_(NULL),
+            sbMgr_(sbm), dataStor_(NULL),
             options_(opt), segRprWQ_(NULL) {
     lastTime_ = new KVTime();
     return;

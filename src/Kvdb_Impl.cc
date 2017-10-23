@@ -143,7 +143,7 @@ KVDS::KVDS(const string& filename, Options opts) :
 
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(options_);
-    idxMgr_ = new IndexManager(bdev_, sbMgr_, options_);
+    idxMgr_ = new IndexManager(sbMgr_, options_);
 
     if(!options_.disable_cache){
         rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);

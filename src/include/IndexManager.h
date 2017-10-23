@@ -19,7 +19,6 @@ using namespace dslab;
 
 namespace hlkvds {
 
-class BlockDevice;
 class SuperBlockManager;
 class KVSlice;
 class SimpleDS_Impl;
@@ -281,7 +280,7 @@ public:
         void StopThds();
         void AddToReaper(SegForReq*);
 
-        IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt);
+        IndexManager(SuperBlockManager* sbm, Options &opt);
         ~IndexManager();
 
         bool IsSameInMem(HashEntry entry);
@@ -314,8 +313,6 @@ public:
         uint64_t sizeOndisk_;
         uint32_t keyCounter_;
         uint64_t dataTheorySize_;
-        uint64_t startOff_;
-        BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
         SimpleDS_Impl* dataStor_;
         Options &options_;

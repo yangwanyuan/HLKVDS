@@ -24,7 +24,7 @@ bool MetaStor::CreateMetaData() {
     uint64_t device_capacity = 0;
     uint64_t data_theory_size = 0;
 
-    uint32_t hash_table_size = options_.hashtable_size;
+    uint32_t hashtable_size = options_.hashtable_size;
 
     uint32_t segment_size = options_.segment_size;
 
@@ -45,7 +45,7 @@ bool MetaStor::CreateMetaData() {
     //device capacity should be larger than size of (sb+index)
     if (device_capacity < db_sb_size) {
         __ERROR("The capacity of device is too small, can't store sb region");
-        return NULL;
+        return false;
     }
 
     sbOff_ = 0;
@@ -56,12 +56,12 @@ bool MetaStor::CreateMetaData() {
     __DEBUG("Init super block region success.");
 
     //Init Index region
-    if (hash_table_size == 0) {
-        hash_table_size = (device_capacity / ALIGNED_SIZE) * 2;
+    if (hashtable_size == 0) {
+        hashtable_size = (device_capacity / ALIGNED_SIZE) * 2;
     }
-    hash_table_size = IndexManager::ComputeHashSizeForPower2(hash_table_size);
+    hashtable_size = IndexManager::ComputeHashSizeForPower2(hashtable_size);
 
-    db_index_size = IndexManager::ComputeIndexSizeOnDevice(hash_table_size);
+    db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
     __DEBUG("index region size; %ld",db_index_size);
 
     //device capacity should be larger than size of (sb+index)
@@ -71,7 +71,7 @@ bool MetaStor::CreateMetaData() {
     }
 
     idxOff_ = db_sb_size;
-    if (!LoadIndexFromDevice(hash_table_size, db_index_size, 1)) {
+    if (!LoadIndexFromDevice(hashtable_size, db_index_size, 1)) {
         return false;
     }
     
@@ -109,7 +109,7 @@ bool MetaStor::CreateMetaData() {
         return false;
     }
 
-    DBSuperBlock sb(MAGIC_NUMBER, hash_table_size, num_entries, segment_size,
+    DBSuperBlock sb(MAGIC_NUMBER, hashtable_size, num_entries, segment_size,
                     number_segments, 0, db_sb_size, db_index_size,
                     db_seg_table_size, db_data_region_size, device_capacity,
                     data_theory_size);
@@ -130,14 +130,14 @@ bool MetaStor::LoadMetaData() {
     }
 
     uint32_t hashtable_size = sbMgr_->GetHTSize();
-    uint64_t db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    uint64_t db_sb_size = sbMgr_->GetSbSize();
+    uint64_t db_index_size = sbMgr_->GetIndexSize();
 
     idxOff_ = sbOff_ + db_sb_size;
-    if(!LoadIndexFromDevice(hashtable_size, sbMgr_->GetIndexSize())) {
+    if(!LoadIndexFromDevice(hashtable_size, db_index_size)) {
        return false;
     }
 
-    uint64_t db_index_size = IndexManager::ComputeIndexSizeOnDevice(hashtable_size);
     sstOff_ = idxOff_ + db_index_size;
     uint32_t segment_size = sbMgr_->GetSegmentSize();
     uint32_t number_segments = sbMgr_->GetSegmentNum();
