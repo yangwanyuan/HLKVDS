@@ -20,7 +20,7 @@ public:
     bool PersistMetaData();
 
     bool LoadSuperBlockFromDevice(int first_create = 0);
-    bool LoadIndexFromDevice();
+    bool LoadIndexFromDevice(uint32_t ht_size, uint64_t index_size, int first_create = 0);
     bool LoadSSTsFromDevice();
 
     bool PersistSuperBlockToDevice();

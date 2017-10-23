@@ -257,10 +257,16 @@ public:
 
         static uint64_t ComputeIndexSizeOnDevice(uint32_t ht_size);
         static uint32_t ComputeHashSizeForPower2(uint32_t number);
+
         bool InitIndexForCreateDB(uint64_t offset, uint32_t numObjects);
 
         bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
         bool WriteIndexToDevice();
+
+        void InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num);
+        void UpdateMetaToSB();
+        bool Get(char* buff, uint64_t length);
+        bool Set(char* buff, uint64_t length);
 
         void InitDataStor(SimpleDS_Impl *ds) { dataStor_ = ds; }
 
@@ -305,7 +311,7 @@ public:
 
     private:
 
-        void initHashTable(uint32_t size);
+        void initHashTable();
         void destroyHashTable();
 
         bool rebuildHashTable(uint64_t offset);
@@ -319,6 +325,7 @@ public:
 
         HashtableSlot *hashtable_;
         uint32_t htSize_;
+        uint64_t sizeOndisk_;
         uint32_t keyCounter_;
         uint64_t dataTheorySize_;
         uint64_t startOff_;

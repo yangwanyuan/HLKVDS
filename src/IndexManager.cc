@@ -132,12 +132,28 @@ bool IndexManager::InitIndexForCreateDB(uint64_t offset, uint32_t numObjects) {
     keyCounter_ = 0;
     startOff_ = offset;
 
-    initHashTable(htSize_);
+    initHashTable();
 
     //Update data theory size from superblock
     dataTheorySize_ = 0;
 
     return true;
+}
+
+void IndexManager::InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num) {
+    htSize_ = ht_size;
+    sizeOndisk_ = ondisk_size;
+    initHashTable();
+
+    //Set dataTheorySize
+    dataTheorySize_ = data_theory_size;
+    keyCounter_ = element_num;
+
+}
+void IndexManager::UpdateMetaToSB() {
+    //Update data theory size to superblock
+    sbMgr_->SetDataTheorySize(dataTheorySize_);
+    sbMgr_->SetElementNum(keyCounter_);
 }
 
 bool IndexManager::LoadIndexFromDevice(uint64_t offset, uint32_t ht_size) {
@@ -205,6 +221,95 @@ bool IndexManager::persistTime(uint64_t offset) {
         __ERROR("Error write timestamp to file\n");
         return false;
     }
+    return true;
+}
+
+bool IndexManager::Get(char* buff, uint64_t length) {
+    if (length != sizeOndisk_) {
+        return false;
+    }
+    char* buf_ptr = buff;
+
+    //Copy TS
+    __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buff));
+    int64_t time_len = KVTime::SizeOf();
+    lastTime_->Update();
+    time_t t = lastTime_->GetTime();
+    memcpy((void *)buf_ptr, (const void*)&t, time_len);
+    buf_ptr += time_len;
+
+    //Copy Counter Table
+    __DEBUG("memcpy Counter at %p, at %ld", (void *)buf_ptr, (int64_t)(buf_ptr-buff));
+    for (uint32_t i = 0; i < htSize_; i++) {
+        int counter = hashtable_[i].entryList_->get_size();
+        memcpy((void *)buf_ptr, (const void*)&counter, sizeof(int));
+        buf_ptr += sizeof(int);
+    }
+
+    //Copy Index
+    __DEBUG("memcpy Index at %p, at %ld", (void *)buf_ptr, (int64_t)(buf_ptr-buff));
+    uint64_t entry_len = IndexManager::SizeOfHashEntryOnDisk();
+    for (uint32_t i = 0; i < htSize_; i++) {
+        int slot_num = hashtable_[i].entryList_->get_size();
+        if (slot_num > 0) {
+            vector<HashEntry> tmp_vec = hashtable_[i].entryList_->get();
+            for (vector<HashEntry>::iterator iter = tmp_vec.begin(); iter != tmp_vec.end(); iter++) {
+                memcpy((void *)buf_ptr, (const void*)&(iter->GetEntryOnDisk()), entry_len);
+                buf_ptr += entry_len;
+            }
+        }
+    }
+
+    __DEBUG("memcpy complete at %p, at %ld", (void *)buf_ptr, (int64_t)(buf_ptr-buff));
+
+    return true;
+}
+
+bool IndexManager::Set(char* buff, uint64_t length) {
+    if (length != sizeOndisk_) {
+        return false;
+    }
+    char* buf_ptr = buff;
+
+    //Set TS
+    int64_t time_len = KVTime::SizeOf();
+    time_t t;
+    memcpy((void *)&t, (const void*)buf_ptr, time_len);
+    lastTime_->SetTime(t);
+    buf_ptr += time_len;
+
+    uint64_t counter_table_len = sizeof(int) * htSize_;
+    char * counter_table_ptr = buf_ptr;
+    char * ht_ptr = buf_ptr + counter_table_len;
+
+    int total_entry = 0;
+    uint64_t counter_size = sizeof(int);
+    uint64_t entry_ondisk_size = IndexManager::SizeOfHashEntryOnDisk();
+
+    for (uint32_t i = 0; i < htSize_; i++) {
+
+        int slot_num = 0;
+        memcpy((void*)&slot_num, (const void *)counter_table_ptr, sizeof(int));
+
+        if (slot_num > 0) {
+            for (int j = 0; j < slot_num; j++) {
+                HashEntryOnDisk entry_ondisk;
+                memcpy((void*)&entry_ondisk, (const void *)ht_ptr, entry_ondisk_size);
+                HashEntry entry(entry_ondisk, *lastTime_, 0);
+                hashtable_[i].entryList_->put(entry);
+                total_entry++;
+                ht_ptr += entry_ondisk_size;
+            }
+        }
+
+        counter_table_ptr += counter_size;
+    }
+
+    if (total_entry != keyCounter_) {
+        __ERROR("The Key Number is conflit between superblock and index!!!!!");
+        return false;
+    }
+
     return true;
 }
 
@@ -396,7 +501,7 @@ uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
 }
 
 IndexManager::IndexManager(BlockDevice* bdev, SuperBlockManager* sbm, Options &opt) :
-    hashtable_(NULL), htSize_(0), keyCounter_(0), dataTheorySize_(0),
+    hashtable_(NULL), htSize_(0), sizeOndisk_(0), keyCounter_(0), dataTheorySize_(0),
             startOff_(0), bdev_(bdev), sbMgr_(sbm), dataStor_(NULL),
             options_(opt), segRprWQ_(NULL) {
     lastTime_ = new KVTime();
@@ -424,7 +529,7 @@ uint32_t IndexManager::ComputeHashSizeForPower2(uint32_t number) {
     return number;
 }
 
-void IndexManager::initHashTable(uint32_t size) {
+void IndexManager::initHashTable() {
     hashtable_ = new HashtableSlot[htSize_];
     return;
 }
@@ -437,7 +542,7 @@ void IndexManager::destroyHashTable() {
 
 bool IndexManager::rebuildHashTable(uint64_t offset) {
     //Init hashtable
-    initHashTable(htSize_);
+    initHashTable();
 
     __DEBUG("initHashTable success");
 
