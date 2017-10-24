@@ -138,8 +138,8 @@ KVDS::~KVDS() {
 
 }
 
-KVDS::KVDS(const string& filename, Options opts) :
-    fileName_(filename), options_(opts), metaStor_(NULL), dataStor_(NULL) {
+KVDS::KVDS(const char* filename, Options opts) :
+    sbMgr_(NULL), idxMgr_(NULL), bdev_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts) {
 
     bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(options_);
@@ -150,7 +150,7 @@ KVDS::KVDS(const string& filename, Options opts) :
     }
 
     dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, idxMgr_);
-    metaStor_ = new MetaStor(filename.c_str(), options_, bdev_, sbMgr_, idxMgr_, dataStor_);
+    metaStor_ = new MetaStor(filename, bdev_, sbMgr_, idxMgr_, dataStor_, options_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,

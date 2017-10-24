@@ -7,7 +7,7 @@
 
 namespace hlkvds {
 
-MetaStor::MetaStor(const char* paths, Options &opt, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds) : paths_(paths), options_(opt), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), dataStor_(ds), sbOff_(-1), idxOff_(-1), sstOff_(-1) {}
+MetaStor::MetaStor(const char* paths, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt) : paths_(paths), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), dataStor_(ds), options_(opt), sbOff_(-1), idxOff_(-1), sstOff_(-1) {}
 
 MetaStor::~MetaStor() {}
 
@@ -20,7 +20,6 @@ bool MetaStor::CreateMetaData() {
     uint64_t db_seg_table_size = 0;
     uint64_t db_meta_size = 0;
     uint64_t db_data_region_size = 0;
-    uint64_t db_size = 0;
     uint64_t device_capacity = 0;
     uint64_t data_theory_size = 0;
 
@@ -36,11 +35,9 @@ bool MetaStor::CreateMetaData() {
     } __DEBUG("Open device success.");
 
     device_capacity = metaDev_->GetDeviceCapacity();
-    __DEBUG("block size; %ld", device_capacity);
 
     //Init Superblock region
     db_sb_size = SuperBlockManager::GetSuperBlockSizeOnDevice();
-    __DEBUG("super block size; %ld",db_sb_size);
 
     //device capacity should be larger than size of (sb+index)
     if (device_capacity < db_sb_size) {
@@ -49,7 +46,7 @@ bool MetaStor::CreateMetaData() {
     }
 
     sbOff_ = 0;
-    if (!LoadSuperBlockFromDevice(1)) {
+    if (!LoadSuperBlock(1)) {
         return false;
     }
 
@@ -71,7 +68,7 @@ bool MetaStor::CreateMetaData() {
     }
 
     idxOff_ = db_sb_size;
-    if (!LoadIndexFromDevice(hashtable_size, db_index_size, 1)) {
+    if (!LoadIndex(hashtable_size, db_index_size, 1)) {
         return false;
     }
     
@@ -91,24 +88,24 @@ bool MetaStor::CreateMetaData() {
     uint64_t segtable_offset = db_sb_size + db_index_size;
 
     sstOff_ = segtable_offset;
-    if (!dataStor_->InitSegmentForCreateDB(sstOff_, segment_size,
-                                             number_segments)) {
+    if (!LoadSSTs(segment_size, number_segments, 1)) {
         __ERROR("Segment region init failed.");
         return false;
     }
 
     __DEBUG("Init segment region success.");
-    db_seg_table_size = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
 
+    //Set zero to device.
+    db_seg_table_size = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
     db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
-    db_data_region_size = dataStor_->GetDataRegionSize();
-    db_size = db_meta_size + db_data_region_size;
 
     r = metaDev_->SetNewDBZero(db_meta_size);
     if (r < 0) {
         return false;
     }
 
+    //Set Superblock
+    db_data_region_size = dataStor_->GetDataRegionSize();
     DBSuperBlock sb(MAGIC_NUMBER, hashtable_size, num_entries, segment_size,
                     number_segments, 0, db_sb_size, db_index_size,
                     db_seg_table_size, db_data_region_size, device_capacity,
@@ -119,31 +116,36 @@ bool MetaStor::CreateMetaData() {
 }
 
 bool MetaStor::LoadMetaData() {
+    //Open Meta Devices
     if (metaDev_->Open(paths_) < 0) {
         __ERROR("Could not open device\n");
         return false;
     }
 
+    //Load SuperBlock
     sbOff_ = 0;
-    if (!LoadSuperBlockFromDevice()) {
+    if (!LoadSuperBlock()) {
+        __ERROR("Load SuperBlock failed.");
         return false;
     }
 
+    //Load Index
     uint32_t hashtable_size = sbMgr_->GetHTSize();
     uint64_t db_sb_size = sbMgr_->GetSbSize();
     uint64_t db_index_size = sbMgr_->GetIndexSize();
 
     idxOff_ = sbOff_ + db_sb_size;
-    if(!LoadIndexFromDevice(hashtable_size, db_index_size)) {
-       return false;
+    if(!LoadIndex(hashtable_size, db_index_size)) {
+        __ERROR("Load Index failed.");
+        return false;
     }
 
+    //Load SST
     sstOff_ = idxOff_ + db_index_size;
     uint32_t segment_size = sbMgr_->GetSegmentSize();
     uint32_t number_segments = sbMgr_->GetSegmentNum();
-    uint32_t current_seg = sbMgr_->GetCurSegmentId();
-    if (!dataStor_->LoadSegmentTableFromDevice(sstOff_, segment_size,
-                                             number_segments, current_seg)) {
+    if (!LoadSSTs(segment_size,number_segments)) {
+        __ERROR("Load SSTs failed.");
         return false;
     }
 
@@ -152,24 +154,28 @@ bool MetaStor::LoadMetaData() {
 
 bool MetaStor::PersistMetaData() {
     if (!PersistIndexToDevice()) {
+        __WARN("Persist Index failed.");
         return false;
     }
 
-    if (!dataStor_->WriteSegmentTableToDevice()) {
+    if (!PersistSSTsToDevice()) {
+        __WARN("Persist SSTs failed.");
         return false;
     }
 
     if (!PersistSuperBlockToDevice()) {
+        __WARN("Persist SB failed.");
         return false;
     }
 
     return true;
 }
 
-bool MetaStor::LoadSuperBlockFromDevice(int first_create){
+bool MetaStor::LoadSuperBlock(int first_create){
     uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
     char *buff = new char[length];
     memset(buff, 0, length);
+
     if (!first_create) {
         if ((uint64_t) metaDev_->pRead(buff, length, sbOff_) != length){
             __ERROR("Could not read superblock from device at %ld\n", sbOff_);
@@ -216,7 +222,7 @@ bool MetaStor::PersistSuperBlockToDevice(){
     return true;
 }
 
-bool MetaStor::LoadIndexFromDevice(uint32_t ht_size, uint64_t index_size, int first_create) {
+bool MetaStor::LoadIndex(uint32_t ht_size, uint64_t index_size, int first_create) {
     if (first_create) {
         idxMgr_->InitMeta(ht_size, index_size, 0, 0);
     }
@@ -274,8 +280,18 @@ bool MetaStor::PersistIndexToDevice() {
     return true;
 }
 
+bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments, int first_create) {
+    if (first_create) {
+        return dataStor_->InitSegmentForCreateDB(sstOff_, segment_size, number_segments);
+    }
+    else {
+        uint32_t current_seg = sbMgr_->GetCurSegmentId();
+        return dataStor_->LoadSegmentTableFromDevice(sstOff_, segment_size,number_segments, current_seg);
+    }
+}
+
 bool MetaStor::PersistSSTsToDevice() {
-    return true;
+    return dataStor_->WriteSegmentTableToDevice();
 }
 
 bool MetaStor::FastRecovery() {

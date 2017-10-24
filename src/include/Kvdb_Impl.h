@@ -52,7 +52,7 @@ public:
     virtual ~KVDS();
 
 private:
-    KVDS(const string& filename, Options opts);
+    KVDS(const char* filename, Options opts);
     Status openDB();
     Status closeDB();
     void startThds();
@@ -65,12 +65,11 @@ private:
 
     dslab::ReadCache* rdCache_;// readcache, rmd160, slru/lru
 
-    string fileName_;
+    MetaStor *metaStor_;
+    SimpleDS_Impl *dataStor_;
 
     Options options_;
 
-    MetaStor *metaStor_;
-    SimpleDS_Impl *dataStor_;
 
 };
 
