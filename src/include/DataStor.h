@@ -58,8 +58,15 @@ public:
     bool SetAllSSTs() override;
 
     void InitSegment();
-    void startThds();
-    void stopThds();
+    void StartThds();
+    void StopThds();
+
+    uint32_t GetReqQueSize() {
+        return (!reqWQ_)? 0 : reqWQ_->Size();
+    }
+    uint32_t GetSegWriteQueSize() {
+        return (!segWteWQ_)? 0 : segWteWQ_->Size();
+    }
     void Do_GC();
 
     // interface for SegmentManager

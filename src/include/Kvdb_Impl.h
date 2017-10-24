@@ -36,19 +36,6 @@ public:
     void ClearReadCache();
     void printDbStates();
 
-    uint32_t getReqQueSize() {
-        //return reqQue_.length();
-        return 0;
-    }
-    uint32_t getSegWriteQueSize() {
-        //return segWriteQue_.length();
-        return 0;
-    }
-    uint32_t getSegReaperQueSize() {
-        //return segReaperQue_.length();
-        return 0;
-    }
-
     virtual ~KVDS();
 
 private:

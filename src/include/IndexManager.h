@@ -278,7 +278,11 @@ public:
 
         void StartThds();
         void StopThds();
+
         void AddToReaper(SegForReq*);
+        int GetSegReaperQueSize() {
+            return (!segRprWQ_)? 0: segRprWQ_->Size();
+        }
 
         IndexManager(SuperBlockManager* sbm, Options &opt);
         ~IndexManager();

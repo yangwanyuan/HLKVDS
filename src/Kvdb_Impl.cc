@@ -75,12 +75,12 @@ void KVDS::printDbStates() {
             "\t Current Segment ID        : %d\n"
             "\t DB Data Theory Size       : %ld Bytes\n"
             "\t Request Queue Size        : %d\n"
-            "\t Segment Reaper Queue Size : %d\n"
-            "\t Segment Write Queue Size  : %d",
+            "\t Segment Write Queue Size  : %d\n"
+            "\t Segment Reaper Queue Size : %d",
             num_entries, free_segment,
             sbMgr_->GetCurSegmentId(),
-            sbMgr_->GetDataTheorySize(), getReqQueSize(),
-            getSegReaperQueSize(), getSegWriteQueSize());
+            sbMgr_->GetDataTheorySize(), dataStor_->GetReqQueSize(),
+            dataStor_->GetSegWriteQueSize(), idxMgr_->GetSegReaperQueSize());
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
@@ -118,11 +118,13 @@ Status KVDS::closeDB() {
 }
 
 void KVDS::startThds() {
-    dataStor_->startThds();
+    idxMgr_->StartThds();
+    dataStor_->StartThds();
 }
 
 void KVDS::stopThds() {
-    dataStor_->stopThds();
+    dataStor_->StopThds();
+    idxMgr_->StopThds();
 }
 
 KVDS::~KVDS() {

@@ -57,6 +57,12 @@ public:
     void _void_process(T* p) {
         _process(static_cast<T*>(p));
     }
+
+    int Size() {
+        std::lock_guard < std::mutex > lck(mtx_);
+        return dataQueue_.size();
+    }
+
 protected:
     virtual void _process(T* p) = 0;
 

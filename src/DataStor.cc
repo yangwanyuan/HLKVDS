@@ -141,7 +141,7 @@ void SimpleDS_Impl::InitSegment() {
     seg_ = new SegForReq(this, idxMgr_, bdev_, options_.expired_time);
 }
 
-void SimpleDS_Impl::startThds() {
+void SimpleDS_Impl::StartThds() {
     reqWQ_ = new ReqsMergeWQ(this, 1);
     reqWQ_->Start();
 
@@ -151,17 +151,13 @@ void SimpleDS_Impl::startThds() {
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&SimpleDS_Impl::SegTimeoutThdEntry, this);
 
-    idxMgr_->StartThds();
-
     gcT_stop_.store(false);
     gcT_ = std::thread(&SimpleDS_Impl::GCThdEntry, this);
 }
 
-void SimpleDS_Impl::stopThds() {
+void SimpleDS_Impl::StopThds() {
     gcT_stop_.store(true);
     gcT_.join();
-
-    idxMgr_->StopThds();
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
