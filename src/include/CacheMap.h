@@ -5,9 +5,8 @@
 #include <vector>
 #include <unordered_map>
 #include "Db_Structure.h"
-using namespace std;
-namespace dslab{
 
+namespace dslab{
 
 template <class K, class D>
 class CacheMap{

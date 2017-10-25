@@ -14,6 +14,8 @@
 #include "KernelDevice.h"
 #include "Db_Structure.h"
 
+using namespace std;
+
 namespace hlkvds {
 KernelDevice::KernelDevice() :
     directFd_(-1), bufFd_(-1), capacity_(0), blockSize_(0), path_("") {

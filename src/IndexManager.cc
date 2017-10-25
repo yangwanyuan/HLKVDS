@@ -10,6 +10,8 @@
 #include "SuperBlockManager.h"
 #include "DataStor.h"
 
+using namespace std;
+
 namespace hlkvds {
 
 DataHeader::DataHeader() :

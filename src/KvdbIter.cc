@@ -4,6 +4,8 @@
 #include "BlockDevice.h"
 #include "Db_Structure.h"
 
+using namespace std;
+
 namespace hlkvds {
 
 KvdbIter::KvdbIter(IndexManager* im, SimpleDS_Impl* ds, BlockDevice* bdev) :

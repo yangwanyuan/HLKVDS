@@ -6,8 +6,6 @@
 #include "hlkvds/Options.h"
 #include "Utils.h"
 
-using namespace std;
-
 namespace hlkvds {
 
 class SuperBlockManager;

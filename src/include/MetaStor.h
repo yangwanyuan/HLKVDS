@@ -5,7 +5,6 @@
 
 #include "hlkvds/Options.h"
 
-using namespace std;
 namespace hlkvds {
 
 class BlockDevice;

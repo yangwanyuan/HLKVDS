@@ -9,8 +9,6 @@
 #include "hlkvds/Options.h"
 #include "Utils.h"
 
-using namespace std;
-
 namespace hlkvds {
 
 class DataHeader;
@@ -136,7 +134,7 @@ public:
     ~SegmentManager();
 
 private:
-    vector<SegmentStat> segTable_;
+    std::vector<SegmentStat> segTable_;
     uint64_t startOff_;
     uint64_t dataStartOff_;
     uint64_t dataEndOff_;

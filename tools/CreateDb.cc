@@ -5,6 +5,7 @@
 #include "hlkvds/Options.h"
 
 using namespace hlkvds;
+using namespace std;
 
 void CreateExample(string filename) {
 

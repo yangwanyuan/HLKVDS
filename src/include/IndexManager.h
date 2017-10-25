@@ -14,9 +14,6 @@
 #include "Segment.h"
 #include "WorkQueue.h"
 
-using namespace std;
-using namespace dslab;
-
 namespace hlkvds {
 
 class SuperBlockManager;
@@ -265,7 +262,7 @@ public:
         void InitDataStor(SimpleDS_Impl *ds) { dataStor_ = ds; }
 
         bool UpdateIndex(KVSlice* slice);
-        void UpdateIndexes(list<KVSlice*> &slice_list);
+        void UpdateIndexes(std::list<KVSlice*> &slice_list);
         bool GetHashEntry(KVSlice *slice);
         void RemoveEntry(HashEntry entry);
 
@@ -327,9 +324,9 @@ public:
 
     // Seg Reaper thread
     private:
-    class SegmentReaperWQ : public WorkQueue<SegForReq> {
+    class SegmentReaperWQ : public dslab::WorkQueue<SegForReq> {
         public:
-            explicit SegmentReaperWQ(IndexManager *im, int thd_num=1) : WorkQueue<SegForReq>(thd_num), idxMgr_(im) {}
+            explicit SegmentReaperWQ(IndexManager *im, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), idxMgr_(im) {}
 
         protected:
             void _process(SegForReq* seg) override {

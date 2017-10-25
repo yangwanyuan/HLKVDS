@@ -2,6 +2,8 @@
 #include <iostream>
 #include "test_base.h"
 
+using namespace std;
+
 class test_readcache : public TestBase {
 public:
     dslab::ReadCache* SLRUCache_;

@@ -14,7 +14,6 @@
 using namespace std;
 using namespace hlkvds;
 
-
 void Open_DB_Test(string filename) {
 
     Options opts;

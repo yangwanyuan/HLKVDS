@@ -8,8 +8,6 @@
 
 #include "ReadCache.h"
 
-using namespace std;
-
 namespace hlkvds {
 
 class BlockDevice;
@@ -25,7 +23,7 @@ public:
 
     Status Insert(const char* key, uint32_t key_len, const char* data,
                   uint16_t length);
-    Status Get(const char* key, uint32_t key_len, string &data);
+    Status Get(const char* key, uint32_t key_len, std::string &data);
     Status Delete(const char* key, uint32_t key_len);
 
     Status InsertBatch(WriteBatch *batch);

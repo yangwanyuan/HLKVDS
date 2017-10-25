@@ -13,8 +13,6 @@
 #include "Db_Structure.h"
 #include "Utils.h"
 
-using namespace std;
-
 namespace hlkvds {
 
 class BlockDevice;
@@ -49,8 +47,8 @@ public:
         return data_;
     }
 
-    string GetKeyStr() const;
-    string GetDataStr() const;
+    std::string GetKeyStr() const;
+    std::string GetDataStr() const;
 
     uint16_t GetKeyLen() const {
         return keyLength_;

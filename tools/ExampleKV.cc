@@ -6,6 +6,9 @@
 
 #define TEST_RECORD_NUM 1
 
+using namespace hlkvds;
+using namespace std;
+
 void Get(hlkvds::DB *db) {
     int key_len;
     for (int index = 0; index < TEST_RECORD_NUM; index++) {

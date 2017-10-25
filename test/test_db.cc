@@ -3,6 +3,8 @@
 #include "test_base.h"
 #include "Utils.h"
 
+using namespace std;
+
 class TestDb : public TestBase {
 public:
     string path = FILENAME;

@@ -6,6 +6,8 @@
 #include "Segment.h"
 #include "SegmentManager.h"
 
+using namespace std;
+
 namespace hlkvds {
 GcManager::~GcManager() {
     if (dataBuf_) {

@@ -13,9 +13,6 @@
 #include "Segment.h"
 #include "WorkQueue.h"
 
-using namespace std;
-using namespace dslab;
-
 namespace hlkvds {
 
 class KVSlice;
@@ -34,7 +31,7 @@ class DataStor {
 public:
     virtual Status WriteData(KVSlice& slice) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
-    virtual Status ReadData(KVSlice &slice, string &data) = 0;
+    virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
     virtual bool UpdateSST() = 0;
     virtual bool GetAllSSTs() = 0;
     virtual bool SetAllSSTs() = 0;
@@ -51,7 +48,7 @@ public:
     ~SimpleDS_Impl();
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
-    Status ReadData(KVSlice &slice, string &data) override;
+    Status ReadData(KVSlice &slice, std::string &data) override;
 
     bool UpdateSST() override;
     bool GetAllSSTs() override;
@@ -130,13 +127,13 @@ public:
 
     GcManager* gcMgr_;
     SegForReq *seg_;
-    mutex segMtx_;
+    std::mutex segMtx_;
 
     // Request Merge thread
 private:
-    class ReqsMergeWQ : public WorkQueue<Request> {
+    class ReqsMergeWQ : public dslab::WorkQueue<Request> {
     public:
-        explicit ReqsMergeWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue<Request>(thd_num), ds_(ds) {}
+        explicit ReqsMergeWQ(SimpleDS_Impl *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
 
     protected:
         void _process(Request* req) override {
@@ -150,9 +147,9 @@ private:
 
     // Seg Write to device thread
 private:
-    class SegmentWriteWQ : public WorkQueue<SegForReq> {
+    class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
     public:
-        explicit SegmentWriteWQ(SimpleDS_Impl *ds, int thd_num=1) : WorkQueue<SegForReq>(thd_num), ds_(ds) {}
+        explicit SegmentWriteWQ(SimpleDS_Impl *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
 
     protected:
         void _process(SegForReq* seg) override {

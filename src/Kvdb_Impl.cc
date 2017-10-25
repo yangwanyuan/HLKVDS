@@ -9,6 +9,9 @@
 #include "MetaStor.h"
 #include "DataStor.h"
 
+using namespace std;
+using namespace dslab;
+
 namespace hlkvds {
 
 KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
@@ -148,7 +151,7 @@ KVDS::KVDS(const char* filename, Options opts) :
     idxMgr_ = new IndexManager(sbMgr_, options_);
 
     if(!options_.disable_cache){
-        rdCache_ = new dslab::ReadCache(dslab::CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
+        rdCache_ = new ReadCache(CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
 
     dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, idxMgr_);

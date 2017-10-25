@@ -5,6 +5,8 @@
 #include "GcManager.h"
 #include "SegmentManager.h"
 
+using namespace std;
+
 namespace hlkvds {
 
 //DataStor* DataStor::Create() {

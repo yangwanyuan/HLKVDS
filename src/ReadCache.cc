@@ -1,4 +1,7 @@
 #include "ReadCache.h"
+
+using namespace std;
+
 namespace dslab{
 ReadCache::ReadCache(CachePolicy policy, size_t cache_size, int percent){
 	cache_map = CacheMap<string,string>::create(policy, cache_size, cache_size*(100-percent)/100);

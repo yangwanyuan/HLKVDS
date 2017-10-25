@@ -11,6 +11,8 @@
 #include "DataStor.h"
 #include "BlockDevice.h"
 
+using namespace std;
+
 namespace hlkvds {
 
 KVSlice::KVSlice() :
