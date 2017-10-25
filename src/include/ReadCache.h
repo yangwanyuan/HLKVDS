@@ -9,6 +9,7 @@
 #include "KeyDigestHandle.h"
 
 namespace dslab{
+
 typedef boost::shared_mutex smutex;
 typedef boost::unique_lock< smutex > WriteLock;
 typedef boost::shared_lock< smutex > ReadLock;

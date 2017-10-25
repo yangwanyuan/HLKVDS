@@ -2,17 +2,13 @@
 #define _HLKVDS_DB_STRUCTURE_H_
 
 #include <stdint.h>
-namespace dslab{
 
-enum CachePolicy {LRU, SLRU};
-
-}
 namespace hlkvds {
 #define MAGIC_NUMBER 0xffff0001
 
 #define DISABLE_CACHE 1
 #define CACHE_SIZE 1024
-#define CACHE_POLICY dslab::SLRU
+#define CACHE_POLICY 1 // 0:LRU 1:SLRU
 #define SLRU_PARTITION 50
 
 #define SEG_RESERVED_FOR_GC 2
