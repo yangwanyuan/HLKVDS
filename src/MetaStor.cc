@@ -64,7 +64,7 @@ bool MetaStor::CreateMetaData() {
     //device capacity should be larger than size of (sb+index)
     if (device_capacity < (db_sb_size + db_index_size)) {
         __ERROR("The capacity of device is too small, can't store index region");
-        return NULL;
+        return false;
     }
 
     idxOff_ = db_sb_size;
