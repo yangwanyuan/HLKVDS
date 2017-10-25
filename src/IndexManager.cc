@@ -467,8 +467,10 @@ void IndexManager::StartThds(){
 }
 
 void IndexManager::StopThds(){
-    segRprWQ_->Stop();
-    delete segRprWQ_;
+    if (segRprWQ_) {
+        segRprWQ_->Stop();
+        delete segRprWQ_;
+    }
 }
 
 void IndexManager::SegReaper(SegForReq *seg) {

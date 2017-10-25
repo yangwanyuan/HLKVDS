@@ -162,11 +162,15 @@ void SimpleDS_Impl::StopThds() {
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
 
-    reqWQ_->Stop();
-    delete reqWQ_;
+    if (reqWQ_) {
+        reqWQ_->Stop();
+        delete reqWQ_;
+    }
 
-    segWteWQ_->Stop();
-    delete segWteWQ_;
+    if (segWteWQ_) {
+        segWteWQ_->Stop();
+        delete segWteWQ_;
+    }
 }
 
 ////////////////////////////////////////////////////
