@@ -104,47 +104,47 @@ public:
 
     void SetSuperBlock(DBSuperBlock& sb);
     const DBSuperBlock& GetSuperBlock() const {
-        return *sb_;
+        return sb_;
     }
 
     bool IsElementFull() const {
-        return sb_->number_elements == sb_->hashtable_size;
+        return sb_.number_elements == sb_.hashtable_size;
     }
     uint32_t GetMagic() const {
-        return sb_->magic_number;
+        return sb_.magic_number;
     }
     uint32_t GetHTSize() const {
-        return sb_->hashtable_size;
+        return sb_.hashtable_size;
     }
     uint32_t GetElementNum() const {
-        return sb_->number_elements;
+        return sb_.number_elements;
     }
     uint32_t GetSegmentSize() const {
-        return sb_->segment_size;
+        return sb_.segment_size;
     }
     uint32_t GetSegmentNum() const {
-        return sb_->number_segments;
+        return sb_.number_segments;
     }
     uint32_t GetCurSegmentId() const {
-        return sb_->current_segment;
+        return sb_.current_segment;
     }
     uint64_t GetSbSize() const {
-        return sb_->db_sb_size;
+        return sb_.db_sb_size;
     }
     uint64_t GetIndexSize() const {
-        return sb_->db_index_size;
+        return sb_.db_index_size;
     }
     uint64_t GetSegTableSize() const {
-        return sb_->db_seg_table_size;
+        return sb_.db_seg_table_size;
     }
     uint64_t GetDataRegionSize() const {
-        return sb_->db_data_region_size;
+        return sb_.db_data_region_size;
     }
     uint64_t GetDeviceCapacity() const {
-        return sb_->device_capacity;
+        return sb_.device_capacity;
     }
     uint64_t GetDataTheorySize() const {
-        return sb_->data_theory_size;
+        return sb_.data_theory_size;
     }
 
     void SetElementNum(uint32_t num);
@@ -155,11 +155,9 @@ public:
     ~SuperBlockManager();
 
 private:
-    DBSuperBlock* sb_;
+    DBSuperBlock sb_;
 
     Options &options_;
-
-    uint64_t startOff_;
 
     std::mutex mtx_;
 
