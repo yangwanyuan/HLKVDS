@@ -1,10 +1,11 @@
 #include <string>
 #include <iostream>
 #include "test_base.h"
+#include "Utils.h"
 
 class TestDb : public TestBase {
 public:
-    string path="/dev/loop2";
+    string path = FILENAME;
     double insert(KVDS *db) {
         //insert something
         string test_key = "test_key";
@@ -61,7 +62,7 @@ TEST_F(TestDb, readinopen)
 TEST_F(TestDb,uninitializeBlockDevice)
 {
 
-    KVDS *db = KVDS::Create_KVDS("/dev/loop3", opts);
+    KVDS *db = KVDS::Create_KVDS("NonExistentFile", opts);
 
     EXPECT_EQ(NULL,db);
 }
@@ -106,7 +107,7 @@ TEST_F(TestDb,zerosegmentsize)
 TEST_F(TestDb,zerohashtablesize)
 {
     opts.hashtable_size=0;
-    string path="/dev/loop2";
+    string path = FILENAME;
     KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_FALSE(NULL==db);
@@ -117,7 +118,7 @@ TEST_F(TestDb,zerohashtablesize)
 TEST_F(TestDb,zeroexpiretime)
 {
     opts.expired_time=0;
-    string path="/dev/loop2";
+    string path = FILENAME;
     KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_FALSE(NULL==db);
@@ -132,7 +133,7 @@ TEST_F(TestDb,zeroexpiretime)
 TEST_F(TestDb,expiretime)
 {
     opts.expired_time=10000; // 10ms
-    string path="/dev/loop2";
+    string path = FILENAME;
     KVDS *db = KVDS::Create_KVDS(path.c_str(), opts);
 
     EXPECT_FALSE(NULL==db);

@@ -2,7 +2,7 @@
 #include <iostream>
 #include "test_base.h"
 
-class IndexManagerTest : public TestBase {
+class test_datastor : public TestBase {
 public:
     Options opts;
 
@@ -10,9 +10,7 @@ public:
     }
 };
 
-TEST_F(IndexManagerTest, ComputeIndexSizeOnDevice)
-{
-
+TEST_F(test_datastor, TestDataStor) {
 }
 
 int main(int argc, char **argv) {

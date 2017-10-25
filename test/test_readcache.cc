@@ -2,7 +2,7 @@
 #include <iostream>
 #include "test_base.h"
 
-class test_cache : public TestBase {
+class test_readcache : public TestBase {
 public:
     dslab::ReadCache* SLRUCache_;
     dslab::ReadCache* LRUCache_;
@@ -11,13 +11,13 @@ public:
         SLRUCache_ = new dslab::ReadCache(dslab::SLRU, 4, 50);
         LRUCache_ = new dslab::ReadCache(dslab::LRU, 2,0);
     }
-    ~test_cache(){
+    ~test_readcache(){
 	delete SLRUCache_;
 	delete LRUCache_;
     }
 };
 
-TEST_F(test_cache, SLRUOperations){
+TEST_F(test_readcache, SLRUOperations){
     string data = "";
     SLRUCache_->Put("1",">");
     SLRUCache_->Put("2","`");
@@ -33,7 +33,7 @@ TEST_F(test_cache, SLRUOperations){
     EXPECT_FALSE(SLRUCache_->Get("3",data));
 }
 
-TEST_F(test_cache, LRUOperations){
+TEST_F(test_readcache, LRUOperations){
     string data = "";
     LRUCache_->Put("1",">");
     LRUCache_->Put("2","`");

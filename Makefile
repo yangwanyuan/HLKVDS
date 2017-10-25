@@ -35,16 +35,18 @@ TOOLS_LIST = \
 
 SHARED_LIB = ${SRC_DIR}/libhlkvds.so
 
-TESTS_LIST =  ${TEST_DIR}/test_block_manager \
-	    ${TEST_DIR}/test_index_manager \
-	    ${TEST_DIR}/test_operations \
-	    ${TEST_DIR}/test_rmd \
-	    ${TEST_DIR}/test_segment_manager \
-	    ${TEST_DIR}/test_db \
-	    ${TEST_DIR}/test_status\
-		${TEST_DIR}/test_batch\
-		${TEST_DIR}/test_iterator\
-		${TEST_DIR}/test_cache
+TESTS_LIST = \
+		${TEST_DIR}/test_rmd \
+		${TEST_DIR}/test_db \
+		${TEST_DIR}/test_operations \
+		${TEST_DIR}/test_batch \
+		${TEST_DIR}/test_iterator \
+		${TEST_DIR}/test_status \
+		${TEST_DIR}/test_superblock_manager \
+		${TEST_DIR}/test_index_manager \
+		${TEST_DIR}/test_metastor \
+		${TEST_DIR}/test_datastor \
+		${TEST_DIR}/test_readcache
 
 PROGNAME := ${TOOLS_LIST} ${SHARED_LIB}
 
@@ -81,23 +83,25 @@ ${TOOLS_DIR}/LoadDB: ${TOOLS_DIR}/LoadDB.cc ${COMMON_OBJECTS}
 
 ${TEST_DIR}/test_rmd: ${TEST_DIR}/test_rmd.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-${TEST_DIR}/test_block_manager: ${TEST_DIR}/test_block_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-${TEST_DIR}/test_index_manager: ${TEST_DIR}/test_index_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-${TEST_DIR}/test_operations: ${TEST_DIR}/test_operations.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-${TEST_DIR}/test_segment_manager: ${TEST_DIR}/test_segment_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
-	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 ${TEST_DIR}/test_db: ${TEST_DIR}/test_db.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-${TEST_DIR}/test_status: ${TEST_DIR}/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_operations: ${TEST_DIR}/test_operations.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 ${TEST_DIR}/test_batch: ${TEST_DIR}/test_batch.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 ${TEST_DIR}/test_iterator: ${TEST_DIR}/test_iterator.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
-${TEST_DIR}/test_cache: ${TEST_DIR}/test_cache.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+${TEST_DIR}/test_status: ${TEST_DIR}/test_status.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_superblock_manager: ${TEST_DIR}/test_superblock_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_index_manager: ${TEST_DIR}/test_index_manager.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_metastor: ${TEST_DIR}/test_metastor.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_datastor: ${TEST_DIR}/test_datastor.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_readcache: ${TEST_DIR}/test_readcache.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 
 .PHONY : clean
