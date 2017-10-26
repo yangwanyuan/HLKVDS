@@ -31,18 +31,18 @@ int KernelDevice::SetNewDBZero(off_t meta_size, bool clear_data_region) {
     int r = set_metazone_zero(meta_size);
     if (r < 0) {
         __ERROR("couldn't set metazone zero");
-        return ERR;
+        return KD_ERR;
     }
 
     if (clear_data_region) {
         r = set_device_zero();
         if (r < 0) {
             __ERROR("couldn't set device zero");
-            return ERR;
+            return KD_ERR;
         }
     }
 
-    return FOK;
+    return KD_OK;
 }
 
 int KernelDevice::set_device_zero() {
@@ -52,10 +52,10 @@ int KernelDevice::set_device_zero() {
     r = fill_file_with_zeros();
     if (r < 0) {
         __ERROR("Could not zero out DB file.\n");
-        return ERR;
+        return KD_ERR;
     }
 
-    return FOK;
+    return KD_OK;
 }
 
 int KernelDevice::set_metazone_zero(uint64_t meta_size) {
@@ -69,11 +69,11 @@ int KernelDevice::set_metazone_zero(uint64_t meta_size) {
         ssize_t ret = write(bufFd_, zeros, bytes_to_write);
         if (ret < 0) {
             __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
-            return ERR;
+            return KD_ERR;
         }
         nbytes -= bytes_to_write;
     }
-    return FOK;
+    return KD_OK;
 }
 
 int KernelDevice::fill_file_with_zeros() {
@@ -87,18 +87,18 @@ int KernelDevice::fill_file_with_zeros() {
         ssize_t ret = write(bufFd_, zeros, bytes_to_write);
         if (ret < 0) {
             __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
-            return ERR;
+            return KD_ERR;
         }
         nbytes -= bytes_to_write;
     }
-    return FOK;
+    return KD_OK;
 }
 
 uint64_t KernelDevice::get_block_device_capacity() {
     uint64_t blocksize;
     if (ioctl(bufFd_, BLKGETSIZE64, &blocksize) < 0) {
         __ERROR("Could not get block size: %s\n", strerror(errno));
-        return ERR;
+        return KD_ERR;
     }
 
     return blocksize;
@@ -148,12 +148,12 @@ int KernelDevice::Open(string path, bool dsync) {
         //TODO:() dynamic block size in file mode
         blockSize_ = 4096;
     }
-    return FOK;
+    return KD_OK;
     open_fail: close(bufFd_);
     close(directFd_);
     directFd_ = -1;
     bufFd_ = -1;
-    return ERR;
+    return KD_ERR;
 
 }
 

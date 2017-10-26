@@ -73,22 +73,6 @@ namespace hlkvds {
 #define __ERROR(x...)
 #endif
 
-#define FOK 0
-#define ERR (-1)
-
-typedef uint16_t U16;
-typedef uint32_t U32;
-typedef uint64_t U64;
-typedef int16_t S16;
-typedef int32_t S32;
-typedef int64_t S64;
-
-enum struct OpType {
-    UNKOWN,
-    INSERT,
-    UPDATE,
-    DELETE
-};
 } // namespace hlkvds
 
 #endif  // #define _HLKVDS_DB_STRUCTURE_H_

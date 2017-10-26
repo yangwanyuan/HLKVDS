@@ -6,6 +6,9 @@
 
 #include "BlockDevice.h"
 
+#define KD_OK 0
+#define KD_ERR (-1)
+
 namespace hlkvds {
 
 class KernelDevice : public BlockDevice {
