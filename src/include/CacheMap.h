@@ -4,10 +4,10 @@
 #include <iostream>
 #include <vector>
 #include <unordered_map>
-#include "Db_Structure.h"
-using namespace std;
-namespace dslab{
 
+namespace dslab {
+
+enum CachePolicy { LRU, SLRU };
 
 template <class K, class D>
 class CacheMap{
@@ -21,9 +21,12 @@ public:
 
 };
 }
+
 #include "LRUMap.h"
 #include "SLRUMap.h"
-namespace dslab{
+
+namespace dslab {
+
 template <class K, class D>
 CacheMap<K, D> *CacheMap<K, D>::create(CachePolicy policy, size_t cache_size, size_t probation){
 	if(policy == LRU){

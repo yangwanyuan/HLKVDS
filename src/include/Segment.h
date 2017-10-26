@@ -9,23 +9,19 @@
 #include <condition_variable>
 #include <atomic>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "KeyDigestHandle.h"
-#include "IndexManager.h"
-#include "SuperBlockManager.h"
-#include "SegmentManager.h"
-
-using namespace std;
+#include "Db_Structure.h"
+#include "Utils.h"
 
 namespace hlkvds {
 
+class BlockDevice;
 class SegmentOnDisk;
 class DataHeader;
 class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
-class SegmentManager;
+class SimpleDS_Impl;
 class SegForReq;
 
 class KVSlice {
@@ -51,8 +47,8 @@ public:
         return data_;
     }
 
-    string GetKeyStr() const;
-    string GetDataStr() const;
+    std::string GetKeyStr() const;
+    std::string GetDataStr() const;
 
     uint16_t GetKeyLen() const {
         return keyLength_;
@@ -145,7 +141,7 @@ public:
     ~SegBase();
     SegBase(const SegBase& toBeCopied);
     SegBase& operator=(const SegBase& toBeCopied);
-    SegBase(SegmentManager* sm, BlockDevice* bdev);
+    SegBase(SimpleDS_Impl *ds, BlockDevice* bdev);
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
@@ -178,7 +174,7 @@ private:
 
 private:
     int32_t segId_;
-    SegmentManager* segMgr_;
+    SimpleDS_Impl* dataStor_;
     BlockDevice* bdev_;
     int32_t segSize_;
     KVTime persistTime_;
@@ -202,7 +198,7 @@ public:
     SegForReq(const SegForReq& toBeCopied);
     SegForReq& operator=(const SegForReq& toBeCopied);
 
-    SegForReq(SegmentManager* sm, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+    SegForReq(SimpleDS_Impl* ds, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
 
     bool TryPut(Request* req);
     void Put(Request* req);
@@ -239,7 +235,7 @@ public:
     SegForSlice(const SegForSlice& toBeCopied);
     SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-    SegForSlice(SegmentManager* sm, IndexManager* im, BlockDevice* bdev);
+    SegForSlice(SimpleDS_Impl* ds, IndexManager* im, BlockDevice* bdev);
 
     void UpdateToIndex();
 private:

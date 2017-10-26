@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <vector>
 
-using namespace std;
 namespace hlkvds {
 
 template<typename T>
@@ -36,7 +35,7 @@ public:
     bool remove(T& toBeRemoved);
 
     T* getRef(T toBeGeted);
-    vector<T> get();
+    std::vector<T> get();
     int get_size() {
         return size_;
     }
@@ -194,8 +193,8 @@ T* LinkedList<T>::getRef(T toBeGeted) {
 }
 
 template<typename T>
-vector<T> LinkedList<T>::get() {
-    vector<T> tempVector;
+std::vector<T> LinkedList<T>::get() {
+    std::vector<T> tempVector;
     if (head_ != NULL) {
         Node<T>* tempNode = head_;
         while (tempNode != NULL) {

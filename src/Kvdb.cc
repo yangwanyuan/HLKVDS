@@ -1,6 +1,8 @@
 #include "hlkvds/Kvdb.h"
 #include "Kvdb_Impl.h"
 
+using namespace std;
+
 namespace hlkvds {
 
 DB* DB::instance_ = NULL;

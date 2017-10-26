@@ -8,6 +8,7 @@
 namespace hlkvds {
 
 class KVDS;
+class SimpleDS_Impl;
 class KVSlice;
 
 class WriteBatch {
@@ -23,6 +24,7 @@ public:
 private:
     std::list<KVSlice *> batch_;
     friend class KVDS;
+    friend class SimpleDS_Impl;
 };
 
 } // namespace hlkvds

@@ -9,6 +9,7 @@
 #include <vector>
 #include <algorithm>
 #include "Kvdb_Impl.h"
+#include "Utils.h"
 #include "hlkvds/Options.h"
 
 #define SEG_UNIT_SIZE 1024
@@ -116,7 +117,7 @@ private:
 };
 
 void usage() {
-    cout << "Usage: ./Benchmark write|overwrite|read -f dbfile -s db_size \
+    cout << "Usage: ./Benchmark create|write|overwrite|read -f dbfile -s db_size \
 -n num_records -t thread_num -seg segment_size(KB)" << endl;
 }
 

@@ -2,21 +2,15 @@
 #define _HLKVDS_DB_STRUCTURE_H_
 
 #include <stdint.h>
-namespace dslab{
 
-enum CachePolicy {LRU, SLRU};
-
-}
 namespace hlkvds {
 #define MAGIC_NUMBER 0xffff0001
 
 #define DISABLE_CACHE 1
 #define CACHE_SIZE 1024
-#define CACHE_POLICY dslab::SLRU
+#define CACHE_POLICY 1 // 0:LRU 1:SLRU
 #define SLRU_PARTITION 50
 
-#define RMDsize 160
-#define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 #define SEG_RESERVED_FOR_GC 2
 
 //default Options
@@ -79,22 +73,6 @@ namespace hlkvds {
 #define __ERROR(x...)
 #endif
 
-#define FOK 0
-#define ERR (-1)
-
-typedef uint16_t U16;
-typedef uint32_t U32;
-typedef uint64_t U64;
-typedef int16_t S16;
-typedef int32_t S32;
-typedef int64_t S64;
-
-enum struct OpType {
-    UNKOWN,
-    INSERT,
-    UPDATE,
-    DELETE
-};
 } // namespace hlkvds
 
 #endif  // #define _HLKVDS_DB_STRUCTURE_H_

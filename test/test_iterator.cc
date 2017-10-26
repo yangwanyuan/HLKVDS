@@ -1,5 +1,7 @@
 #include "test_base.h"
 
+using namespace std;
+
 class TestIterator : public TestBase {
 public:
     int db_size = 100;

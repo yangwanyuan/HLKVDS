@@ -2,6 +2,7 @@
 #define _HLKVDS_STATUS_H_
 
 #include <string>
+
 namespace hlkvds {
 
 class Status {

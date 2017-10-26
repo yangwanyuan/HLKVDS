@@ -7,7 +7,9 @@
 #include <boost/thread/shared_mutex.hpp>
 #include "CacheMap.h"
 #include "KeyDigestHandle.h"
+
 namespace dslab{
+
 typedef boost::shared_mutex smutex;
 typedef boost::unique_lock< smutex > WriteLock;
 typedef boost::shared_lock< smutex > ReadLock;
@@ -16,13 +18,13 @@ class ReadCache{
 	public:
 		ReadCache(CachePolicy policy, size_t cache_size = 1024, int percent = 50);
 		~ReadCache();
-		void Put(string key, string value);
-		bool Get(string key, string& value);
-		void Delete(string key);
+		void Put(std::string key, std::string value);
+		bool Get(std::string key, std::string& value);
+		void Delete(std::string key);
 	private:
-		CacheMap<string, string>* cache_map;//map<footprint,value>
-		map<string,string> dedup_map;//map<key,footprint>
-		multimap<string, string> refer_map;//<footprint,keys>
+		CacheMap<std::string, std::string>* cache_map;//map<footprint,value>
+        std::map<std::string, std::string> dedup_map;//map<key,footprint>
+        std::multimap<std::string, std::string> refer_map;//<footprint,keys>
 		hlkvds::KeyDigestHandle *em;//input digest to footprint
 		smutex myLock;
 };

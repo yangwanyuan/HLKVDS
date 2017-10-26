@@ -9,10 +9,6 @@
 using namespace std;
 using namespace hlkvds;
 
-//#define FILENAME  "0000_db"
-//#define FILENAME  "/dev/loop0"
-#define FILENAME  "/dev/sdb2"
-
 void Create_DB_Test(string filename) {
 
     int record_num = 10;
@@ -140,7 +136,7 @@ void Open_DB_Test(string filename) {
 }
 
 int main(int argc, char** argv) {
-    string filename = FILENAME;
+    string filename = argv[1];
 
     Create_DB_Test(filename);
     Open_DB_Test(filename);

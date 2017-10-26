@@ -6,6 +6,9 @@
 
 #include "BlockDevice.h"
 
+#define KD_OK 0
+#define KD_ERR (-1)
+
 namespace hlkvds {
 
 class KernelDevice : public BlockDevice {
@@ -14,7 +17,7 @@ public:
     virtual ~KernelDevice();
 
     int SetNewDBZero(off_t meta_size, bool clear_data_region);
-    int Open(string path, bool dsync);
+    int Open(std::string path, bool dsync);
     void Close();
     void ClearReadCache();
 

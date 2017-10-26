@@ -5,9 +5,6 @@
 #include <stdint.h>
 #include <sys/uio.h>
 #include <string>
-#include "Db_Structure.h"
-
-using namespace std;
 
 namespace hlkvds {
 class BlockDevice {
@@ -21,7 +18,7 @@ public:
 
     virtual int
             SetNewDBZero(off_t meta_size, bool clear_data_region = false) = 0;
-    virtual int Open(string path, bool dsync = true) = 0;
+    virtual int Open(std::string path, bool dsync = true) = 0;
     virtual void Close() = 0;
 
     virtual uint64_t GetDeviceCapacity() = 0;

@@ -1,5 +1,7 @@
 #include "test_base.h"
 
+using namespace std;
+
 class TestBatch : public TestBase {
 };
 

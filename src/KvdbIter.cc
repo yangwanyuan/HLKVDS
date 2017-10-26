@@ -1,14 +1,15 @@
 #include "KvdbIter.h"
+#include "DataStor.h"
 #include "IndexManager.h"
-#include "SegmentManager.h"
 #include "BlockDevice.h"
 #include "Db_Structure.h"
 
+using namespace std;
+
 namespace hlkvds {
 
-KvdbIter::KvdbIter(IndexManager* im, SegmentManager* sm, BlockDevice* bdev) :
-    idxMgr_(im), segMgr_(sm), bdev_(bdev), valid_(false), hashEntry_(NULL){
-        //ht_ = idxMgr_->GetHashTable();
+KvdbIter::KvdbIter(IndexManager* im, SimpleDS_Impl* ds, BlockDevice* bdev) :
+    idxMgr_(im), dataStor_(ds), bdev_(bdev), valid_(false), hashEntry_(NULL){
         htSize_ = idxMgr_->GetHashTableSize();
 }
 
@@ -21,7 +22,6 @@ void KvdbIter::SeekToFirst() {
     hashEntry_ = NULL;
     htSize_ = idxMgr_->GetHashTableSize();
     for (int i = 0; i < htSize_; i++) {
-        //entry_list = ht_[i].entryList_;
         entry_list = idxMgr_->GetEntryListByNo(i);
         int entry_list_size = entry_list->get_size();
         if (entry_list_size > 0) {
@@ -45,9 +45,7 @@ void KvdbIter::SeekToLast() {
     LinkedList<HashEntry> *entry_list;
     hashEntry_ = NULL;
     htSize_ = idxMgr_->GetHashTableSize();
-    //__INFO("htSize_=%d",htSize_);
     for (int i = htSize_ - 1; i >= 0; i--) {
-        //entry_list = ht_[i].entryList_;
         entry_list = idxMgr_->GetEntryListByNo(i);
         int entry_list_size = entry_list->get_size();
         //__INFO("entry_list_size=%d",entry_list_size);
@@ -79,7 +77,6 @@ void KvdbIter::Seek(const char* key) {
     LinkedList<HashEntry> *entry_list;
     hashEntry_ = NULL;
     for (int i = 0; i < htSize_; i++) {
-        //entry_list = ht_[i].entryList_;
         entry_list = idxMgr_->GetEntryListByNo(i);
         hashEntry_ = entry_list->getRef(entry);
         if (NULL != hashEntry_) {
@@ -98,7 +95,6 @@ void KvdbIter::Seek(const char* key) {
 
 void KvdbIter::Next() {
     LinkedList<HashEntry> *entry_list;
-    //entry_list = ht_[hashTableCur_];
     entry_list = idxMgr_->GetEntryListByNo(hashTableCur_);
     hashEntry_ = NULL;
     int entry_list_size = entry_list->get_size();
@@ -108,7 +104,6 @@ void KvdbIter::Next() {
     } else {
         hashTableCur_++;
         while (hashTableCur_ < htSize_) {
-            //entry_list = ht_[i].entryList_;
             entry_list = idxMgr_->GetEntryListByNo(hashTableCur_);
             entry_list_size = entry_list->get_size();
             if (entry_list_size  > 0) {
@@ -130,7 +125,6 @@ void KvdbIter::Next() {
 
 void KvdbIter::Prev() {
     LinkedList<HashEntry> *entry_list;
-    //entry_list = ht_[hashTableCur_];
     entry_list = idxMgr_->GetEntryListByNo(hashTableCur_);
     hashEntry_ = NULL;
     int entry_list_size = entry_list->get_size();
@@ -140,7 +134,6 @@ void KvdbIter::Prev() {
     } else {
         hashTableCur_--;
         while (hashTableCur_ >= 0) {
-            //entry_list = ht_[i].entryList_;
             entry_list = idxMgr_->GetEntryListByNo(hashTableCur_);
             entry_list_size = entry_list->get_size();
             if ( entry_list_size > 0) {
@@ -166,7 +159,7 @@ string KvdbIter::Key() {
     }
 
     uint64_t key_offset = 0;
-    if (!segMgr_->ComputeKeyOffsetPhyFromEntry(hashEntry_, key_offset)) {
+    if (!dataStor_->ComputeKeyOffsetPhyFromEntry(hashEntry_, key_offset)) {
         return "";
     }
     __DEBUG("key offset: %lu",key_offset);
@@ -191,7 +184,7 @@ string KvdbIter::Value() {
     }
 
     uint64_t data_offset = 0;
-    if (!segMgr_->ComputeDataOffsetPhyFromEntry(hashEntry_, data_offset)) {
+    if (!dataStor_->ComputeDataOffsetPhyFromEntry(hashEntry_, data_offset)) {
         return "";
     }
 

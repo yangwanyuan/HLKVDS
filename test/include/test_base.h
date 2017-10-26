@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 #ifndef TEST_BASE_H_
 #define TEST_BASE_H_
 
@@ -8,7 +8,7 @@
 #include "gtest/gtest.h"
 #include <string>
 
-#define FILENAME  "/dev/loop2"
+#define FILENAME  "test.img"
 using namespace hlkvds;
 
 class TestBase : public ::testing::Test {

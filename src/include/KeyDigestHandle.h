@@ -6,12 +6,9 @@
 #include <string>
 #include "rmd160.h"
 
-#include "Db_Structure.h"
-
-//#define RMDsize 160
-//#define DIGEST_LEN RMDsize/8
-
-using namespace std;
+#define RMDsize 160
+#define DIGEST_LEN RMDsize/8
+#define KEYDIGEST_INT_NUM RMDsize/(sizeof(uint32_t)*8) // RIPEMD-160/(sizeof(uint32_t)*8) 160/32
 
 namespace hlkvds {
 class Kvdb_Key {
@@ -60,7 +57,7 @@ public:
     static uint32_t Hash(const Kvdb_Key *key);
     static uint32_t Hash(const Kvdb_Digest *digest);
     static void ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest);
-    static string Tostring(Kvdb_Digest *digest);
+    static std::string Tostring(Kvdb_Digest *digest);
 
 private:
     KeyDigestHandle();

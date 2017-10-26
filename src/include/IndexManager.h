@@ -6,21 +6,19 @@
 #include <mutex>
 #include <list>
 
-#include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "hlkvds/Options.h"
 #include "Utils.h"
 #include "KeyDigestHandle.h"
 #include "LinkedList.h"
-#include "SuperBlockManager.h"
-#include "SegmentManager.h"
-#include "Segment.h"
 
-using namespace std;
+#include "Segment.h"
+#include "WorkQueue.h"
 
 namespace hlkvds {
+
+class SuperBlockManager;
 class KVSlice;
-class SegmentSlice;
+class SimpleDS_Impl;
 
 class DataHeader {
 private:
@@ -255,13 +253,16 @@ public:
 
         static uint64_t ComputeIndexSizeOnDevice(uint32_t ht_size);
         static uint32_t ComputeHashSizeForPower2(uint32_t number);
-        bool InitIndexForCreateDB(uint64_t offset, uint32_t numObjects);
 
-        bool LoadIndexFromDevice(uint64_t offset, uint32_t ht_size);
-        bool WriteIndexToDevice();
+        void InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num);
+        void UpdateMetaToSB();
+        bool Get(char* buff, uint64_t length);
+        bool Set(char* buff, uint64_t length);
+
+        void InitDataStor(SimpleDS_Impl *ds) { dataStor_ = ds; }
 
         bool UpdateIndex(KVSlice* slice);
-        void UpdateIndexes(list<KVSlice*> &slice_list);
+        void UpdateIndexes(std::list<KVSlice*> &slice_list);
         bool GetHashEntry(KVSlice *slice);
         void RemoveEntry(HashEntry entry);
 
@@ -272,7 +273,15 @@ public:
         uint64_t GetDataTheorySize() const ;
         uint32_t GetKeyCounter() const ;
 
-        IndexManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, SegmentManager* segMgr_, Options &opt);
+        void StartThds();
+        void StopThds();
+
+        void AddToReaper(SegForReq*);
+        int GetSegReaperQueSize() {
+            return (!segRprWQ_)? 0: segRprWQ_->Size();
+        }
+
+        IndexManager(SuperBlockManager* sbm, Options &opt);
         ~IndexManager();
 
         bool IsSameInMem(HashEntry entry);
@@ -297,34 +306,40 @@ public:
 
     private:
 
-        void initHashTable(uint32_t size);
+        void initHashTable();
         void destroyHashTable();
-
-        bool rebuildHashTable(uint64_t offset);
-        bool rebuildTime(uint64_t offset);
-        bool loadDataFromDevice(void* data, uint64_t length, uint64_t offset); 
-        bool convertHashEntryFromDiskToMem(int* counter, HashEntryOnDisk* entry_ondisk);
-
-        bool persistHashTable(uint64_t offset);
-        bool persistTime(uint64_t offset);
-        bool writeDataToDevice(void* data, uint64_t length, uint64_t offset);
 
         HashtableSlot *hashtable_;
         uint32_t htSize_;
+        uint64_t sizeOndisk_;
         uint32_t keyCounter_;
         uint64_t dataTheorySize_;
-        uint64_t startOff_;
-        BlockDevice* bdev_;
         SuperBlockManager* sbMgr_;
-        SegmentManager* segMgr_;
+        SimpleDS_Impl* dataStor_;
         Options &options_;
 
         KVTime* lastTime_;
         mutable std::mutex mtx_;
         std::mutex batch_mtx_;
 
-    };
+    // Seg Reaper thread
+    private:
+    class SegmentReaperWQ : public dslab::WorkQueue<SegForReq> {
+        public:
+            explicit SegmentReaperWQ(IndexManager *im, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), idxMgr_(im) {}
 
+        protected:
+            void _process(SegForReq* seg) override {
+                idxMgr_->SegReaper(seg);
+            }
+        private:
+            IndexManager *idxMgr_;
+        };
+
+    SegmentReaperWQ *segRprWQ_;
+    void SegReaper(SegForReq* seg);
+
+    };
 
 }// namespace hlkvds
 #endif //#ifndef _HLKVDS_INDEXMANAGER_H_

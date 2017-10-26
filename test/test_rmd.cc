@@ -8,6 +8,8 @@
 #include "test_base.h"
 #include "KeyDigestHandle.h"
 
+using namespace std;
+
 class test_rmd : public TestBase {
 
 };

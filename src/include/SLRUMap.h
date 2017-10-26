@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 #include "LRUMap.h"
-using namespace std;
+
 namespace dslab{
 template <class K, class D>
 class SLRUMap: public CacheMap<K, D>{

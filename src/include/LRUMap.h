@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 #include "CacheMap.h"
-using namespace std;
+
 namespace dslab{
 template <class K, class D>
 struct Node{
@@ -56,8 +56,8 @@ private:
     }
 
 private:
-    unordered_map<K, Node<K,D>* > cached_map;
-    vector<Node<K,D>* > free_entries;
+    std::unordered_map<K, Node<K,D>* > cached_map;
+    std::vector<Node<K,D>* > free_entries;
     Node<K,D> * head, *tail;
     Node<K,D> * entries;
 };
