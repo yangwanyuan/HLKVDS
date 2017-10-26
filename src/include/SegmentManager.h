@@ -13,7 +13,6 @@ namespace hlkvds {
 
 class DataHeader;
 class HashEntry;
-class BlockDevice;
 class SuperBlockManager;
 class IndexManager;
 
@@ -73,14 +72,6 @@ public:
     static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
     static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
 
-    bool InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size,
-                                uint32_t number_segments);
-
-    bool LoadSegmentTableFromDevice(uint64_t start_offset,
-                                    uint32_t segment_size, uint32_t num_seg,
-                                    uint32_t current_seg);
-    bool WriteSegmentTableToDevice();
-
     uint32_t GetNowSegId() {
         return curSegId_;
     }
@@ -113,6 +104,11 @@ public:
         return true;
     }
 
+    bool Get(char *buf, uint64_t length);
+    bool Set(char *buf, uint64_t length);
+    void InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
+    void UpdateMetaToSB();
+
     bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
     bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
     bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
@@ -130,12 +126,11 @@ public:
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
 
-    SegmentManager(BlockDevice* bdev, SuperBlockManager* sbMgr_, Options &opt);
+    SegmentManager(SuperBlockManager* sbMgr_, Options &opt);
     ~SegmentManager();
 
 private:
     std::vector<SegmentStat> segTable_;
-    uint64_t startOff_;
     uint64_t dataStartOff_;
     uint64_t dataEndOff_;
     uint32_t segSize_;
@@ -147,7 +142,6 @@ private:
     uint32_t reservedCounter_;
     uint32_t maxValueLen_;
 
-    BlockDevice* bdev_;
     SuperBlockManager* sbMgr_;
     Options &options_;
     mutable std::mutex mtx_;

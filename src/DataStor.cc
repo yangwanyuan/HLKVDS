@@ -18,7 +18,7 @@ SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager*
         gcMgr_(NULL), seg_(NULL),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
         gcT_stop_(false) {
-    segMgr_ = new SegmentManager(bdev_, sbMgr_, options_);
+    segMgr_ = new SegmentManager(sbMgr_, options_);
     gcMgr_ = new GcManager(bdev_, idxMgr_, this, options_);
 }
 
@@ -130,12 +130,20 @@ bool SimpleDS_Impl::UpdateSST() {
     return true;
 }
 
-bool SimpleDS_Impl::GetAllSSTs() {
-    return true;
+bool SimpleDS_Impl::GetAllSSTs(char* buf, uint64_t length) {
+    return segMgr_->Get(buf, length);
 }
 
-bool SimpleDS_Impl::SetAllSSTs() {
-    return true;
+bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
+    return segMgr_->Set(buf, length);
+}
+
+void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
+    segMgr_->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
+}
+
+void SimpleDS_Impl::UpdateMetaToSB() {
+    segMgr_->UpdateMetaToSB();
 }
 
 
@@ -195,19 +203,6 @@ uint32_t SimpleDS_Impl::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
 
 uint64_t SimpleDS_Impl::ComputeSegTableSizeOnDisk(uint32_t seg_num) {
     return SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
-}
-
-
-bool SimpleDS_Impl::InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size, uint32_t number_segments) {
-    return segMgr_->InitSegmentForCreateDB(start_offset, segment_size, number_segments);
-}
-
-bool SimpleDS_Impl::LoadSegmentTableFromDevice(uint64_t start_offset, uint32_t segment_size, uint32_t num_seg, uint32_t current_seg) {
-    return segMgr_->LoadSegmentTableFromDevice(start_offset, segment_size, num_seg, current_seg);
-}
-
-bool SimpleDS_Impl::WriteSegmentTableToDevice() {
-    return segMgr_->WriteSegmentTableToDevice();
 }
 
 uint64_t SimpleDS_Impl::GetDataRegionSize() {

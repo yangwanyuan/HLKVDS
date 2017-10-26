@@ -33,8 +33,8 @@ public:
     virtual Status WriteBatchData(WriteBatch *batch) =0;
     virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
     virtual bool UpdateSST() = 0;
-    virtual bool GetAllSSTs() = 0;
-    virtual bool SetAllSSTs() = 0;
+    virtual bool GetAllSSTs(char* buf, uint64_t length) = 0;
+    virtual bool SetAllSSTs(char* buf, uint64_t length) = 0;
 
     DataStor() {}
     virtual ~DataStor() {}
@@ -51,8 +51,11 @@ public:
     Status ReadData(KVSlice &slice, std::string &data) override;
 
     bool UpdateSST() override;
-    bool GetAllSSTs() override;
-    bool SetAllSSTs() override;
+    bool GetAllSSTs(char* buf, uint64_t length) override;
+    bool SetAllSSTs(char* buf, uint64_t length) override;
+
+    void InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
+    void UpdateMetaToSB();
 
     void InitSegment();
     void StartThds();
@@ -77,15 +80,6 @@ public:
     //use in MetaStor
     static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
     static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
-
-    bool InitSegmentForCreateDB(uint64_t start_offset, uint32_t segment_size,
-                                uint32_t number_segments);
-
-    bool LoadSegmentTableFromDevice(uint64_t start_offset,
-                                    uint32_t segment_size, uint32_t num_seg,
-                                    uint32_t current_seg);
-
-    bool WriteSegmentTableToDevice();
 
     uint64_t GetDataRegionSize();
 

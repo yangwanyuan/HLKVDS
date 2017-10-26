@@ -1,10 +1,8 @@
 #include <math.h>
 
 #include "SegmentManager.h"
-#include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
-#include "Db_Structure.h"
 
 namespace hlkvds {
 
@@ -38,8 +36,68 @@ void SegmentOnDisk::Update() {
     time_stamp = KVTime::GetNow();
 }
 
+bool SegmentManager::Get(char* buf, uint64_t length) {
+    uint64_t stat_size = sizeof(SegmentStat);
+    uint64_t stat_table_size = SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
+    if (length != stat_table_size) {
+        return false;
+    }
+    char *buf_ptr = buf;
+    for (uint32_t seg_idx = 0; seg_idx < segNum_; seg_idx++) {
+        if (segTable_[seg_idx].state != SegUseStat::RESERVED) {
+            memcpy((void *)buf_ptr, (const void *)&segTable_[seg_idx], stat_size);
+        } else {
+            __WARN("Segment Maybe not write to device! seg_id = %d", seg_idx);
+        }
+        buf_ptr += stat_size;
+    }
+
+    return true;
+}
+
+bool SegmentManager::Set(char* buf, uint64_t length) {
+    uint64_t stat_size = sizeof(SegmentStat);
+    uint64_t stat_table_size = SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
+    if (length != stat_table_size) {
+        return false;
+    }
+    char* buf_ptr = buf;
+    for (uint32_t seg_idx = 0; seg_idx < segNum_; seg_idx++) {
+        SegmentStat seg_stat;
+        memcpy((void *)&seg_stat, (const void *)buf_ptr, stat_size);
+        if (seg_stat.state == SegUseStat::USED) {
+            usedCounter_++;
+            freedCounter_--;
+        }
+        segTable_.push_back(seg_stat);
+        buf_ptr += stat_size;
+    }
+
+    return true;
+}
+
+void SegmentManager::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
+    segSize_ = segment_size;
+    segNum_ = number_segments;
+    curSegId_ = cur_seg_id;
+
+    dataStartOff_ = sst_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
+
+    segSizeBit_ = log2(segSize_);
+    dataEndOff_ = dataStartOff_ + ((uint64_t) segNum_ << segSizeBit_);
+    maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+
+    freedCounter_ = segNum_;
+    usedCounter_ = 0;
+    reservedCounter_ = 0;
+}
+
+void SegmentManager::UpdateMetaToSB() {
+    sbMgr_->SetCurSegId(curSegId_);
+}
+
 uint64_t SegmentManager::ComputeSegTableSizeOnDisk(uint32_t seg_num) {
-    uint64_t segtable_size = sizeof(time_t) + sizeof(SegmentStat) * seg_num;
+    uint64_t segtable_size = sizeof(SegmentStat) * seg_num;
     uint64_t segtable_size_pages = segtable_size / getpagesize();
     return (segtable_size_pages + 1) * getpagesize();
 }
@@ -54,105 +112,6 @@ uint32_t SegmentManager::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
         seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
     }
     return seg_num;
-}
-
-bool SegmentManager::InitSegmentForCreateDB(uint64_t start_offset,
-                                            uint32_t segment_size,
-                                            uint32_t number_segments) {
-    uint32_t align_bit = log2(ALIGNED_SIZE);
-    if (segment_size != (segment_size >> align_bit) << align_bit) {
-        return false;
-    }
-
-    startOff_ = start_offset;
-    segSize_ = segment_size;
-    segSizeBit_ = log2(segSize_);
-    segNum_ = number_segments;
-    curSegId_ = 0;
-    dataStartOff_ = start_offset
-            + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
-    dataEndOff_ = dataStartOff_ + ((uint64_t) segNum_ << segSizeBit_);
-
-    maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk()
-            - IndexManager::SizeOfHashEntryOnDisk();
-
-    freedCounter_ = segNum_;
-    usedCounter_ = 0;
-    reservedCounter_ = 0;
-
-    //init segment table
-    SegmentStat seg_stat;
-    for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++) {
-        segTable_.push_back(seg_stat);
-    }
-
-    return true;
-}
-
-bool SegmentManager::LoadSegmentTableFromDevice(uint64_t start_offset,
-                                                uint32_t segment_size,
-                                                uint32_t num_seg,
-                                                uint32_t current_seg) {
-    startOff_ = start_offset;
-    segSize_ = segment_size;
-    segSizeBit_ = log2(segSize_);
-    segNum_ = num_seg;
-    //curSegId_ = current_seg;
-    curSegId_ = sbMgr_->GetCurSegmentId();
-
-    dataStartOff_ = start_offset
-            + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
-    dataEndOff_ = dataStartOff_ + ((uint64_t) segNum_ << segSizeBit_);
-
-    maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk()
-            - IndexManager::SizeOfHashEntryOnDisk();
-
-    uint64_t offset = startOff_;
-    SegmentStat* segs_stat = new SegmentStat[segNum_];
-    uint64_t length = sizeof(SegmentStat) * (uint64_t) segNum_;
-    if (bdev_->pRead(segs_stat, length, offset) != (ssize_t) length) {
-        __ERROR("can not write segment to device!");
-        delete[] segs_stat;
-        return false;
-    }
-    for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++) {
-        SegmentStat seg_stat;
-        // If state is reserved, need reset segmentstat
-        if (segs_stat[seg_index].state == SegUseStat::FREE) {
-            seg_stat = segs_stat[seg_index];
-            freedCounter_++;
-        } else if (segs_stat[seg_index].state == SegUseStat::USED) {
-            seg_stat = segs_stat[seg_index];
-            usedCounter_++;
-        } else if (segs_stat[seg_index].state == SegUseStat::RESERVED) {
-            freedCounter_++;
-        }
-        segTable_.push_back(seg_stat);
-    }
-    delete[] segs_stat;
-    return true;
-}
-
-bool SegmentManager::WriteSegmentTableToDevice() {
-    SegmentStat* segs_stat = new SegmentStat[segNum_];
-    uint64_t length = sizeof(SegmentStat) * (uint64_t) segNum_;
-    for (uint32_t seg_index = 0; seg_index < segNum_; seg_index++) {
-        // If state is reserved, need reset segmentstat
-        if (segTable_[seg_index].state != SegUseStat::RESERVED) {
-            segs_stat[seg_index] = segTable_[seg_index];
-        } else {
-            __WARN("Segment Maybe not write to device! seg_id = %d", seg_index);
-        }
-    }
-    if (bdev_->pWrite(segs_stat, length, startOff_) != (ssize_t) length) {
-        __ERROR("can not write segment to device!");
-        delete[] segs_stat;
-        return false;
-    }
-    delete[] segs_stat;
-
-    sbMgr_->SetCurSegId(curSegId_);
-    return true;
 }
 
 bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset,
@@ -319,15 +278,14 @@ void SegmentManager::SortSegsByUtils(
     } __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
 }
 
-SegmentManager::SegmentManager(BlockDevice* bdev, SuperBlockManager* sbm,
-                               Options &opt) :
-    dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0), segNum_(0),
-            curSegId_(0), usedCounter_(0), freedCounter_(0),
-            reservedCounter_(0), maxValueLen_(0), bdev_(bdev), sbMgr_(sbm),
-            options_(opt) {
+SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt)
+    : dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0),
+        segNum_(0), curSegId_(0), usedCounter_(0), freedCounter_(0),
+        reservedCounter_(0), maxValueLen_(0), sbMgr_(sbm), options_(opt) {
 }
 
 SegmentManager::~SegmentManager() {
     segTable_.clear();
 }
+
 } //end namespace hlkvds

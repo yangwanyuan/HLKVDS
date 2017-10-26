@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "MetaStor.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -269,7 +271,7 @@ bool MetaStor::PersistIndexToDevice() {
     }
 
     if ((uint64_t) metaDev_->pWrite(align_buf, length, idxOff_) != length) {
-        __ERROR("Could not write superblock at position %ld\n", idxOff_);
+        __ERROR("Could not write Index at position %ld\n", idxOff_);
         free(align_buf);
         return false;
     }
@@ -282,16 +284,65 @@ bool MetaStor::PersistIndexToDevice() {
 
 bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments, int first_create) {
     if (first_create) {
-        return dataStor_->InitSegmentForCreateDB(sstOff_, segment_size, number_segments);
+        uint32_t align_bit = log2(ALIGNED_SIZE);
+        if (segment_size != (segment_size >> align_bit) << align_bit) {
+            __ERROR("Segment Size is not page aligned!");
+            return false;
+        }
+        dataStor_->InitMeta(sstOff_, segment_size, number_segments, 0);
     }
     else {
-        uint32_t current_seg = sbMgr_->GetCurSegmentId();
-        return dataStor_->LoadSegmentTableFromDevice(sstOff_, segment_size,number_segments, current_seg);
+        dataStor_->InitMeta(sstOff_, segment_size, number_segments, sbMgr_->GetCurSegmentId());
     }
+    uint64_t length = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
+    char *buff = new char[length];
+    memset(buff, 0 , length);
+    if (!first_create) {
+        if ((uint64_t) metaDev_->pRead(buff, length, sstOff_) != length) {
+            __ERROR("Could not read SST region from device at %ld\n", idxOff_);
+            delete[] buff;
+            return false;
+        }
+    }
+
+    if (!dataStor_->SetAllSSTs(buff, length)) {
+        __ERROR("Can't Set SST Region, Load Failed!");
+        delete[] buff;
+        return false;
+    }
+
+    delete[] buff;
+    return true;
 }
 
 bool MetaStor::PersistSSTsToDevice() {
-    return dataStor_->WriteSegmentTableToDevice();
+    int ret = false;
+    char *align_buf;
+    uint64_t length = sbMgr_->GetSegTableSize();
+    ret = posix_memalign((void **)&align_buf, 4096, length);
+    memset(align_buf, 0, length);
+    if (ret < 0) {
+        __ERROR("Can't allocate memory for SSTs, Persist Failed!");
+        return false;
+    }
+    memset(align_buf, 0, length);
+
+    if (!dataStor_->GetAllSSTs(align_buf, length)) {
+        __ERROR("Can't Get SSTs, Persist Failed!");
+        free(align_buf);
+        return false;
+    }
+
+    if ((uint64_t) metaDev_->pWrite(align_buf, length, sstOff_) != length) {
+        __ERROR("Could not write SSTs at position %ld\n", sstOff_);
+        free(align_buf);
+        return false;
+    }
+
+    free(align_buf);
+
+    dataStor_->UpdateMetaToSB();
+    return true;
 }
 
 bool MetaStor::FastRecovery() {
