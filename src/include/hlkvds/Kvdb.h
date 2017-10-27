@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <mutex>
 
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
@@ -36,9 +37,19 @@ private:
     DB(const DB &);
     DB& operator=(const DB &);
 
-    std::string fileName_;
+    //singleton reaper
+    class DBReaper {
+    public:
+        DBReaper();
+        ~DBReaper();
+    };
+    friend class DBReaper;
+    static DBReaper reaper_;
+
+
     KVDS *kvds_;
-    static DB *instance_;
+    std::mutex mtx_;
+    static DB *db_;
 };
 
 } // namespace hlkvds
