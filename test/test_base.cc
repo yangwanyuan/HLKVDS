@@ -1,4 +1,5 @@
 #include "test_base.h"
+#include "Db_Structure.h"
 
 using namespace hlkvds;
 
