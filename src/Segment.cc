@@ -155,7 +155,7 @@ void Request::Signal() {
 }
 
 SegBase::SegBase() :
-    segId_(-1), vol_(NULL), bdev_(NULL), segSize_(-1),
+    segId_(-1), vol_(NULL), segSize_(-1),
         headPos_(0), tailPos_(0), keyNum_(0),
         keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
@@ -183,7 +183,6 @@ SegBase& SegBase::operator=(const SegBase& toBeCopied) {
 void SegBase::copyHelper(const SegBase& toBeCopied) {
     segId_ = toBeCopied.segId_;
     vol_ = toBeCopied.vol_;
-    bdev_ = toBeCopied.bdev_;
     segSize_ = toBeCopied.segSize_;
     headPos_ = toBeCopied.headPos_;
     tailPos_ = toBeCopied.tailPos_;
@@ -194,8 +193,8 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
     sliceList_ = toBeCopied.sliceList_;
 }
 
-SegBase::SegBase(Volumes* vol, BlockDevice* bdev) :
-    segId_(-1), vol_(vol), bdev_(bdev),
+SegBase::SegBase(Volumes* vol) :
+    segId_(-1), vol_(vol),
         segSize_(vol_->GetSegmentSize()),
         headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
@@ -291,11 +290,7 @@ bool SegBase::_writeDataToDevice() {
     uint64_t offset = 0;
     vol_->ComputeSegOffsetFromId(segId_, offset);
 
-    if (bdev_->pWrite(dataBuf_, segSize_, offset) != segSize_) {
-        __ERROR("Write Segment front data error, seg_id:%u", segId_);
-        return false;
-    }
-    return true;
+    return vol_->WriteSegment(dataBuf_, offset);
 }
 
 bool SegBase::newDataBuffer() {
@@ -380,8 +375,8 @@ SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
     return *this;
 }
 
-SegForReq::SegForReq(Volumes* vol, IndexManager* im, BlockDevice* bdev, uint32_t timeout) :
-    SegBase(vol, bdev), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
+SegForReq::SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout) :
+    SegBase(vol), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
     isCompleted_(false), hasReq_(false), reqCommited_(0) {
 }
 
@@ -480,8 +475,8 @@ SegForSlice& SegForSlice::operator=(const SegForSlice& toBeCopied) {
     return *this;
 }
 
-SegForSlice::SegForSlice(Volumes* vol, IndexManager* im, BlockDevice* bdev) :
-    SegBase(vol, bdev), idxMgr_(im) {
+SegForSlice::SegForSlice(Volumes* vol, IndexManager* im) :
+    SegBase(vol), idxMgr_(im) {
 }
 
 void SegForSlice::UpdateToIndex() {

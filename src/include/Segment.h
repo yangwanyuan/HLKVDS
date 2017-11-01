@@ -15,7 +15,6 @@
 
 namespace hlkvds {
 
-class BlockDevice;
 class SegmentOnDisk;
 class DataHeader;
 class DataHeaderOffset;
@@ -141,7 +140,7 @@ public:
     ~SegBase();
     SegBase(const SegBase& toBeCopied);
     SegBase& operator=(const SegBase& toBeCopied);
-    SegBase(Volumes* vol, BlockDevice* bdev);
+    SegBase(Volumes* vol);
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
@@ -175,7 +174,6 @@ private:
 private:
     int32_t segId_;
     Volumes* vol_;
-    BlockDevice* bdev_;
     int32_t segSize_;
     KVTime persistTime_;
 
@@ -198,7 +196,7 @@ public:
     SegForReq(const SegForReq& toBeCopied);
     SegForReq& operator=(const SegForReq& toBeCopied);
 
-    SegForReq(Volumes* vol, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+    SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout);
 
     bool TryPut(Request* req);
     void Put(Request* req);
@@ -235,7 +233,7 @@ public:
     SegForSlice(const SegForSlice& toBeCopied);
     SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-    SegForSlice(Volumes* vol, IndexManager* im, BlockDevice* bdev);
+    SegForSlice(Volumes* vol, IndexManager* im);
 
     void UpdateToIndex();
 private:

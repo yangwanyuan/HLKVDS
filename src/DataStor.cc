@@ -64,7 +64,7 @@ Status SimpleDS_Impl::WriteBatchData(WriteBatch *batch) {
         }
     }
 
-    SegForSlice *seg = new SegForSlice(vol_, idxMgr_, bdev_);
+    SegForSlice *seg = new SegForSlice(vol_, idxMgr_);
     for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
             iter != batch->batch_.end(); iter++) {
         if (seg->TryPut(*iter)) {
@@ -145,7 +145,7 @@ void SimpleDS_Impl::UpdateMetaToSB() {
 
 
 void SimpleDS_Impl::InitSegment() {
-    seg_ = new SegForReq(vol_, idxMgr_, bdev_, options_.expired_time);
+    seg_ = new SegForReq(vol_, idxMgr_, options_.expired_time);
 }
 
 void SimpleDS_Impl::StartThds() {
@@ -299,7 +299,7 @@ void SimpleDS_Impl::ReqMerge(Request* req) {
     } else {
         seg_->Complete();
         segWteWQ_->Add_task(seg_);
-        seg_ = new SegForReq(vol_, idxMgr_, bdev_, options_.expired_time);
+        seg_ = new SegForReq(vol_, idxMgr_, options_.expired_time);
         seg_->Put(req);
     }
 }
@@ -334,7 +334,7 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
             seg_->Complete();
 
             segWteWQ_->Add_task(seg_);
-            seg_ = new SegForReq(vol_, idxMgr_, bdev_, options_.expired_time);
+            seg_ = new SegForReq(vol_, idxMgr_, options_.expired_time);
         }
         lck.unlock();
 
