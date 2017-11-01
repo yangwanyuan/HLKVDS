@@ -12,13 +12,13 @@ namespace hlkvds {
 
 class BlockDevice;
 class IndexManager;
-class SimpleDS_Impl;
+class Volumes;
 class KVSlice;
 
 class GcManager {
 public:
     ~GcManager();
-    GcManager(BlockDevice* bdev, IndexManager* im, SimpleDS_Impl* ds, Options &opt);
+    GcManager(BlockDevice* bdev, IndexManager* im, Volumes* vol, Options &opt);
 
     bool ForeGC();
     void BackGC();
@@ -35,7 +35,7 @@ private:
     void cleanKvList(std::list<KVSlice*> &slice_list);
 
 private:
-    SimpleDS_Impl* dataStor_;
+    Volumes* vol_;
     BlockDevice* bdev_;
     IndexManager* idxMgr_;
     Options &options_;

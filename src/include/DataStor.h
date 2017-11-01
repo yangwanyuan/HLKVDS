@@ -22,10 +22,8 @@ class SuperBlockManager;
 class IndexManager;
 
 class BlockDevice;
-class SegmentManager;
+class Volumes;
 class SegForReq;
-
-class GcManager;
 
 class DataStor {
 public:
@@ -103,11 +101,6 @@ public:
     
     bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
 
-    //use in Segment
-    //uint32_t GetSegmentSize();
-    //bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
-
-
 private:
     Status updateMeta(Request *req);
 
@@ -116,10 +109,9 @@ public:
     Options &options_;
     BlockDevice* bdev_;
     SuperBlockManager *sbMgr_;
-    SegmentManager* segMgr_;
     IndexManager *idxMgr_;
 
-    GcManager* gcMgr_;
+    Volumes* vol_;
     SegForReq *seg_;
     std::mutex segMtx_;
 
@@ -160,14 +152,6 @@ private:
     std::thread segTimeoutT_;
     std::atomic<bool> segTimeoutT_stop_;
     void SegTimeoutThdEntry();
-
-    //GC thread
-private:
-    std::thread gcT_;
-    std::atomic<bool> gcT_stop_;
-
-    void GCThdEntry();
-
 
 };    
 }// namespace hlkvds

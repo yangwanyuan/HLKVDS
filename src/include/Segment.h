@@ -21,7 +21,7 @@ class DataHeader;
 class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
-class SimpleDS_Impl;
+class Volumes;
 class SegForReq;
 
 class KVSlice {
@@ -141,7 +141,7 @@ public:
     ~SegBase();
     SegBase(const SegBase& toBeCopied);
     SegBase& operator=(const SegBase& toBeCopied);
-    SegBase(SimpleDS_Impl *ds, BlockDevice* bdev);
+    SegBase(Volumes* vol, BlockDevice* bdev);
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
@@ -174,7 +174,7 @@ private:
 
 private:
     int32_t segId_;
-    SimpleDS_Impl* dataStor_;
+    Volumes* vol_;
     BlockDevice* bdev_;
     int32_t segSize_;
     KVTime persistTime_;
@@ -198,7 +198,7 @@ public:
     SegForReq(const SegForReq& toBeCopied);
     SegForReq& operator=(const SegForReq& toBeCopied);
 
-    SegForReq(SimpleDS_Impl* ds, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+    SegForReq(Volumes* vol, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
 
     bool TryPut(Request* req);
     void Put(Request* req);
@@ -235,7 +235,7 @@ public:
     SegForSlice(const SegForSlice& toBeCopied);
     SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-    SegForSlice(SimpleDS_Impl* ds, IndexManager* im, BlockDevice* bdev);
+    SegForSlice(Volumes* vol, IndexManager* im, BlockDevice* bdev);
 
     void UpdateToIndex();
 private:

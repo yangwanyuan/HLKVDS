@@ -4,6 +4,7 @@
 #include "IndexManager.h"
 #include "GcManager.h"
 #include "SegmentManager.h"
+#include "Volumes.h"
 
 using namespace std;
 
@@ -15,16 +16,12 @@ namespace hlkvds {
 
 SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdev_(dev), sbMgr_(sb), idxMgr_(idx),
-        gcMgr_(NULL), seg_(NULL),
-        reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false),
-        gcT_stop_(false) {
-    segMgr_ = new SegmentManager(sbMgr_, options_);
-    gcMgr_ = new GcManager(bdev_, idxMgr_, this, options_);
+        seg_(NULL),
+        reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
+    vol_ = new Volumes(bdev_, sbMgr_, idxMgr_, options_);
 }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
-    delete segMgr_;
-    delete gcMgr_;
     delete seg_;
 }
 
@@ -59,15 +56,15 @@ Status SimpleDS_Impl::WriteBatchData(WriteBatch *batch) {
     uint32_t seg_id = 0;
     bool ret;
     //TODO: use GcSegment first, need abstract segment.
-    while (!segMgr_->Alloc(seg_id)) {
-        ret = gcMgr_->ForeGC();
+    while (!vol_->Alloc(seg_id)) {
+        ret = vol_->ForeGC();
         if (!ret) {
             __ERROR("Cann't get a new Empty Segment.\n");
             return Status::Aborted("Can't allocate a Empty Segment.");
         }
     }
 
-    SegForSlice *seg = new SegForSlice(this, idxMgr_, bdev_);
+    SegForSlice *seg = new SegForSlice(vol_, idxMgr_, bdev_);
     for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
             iter != batch->batch_.end(); iter++) {
         if (seg->TryPut(*iter)) {
@@ -84,13 +81,13 @@ Status SimpleDS_Impl::WriteBatchData(WriteBatch *batch) {
     ret = seg->WriteSegToDevice();
     if(!ret) {
         __ERROR("Write batch segment to device failed");
-        segMgr_->FreeForFailed(seg_id);
+        vol_->FreeForFailed(seg_id);
         delete seg;
         return Status::IOError("could not write batch segment to device ");
     }
 
     uint32_t free_size = seg->GetFreeSize();
-    segMgr_->Use(seg_id, free_size);
+    vol_->Use(seg_id, free_size);
     seg->UpdateToIndex();
     delete seg;
     return Status::OK();
@@ -101,7 +98,7 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     entry = &slice.GetHashEntry();
 
     uint64_t data_offset = 0;
-    if (!segMgr_->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
+    if (!vol_->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
         return Status::Aborted("Compute data offset failed.");
     }
 
@@ -131,24 +128,24 @@ bool SimpleDS_Impl::UpdateSST() {
 }
 
 bool SimpleDS_Impl::GetAllSSTs(char* buf, uint64_t length) {
-    return segMgr_->Get(buf, length);
+    return vol_->GetSST(buf, length);
 }
 
 bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
-    return segMgr_->Set(buf, length);
+    return vol_->SetSST(buf, length);
 }
 
 void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
-    segMgr_->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
+    vol_->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
 }
 
 void SimpleDS_Impl::UpdateMetaToSB() {
-    segMgr_->UpdateMetaToSB();
+    vol_->UpdateMetaToSB();
 }
 
 
 void SimpleDS_Impl::InitSegment() {
-    seg_ = new SegForReq(this, idxMgr_, bdev_, options_.expired_time);
+    seg_ = new SegForReq(vol_, idxMgr_, bdev_, options_.expired_time);
 }
 
 void SimpleDS_Impl::StartThds() {
@@ -161,13 +158,11 @@ void SimpleDS_Impl::StartThds() {
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&SimpleDS_Impl::SegTimeoutThdEntry, this);
 
-    gcT_stop_.store(false);
-    gcT_ = std::thread(&SimpleDS_Impl::GCThdEntry, this);
+    vol_->StartThds();
 }
 
 void SimpleDS_Impl::StopThds() {
-    gcT_stop_.store(true);
-    gcT_.join();
+    vol_->StopThds();
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
@@ -186,15 +181,15 @@ void SimpleDS_Impl::StopThds() {
 ////////////////////////////////////////////////////
 
 bool SimpleDS_Impl::ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset) {
-    return segMgr_->ComputeDataOffsetPhyFromEntry(entry, data_offset);
+    return vol_->ComputeDataOffsetPhyFromEntry(entry, data_offset);
 }
 
 bool SimpleDS_Impl::ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset) {
-    return segMgr_->ComputeKeyOffsetPhyFromEntry(entry, key_offset);
+    return vol_->ComputeKeyOffsetPhyFromEntry(entry, key_offset);
 }
 
 void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
-    segMgr_->ModifyDeathEntry(entry);
+    vol_->ModifyDeathEntry(entry);
 }
 
 uint32_t SimpleDS_Impl::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
@@ -206,48 +201,48 @@ uint64_t SimpleDS_Impl::ComputeSegTableSizeOnDisk(uint32_t seg_num) {
 }
 
 uint64_t SimpleDS_Impl::GetDataRegionSize() {
-    return segMgr_->GetDataRegionSize();
+    return vol_->GetDataRegionSize();
 }
 
 
 uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
-    return segMgr_->GetTotalFreeSegs();
+    return vol_->GetTotalFreeSegs();
 }
 
 uint32_t SimpleDS_Impl::GetMaxValueLength() {
-    return segMgr_->GetMaxValueLength();
+    return vol_->GetMaxValueLength();
 }
 
 uint32_t SimpleDS_Impl::GetTotalUsedSegs() {
-    return segMgr_->GetTotalUsedSegs();
+    return vol_->GetTotalUsedSegs();
 }
 
 void SimpleDS_Impl::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils) {
-return segMgr_->SortSegsByUtils(cand_map, utils);
+    return vol_->SortSegsByUtils(cand_map, utils);
 }
 
 uint32_t SimpleDS_Impl::GetSegmentSize() {
-return segMgr_->GetSegmentSize();
+    return vol_->GetSegmentSize();
 }
 uint32_t SimpleDS_Impl::GetNumberOfSeg() {
-return segMgr_->GetNumberOfSeg();
+    return vol_->GetNumberOfSeg();
 }
 
 bool SimpleDS_Impl::AllocForGC(uint32_t& seg_id) {
-return segMgr_->AllocForGC(seg_id);
+    return vol_->AllocForGC(seg_id);
 }
 void SimpleDS_Impl::FreeForFailed(uint32_t seg_id) {
-return segMgr_->FreeForFailed(seg_id);
+    return vol_->FreeForFailed(seg_id);
 }
 void SimpleDS_Impl::FreeForGC(uint32_t seg_id) {
-return segMgr_->FreeForGC(seg_id);
+    return vol_->FreeForGC(seg_id);
 }
 void SimpleDS_Impl::Use(uint32_t seg_id, uint32_t free_size) {
-return segMgr_->Use(seg_id, free_size);
+    return vol_->Use(seg_id, free_size);
 }
 
 bool SimpleDS_Impl::ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
-return segMgr_->ComputeSegOffsetFromId(seg_id, offset);
+    return vol_->ComputeSegOffsetFromId(seg_id, offset);
 }
 
 /////////////////////////////////////////////////////
@@ -259,7 +254,7 @@ void SimpleDS_Impl::ReqMerge(Request* req) {
     } else {
         seg_->Complete();
         segWteWQ_->Add_task(seg_);
-        seg_ = new SegForReq(this, idxMgr_, bdev_, options_.expired_time);
+        seg_ = new SegForReq(vol_, idxMgr_, bdev_, options_.expired_time);
         seg_->Put(req);
     }
 }
@@ -267,8 +262,8 @@ void SimpleDS_Impl::ReqMerge(Request* req) {
 void SimpleDS_Impl::SegWrite(SegForReq *seg) {
     uint32_t seg_id = 0;
     bool res;
-    while (!segMgr_->Alloc(seg_id)) {
-        res = gcMgr_->ForeGC();
+    while (!vol_->Alloc(seg_id)) {
+        res = vol_->ForeGC();
         if (!res) {
             __ERROR("Cann't get a new Empty Segment.\n");
             seg->Notify(res);
@@ -278,9 +273,9 @@ void SimpleDS_Impl::SegWrite(SegForReq *seg) {
     seg->SetSegId(seg_id);
     res = seg->WriteSegToDevice();
     if (res) {
-        segMgr_->Use(seg_id, free_size);
+        vol_->Use(seg_id, free_size);
     } else {
-        segMgr_->FreeForFailed(seg_id);
+        vol_->FreeForFailed(seg_id);
     }
     seg->Notify(res);
 }
@@ -294,7 +289,7 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
             seg_->Complete();
 
             segWteWQ_->Add_task(seg_);
-            seg_ = new SegForReq(this, idxMgr_, bdev_, options_.expired_time);
+            seg_ = new SegForReq(vol_, idxMgr_, bdev_, options_.expired_time);
         }
         lck.unlock();
 
@@ -304,15 +299,7 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
 
 void SimpleDS_Impl::Do_GC() {
     __INFO("Application call GC!!!!!");
-    return gcMgr_->FullGC();
-}
-
-void SimpleDS_Impl::GCThdEntry() {
-    __DEBUG("GC thread start!!");
-    while (!gcT_stop_) {
-        gcMgr_->BackGC();
-        usleep(1000000);
-    } __DEBUG("GC thread stop!!");
+    return vol_->FullGC();
 }
 
 } // namespace hlkvds
