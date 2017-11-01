@@ -59,6 +59,9 @@ public:
     void StartThds();
     void StopThds();
 
+    std::string GetKeyByHashEntry(HashEntry *entry);
+    std::string GetValueByHashEntry(HashEntry *entry);
+
     uint32_t GetReqQueSize() {
         return (!reqWQ_)? 0 : reqWQ_->Size();
     }

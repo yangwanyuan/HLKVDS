@@ -178,6 +178,51 @@ void SimpleDS_Impl::StopThds() {
     }
 }
 
+string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
+    uint64_t key_offset = 0;
+    if (!ComputeKeyOffsetPhyFromEntry(entry, key_offset)) {
+        return "";
+    }
+    __DEBUG("key offset: %lu",key_offset);
+    uint16_t key_len = entry->GetKeySize();
+    char *mkey = new char[key_len+1];
+    if (bdev_->pRead(mkey, key_len, key_offset) != (ssize_t) key_len) {
+        __ERROR("Could not read data at position");
+        delete[] mkey;
+        return "";
+    }
+    mkey[key_len] = '\0';
+    string res(mkey, key_len);
+    //__INFO("Iterator key is %s, key_offset = %lu, key_len = %u", mkey, key_offset, key_len);
+    delete[] mkey;
+
+    return res;
+}
+
+string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
+    uint64_t data_offset = 0;
+    if (!ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
+        return "";
+    }
+    __DEBUG("data offset: %lu",data_offset);
+    uint16_t data_len = entry->GetDataSize();
+    if ( data_len ==0 ) {
+        return "";
+    }
+    char *mdata = new char[data_len+1];
+    if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
+        __ERROR("Could not read data at position");
+        delete[] mdata;
+        return "";
+    }
+    mdata[data_len]= '\0';
+    string res(mdata, data_len);
+    //__INFO("Iterator value is %s, data_offset = %lu, data_len = %u", mdata, data_offset, data_len);
+    delete[] mdata;
+
+    return res;
+}
+
 ////////////////////////////////////////////////////
 
 bool SimpleDS_Impl::ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset) {
