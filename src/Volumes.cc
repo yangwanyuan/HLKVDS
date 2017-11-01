@@ -53,6 +53,24 @@ void Volumes::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t numb
     return segMgr_->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
 }
 
+bool Volumes::ReadSegment(char* data, uint64_t seg_offset) {
+    uint32_t seg_size = GetSegmentSize();
+    if (bdev_->pRead(data, seg_size, seg_offset) != seg_size) {
+        __ERROR("Read segment data error!!!");
+        return false;
+    }
+    return true;
+}
+
+bool Volumes::WriteSegment(char* data, uint64_t seg_offset) {
+    uint32_t seg_size = GetSegmentSize();
+    if (bdev_->pWrite(data, seg_size, seg_offset) != seg_size) {
+        __ERROR("Write segment data error!!!");
+        return false;
+    }
+    return true;
+}
+
 void Volumes::UpdateMetaToSB() {
     return segMgr_->UpdateMetaToSB();
 }
