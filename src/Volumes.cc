@@ -11,7 +11,7 @@ namespace hlkvds {
 Volumes::Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts)
     : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), sbMgr_(sbm), idxMgr_(im), options_(opts) {
     segMgr_ = new SegmentManager(sbMgr_, options_);
-    gcMgr_ = new GcManager(bdev_, idxMgr_, this, options_);
+    gcMgr_ = new GcManager(idxMgr_, this, options_);
 }
 
 Volumes::~Volumes() {

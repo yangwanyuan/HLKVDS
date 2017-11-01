@@ -1,6 +1,5 @@
 #include "GcManager.h"
 #include "Db_Structure.h"
-#include "BlockDevice.h"
 #include "IndexManager.h"
 #include "Volumes.h"
 #include "Segment.h"
@@ -15,10 +14,8 @@ GcManager::~GcManager() {
     }
 }
 
-GcManager::GcManager(BlockDevice* bdev, IndexManager* im, Volumes* vol,
-                     Options &opt) :
+GcManager::GcManager(IndexManager* im, Volumes* vol, Options &opt) :
     options_(opt), dataBuf_(NULL) {
-    bdev_ = bdev;
     idxMgr_ = im;
     vol_ = vol;
 }
@@ -250,15 +247,6 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
     return total_free;
 }
 
-bool GcManager::readSegment(uint64_t seg_offset) {
-    uint32_t seg_size = vol_->GetSegmentSize();
-    if (bdev_->pRead(dataBuf_, seg_size, seg_offset) != seg_size) {
-        __ERROR("GC read segment data error!!!");
-        return false;
-    }
-    return true;
-}
-
 void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                           uint64_t phy_offset) {
     uint32_t head_offset = SegmentManager::SizeOfSegOnDisk();
@@ -308,7 +296,7 @@ bool GcManager::loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list) {
     uint64_t seg_phy_off;
     vol_->ComputeSegOffsetFromId(seg_id, seg_phy_off);
 
-    if (!readSegment(seg_phy_off)) {
+    if (!vol_->ReadSegment(dataBuf_, seg_phy_off)) {
         return false;
     }
 
