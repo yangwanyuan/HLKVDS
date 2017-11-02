@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "BlockDevice.h"
 
@@ -25,6 +26,8 @@ public:
         return get_capacity();
     }
 
+    std::string GetDevicePath() { return path_; };
+
     ssize_t pWrite(const void* buf, size_t count, off_t offset);
     ssize_t pRead(void* buf, size_t count, off_t offset);
     ssize_t pWritev(const struct iovec *iov, int iovcnt, off_t offset);
@@ -42,6 +45,7 @@ private:
     int fill_file_with_zeros();
     uint64_t get_block_device_capacity();
     int disable_readahead();
+    int lock_device();
 
     uint64_t get_capacity() {
         return capacity_;

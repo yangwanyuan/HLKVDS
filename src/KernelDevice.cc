@@ -104,6 +104,19 @@ uint64_t KernelDevice::get_block_device_capacity() {
     return blocksize;
 }
 
+int KernelDevice::lock_device()
+{
+    struct flock l;
+    memset(&l, 0, sizeof(l));
+    l.l_type = F_WRLCK;
+    l.l_whence = SEEK_SET;
+    int r = ::fcntl(directFd_, F_SETLK, &l);
+    if (r < 0) {
+        return KD_ERR;
+    }
+    return KD_OK;
+}
+
 int KernelDevice::Open(string path, bool dsync) {
     path_ = path;
 
@@ -133,6 +146,12 @@ int KernelDevice::Open(string path, bool dsync) {
         goto open_fail;
     }
 
+    r = lock_device();
+    if (r < 0) {
+        __ERROR("failed to lock device: %s\n", strerror(errno));
+        goto open_fail;
+    }
+
     struct stat statbuf;
     r = fstat(directFd_, &statbuf);
     if (r < 0) {
@@ -149,7 +168,9 @@ int KernelDevice::Open(string path, bool dsync) {
         blockSize_ = 4096;
     }
     return KD_OK;
-    open_fail: close(bufFd_);
+
+open_fail:
+    close(bufFd_);
     close(directFd_);
     directFd_ = -1;
     bufFd_ = -1;
