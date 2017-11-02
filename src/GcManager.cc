@@ -296,7 +296,8 @@ bool GcManager::loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list) {
     uint64_t seg_phy_off;
     vol_->ComputeSegOffsetFromId(seg_id, seg_phy_off);
 
-    if (!vol_->ReadSegment(dataBuf_, seg_phy_off)) {
+    uint32_t seg_size = vol_->GetSegmentSize();
+    if (!vol_->Read(dataBuf_, seg_size, seg_phy_off)) {
         return false;
     }
 

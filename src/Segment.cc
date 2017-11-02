@@ -290,7 +290,7 @@ bool SegBase::_writeDataToDevice() {
     uint64_t offset = 0;
     vol_->ComputeSegOffsetFromId(segId_, offset);
 
-    return vol_->WriteSegment(dataBuf_, offset);
+    return vol_->Write(dataBuf_, segSize_, offset);
 }
 
 bool SegBase::newDataBuffer() {

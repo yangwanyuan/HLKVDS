@@ -33,8 +33,6 @@ public:
     bool SetSST(char* buf, uint64_t length);
     void InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
 
-    bool ReadSegment(char* data, uint64_t seg_offset);
-    bool WriteSegment(char* data, uint64_t seg_offset);
     bool Read(char* data, size_t count, off_t offset);
     bool Write(char* data, size_t count, off_t offset);
     
