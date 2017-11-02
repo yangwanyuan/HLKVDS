@@ -110,7 +110,7 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     }
 
     char *mdata = new char[data_len];
-    if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
+    if (!vol_->Read(mdata, data_len, data_offset)) {
         __ERROR("Could not read data at position");
         delete[] mdata;
         return Status::IOError("Could not read data at position.");
@@ -186,7 +186,7 @@ string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
     __DEBUG("key offset: %lu",key_offset);
     uint16_t key_len = entry->GetKeySize();
     char *mkey = new char[key_len+1];
-    if (bdev_->pRead(mkey, key_len, key_offset) != (ssize_t) key_len) {
+    if (!vol_->Read(mkey, key_len, key_offset)) {
         __ERROR("Could not read data at position");
         delete[] mkey;
         return "";
@@ -210,7 +210,7 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
         return "";
     }
     char *mdata = new char[data_len+1];
-    if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
+    if (!vol_->Read(mdata, data_len, data_offset)) {
         __ERROR("Could not read data at position");
         delete[] mdata;
         return "";

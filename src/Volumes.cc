@@ -71,6 +71,22 @@ bool Volumes::WriteSegment(char* data, uint64_t seg_offset) {
     return true;
 }
 
+bool Volumes::Read(char* data, size_t count, off_t offset) {
+    if (bdev_->pRead(data, count, offset) != (ssize_t)count) {
+        __ERROR("Read data error!!!");
+        return false;
+    }
+    return true;
+}
+
+bool Volumes::Write(char* data, size_t count, off_t offset) {
+    if (bdev_->pWrite(data, count, offset) != (ssize_t)count) {
+        __ERROR("Write data error!!!");
+        return false;
+    }
+    return true;
+}
+
 void Volumes::UpdateMetaToSB() {
     return segMgr_->UpdateMetaToSB();
 }

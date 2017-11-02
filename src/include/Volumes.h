@@ -35,6 +35,8 @@ public:
 
     bool ReadSegment(char* data, uint64_t seg_offset);
     bool WriteSegment(char* data, uint64_t seg_offset);
+    bool Read(char* data, size_t count, off_t offset);
+    bool Write(char* data, size_t count, off_t offset);
     
     void UpdateMetaToSB();
     bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
