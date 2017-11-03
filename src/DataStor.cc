@@ -14,15 +14,25 @@ namespace hlkvds {
 //    return new SimpleDS_Impl();
 //}
 
-SimpleDS_Impl::SimpleDS_Impl(Options& opts, BlockDevice* dev, SuperBlockManager* sb, IndexManager* idx) :
-        options_(opts), bdev_(dev), sbMgr_(sb), idxMgr_(idx),
-        seg_(NULL),
+SimpleDS_Impl::SimpleDS_Impl(Options& opts, std::map<std::string, BlockDevice*> &bdev_map, SuperBlockManager* sb, IndexManager* idx) :
+        options_(opts), bdevMap_(bdev_map), sbMgr_(sb), idxMgr_(idx), seg_(NULL),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
-    vol_ = new Volumes(bdev_, sbMgr_, idxMgr_, options_);
 }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
     delete seg_;
+    deleteAllVolumes();
+}
+
+void SimpleDS_Impl::createAllVolumes() {
+    std::map<string, BlockDevice*>::iterator iter;
+    iter = bdevMap_.begin();
+    BlockDevice * bdev = iter->second;
+    vol_ = new Volumes(bdev, sbMgr_, idxMgr_, options_);
+}
+
+void SimpleDS_Impl::deleteAllVolumes() {
+    delete vol_;
 }
 
 
@@ -136,6 +146,7 @@ bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
 }
 
 void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
+    createAllVolumes();
     vol_->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
 }
 

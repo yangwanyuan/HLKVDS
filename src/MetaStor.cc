@@ -7,13 +7,24 @@
 #include "IndexManager.h"
 #include "DataStor.h"
 
+using namespace std;
+
 namespace hlkvds {
 
-MetaStor::MetaStor(const char* paths, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt) : paths_(paths), metaDev_(dev), sbMgr_(sbm), idxMgr_(im), dataStor_(ds), options_(opt), sbOff_(-1), idxOff_(-1), sstOff_(-1) {}
+MetaStor::MetaStor(const char* paths, map<string, BlockDevice*> &dev_map, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt) : paths_(paths), bdevMap_(dev_map), metaDev_(NULL), sbMgr_(sbm), idxMgr_(im), dataStor_(ds), options_(opt), sbOff_(-1), idxOff_(-1), sstOff_(-1) {
+}
 
 MetaStor::~MetaStor() {}
 
+void MetaStor::checkMetaDevice() {
+    map<string, BlockDevice*>::iterator iter;
+    iter = bdevMap_.begin();
+    metaDev_ = iter->second;
+}
+
 bool MetaStor::CreateMetaData() {
+
+    checkMetaDevice();
 
     uint32_t num_entries = 0;
     uint32_t number_segments = 0;
@@ -30,12 +41,6 @@ bool MetaStor::CreateMetaData() {
     uint32_t segment_size = options_.segment_size;
 
     //Init Block Device
-    int r = 0;
-    r = metaDev_->Open(paths_);
-    if (r < 0) {
-        return false;
-    } __DEBUG("Open device success.");
-
     device_capacity = metaDev_->GetDeviceCapacity();
 
     //Init Superblock region
@@ -101,10 +106,11 @@ bool MetaStor::CreateMetaData() {
     db_seg_table_size = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
     db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
 
-    r = metaDev_->SetNewDBZero(db_meta_size);
+    int r = metaDev_->SetNewDBZero(db_meta_size);
     if (r < 0) {
         return false;
     }
+
 
     //Set Superblock
     db_data_region_size = dataStor_->GetDataRegionSize();
@@ -118,11 +124,8 @@ bool MetaStor::CreateMetaData() {
 }
 
 bool MetaStor::LoadMetaData() {
-    //Open Meta Devices
-    if (metaDev_->Open(paths_) < 0) {
-        __ERROR("Could not open device\n");
-        return false;
-    }
+
+    checkMetaDevice();
 
     //Load SuperBlock
     sbOff_ = 0;

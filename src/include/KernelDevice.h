@@ -39,6 +39,7 @@ private:
     uint64_t capacity_;
     int blockSize_;
     std::string path_;
+    bool isOpen_;
 
     int set_device_zero();
     int set_metazone_zero(uint64_t meta_size);

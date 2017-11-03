@@ -18,7 +18,7 @@ using namespace std;
 
 namespace hlkvds {
 KernelDevice::KernelDevice() :
-    directFd_(-1), bufFd_(-1), capacity_(0), blockSize_(0), path_("") {
+    directFd_(-1), bufFd_(-1), capacity_(0), blockSize_(0), path_(""), isOpen_(false) {
 }
 
 KernelDevice::~KernelDevice() {
@@ -118,13 +118,18 @@ int KernelDevice::lock_device()
 }
 
 int KernelDevice::Open(string path, bool dsync) {
+    if (isOpen_) {
+        __ERROR("This Device is already Open!!!");
+        return KD_ERR;
+    }
+
     path_ = path;
 
     int r = 0;
 
     directFd_ = open(path_.c_str(), O_RDWR | O_DIRECT | O_DSYNC, 0666);
     if (directFd_ < 0) {
-        __ERROR("Could not open file: %s\n", strerror(errno));
+        __ERROR("Could not open file: %s %s\n", path_.c_str(), strerror(errno));
         goto open_fail;
     }
 
@@ -136,26 +141,26 @@ int KernelDevice::Open(string path, bool dsync) {
     }
 
     if (bufFd_ < 0) {
-        __ERROR("Could not open file: %s\n", strerror(errno));
+        __ERROR("Could not open file: %s %s\n", path_.c_str(), strerror(errno));
         goto open_fail;
     }
 
     r = posix_fadvise(bufFd_, 0, 0, POSIX_FADV_RANDOM);
     if (r < 0) {
-        __ERROR("Couldn't posix_fadvise random: %s\n", strerror(errno));
+        __ERROR("Couldn't posix_fadvise random: %s %s\n", path_.c_str(), strerror(errno));
         goto open_fail;
     }
 
     r = lock_device();
     if (r < 0) {
-        __ERROR("failed to lock device: %s\n", strerror(errno));
+        __ERROR("failed to lock device: %s %s\n", path_.c_str(), strerror(errno));
         goto open_fail;
     }
 
     struct stat statbuf;
     r = fstat(directFd_, &statbuf);
     if (r < 0) {
-        __ERROR("Couldn't read fstat: %s\n", strerror(errno));
+        __ERROR("Couldn't read fstat: %s %s\n", path_.c_str(), strerror(errno));
         goto open_fail;
     }
 
@@ -167,6 +172,9 @@ int KernelDevice::Open(string path, bool dsync) {
         //TODO:() dynamic block size in file mode
         blockSize_ = 4096;
     }
+
+    isOpen_ = true;
+
     return KD_OK;
 
 open_fail:
@@ -179,6 +187,8 @@ open_fail:
 }
 
 void KernelDevice::Close() {
+    isOpen_ = false;
+
     if (directFd_ != -1) {
         close(directFd_);
     }

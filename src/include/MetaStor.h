@@ -2,6 +2,7 @@
 #define _HLKVDS_METASTOR_H_
 
 #include <string>
+#include <map>
 
 #include "hlkvds/Options.h"
 
@@ -22,7 +23,7 @@ public:
     bool PersistSSTsToDevice();
     bool FastRecovery();
 
-    MetaStor(const char* paths, BlockDevice *dev, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt);
+    MetaStor(const char* paths, std::map<std::string, BlockDevice*> &dev_map, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt);
     ~MetaStor();
 
 private:
@@ -32,8 +33,11 @@ private:
 
     bool PersistSuperBlockToDevice();
 
+    void checkMetaDevice();
+
 private:
     const char* paths_;
+    std::map<std::string, BlockDevice*> &bdevMap_;
     BlockDevice *metaDev_;
     SuperBlockManager *sbMgr_;
     IndexManager* idxMgr_;

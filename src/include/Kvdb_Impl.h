@@ -1,6 +1,9 @@
 #ifndef _HLKVDS_KVDB_IMPL_H_
 #define _HLKVDS_KVDB_IMPL_H_
 
+#include <map>
+#include <string>
+
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
 #include "hlkvds/Write_batch.h"
@@ -9,6 +12,8 @@
 #include "ReadCache.h"
 
 namespace hlkvds {
+
+const std::string FileDelim = ",";
 
 class BlockDevice;
 class SuperBlockManager;
@@ -43,10 +48,14 @@ private:
     void startThds();
     void stopThds();
 
+    bool openAllDevices(std::string paths);
+    void closeAllDevices();
+
 private:
+    std::string paths_;
+
     SuperBlockManager* sbMgr_;
     IndexManager* idxMgr_;
-    BlockDevice* bdev_;
 
     dslab::ReadCache* rdCache_;// readcache, rmd160, slru/lru
 
@@ -54,6 +63,8 @@ private:
     SimpleDS_Impl *dataStor_;
 
     Options options_;
+
+    std::map<std::string, BlockDevice *> bdevMap_;
 
 
 };

@@ -1,9 +1,12 @@
 #include <stdlib.h>
+#include <boost/algorithm/string.hpp>
+
 #include "Kvdb_Impl.h"
 #include "KvdbIter.h"
 #include "Db_Structure.h"
 
 #include "BlockDevice.h"
+#include "KernelDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "MetaStor.h"
@@ -20,6 +23,11 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     }
 
     KVDS* ds = new KVDS(filename, opts);
+
+    if (!ds->openAllDevices(ds->paths_)) {
+        delete ds;
+        return NULL;
+    }
 
     if (!ds->metaStor_->CreateMetaData()) {
         delete ds;
@@ -99,6 +107,10 @@ KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
 }
 
 Status KVDS::openDB() {
+    if (!openAllDevices(paths_)) {
+        return Status::IOError("Could not open all device");
+    }
+
     if (!metaStor_->LoadMetaData()) {
         return Status::IOError("Could not read meta data");
     }
@@ -134,19 +146,47 @@ KVDS::~KVDS() {
     closeDB();
     delete idxMgr_;
     delete sbMgr_;
-    delete bdev_;
     if(!options_.disable_cache){
         delete rdCache_;
     }
     delete metaStor_;
     delete dataStor_;
+    closeAllDevices();
 
 }
 
-KVDS::KVDS(const char* filename, Options opts) :
-    sbMgr_(NULL), idxMgr_(NULL), bdev_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts) {
+bool KVDS::openAllDevices(string paths) {
 
-    bdev_ = BlockDevice::CreateDevice();
+    vector<string> fields;
+    //string buf(paths);
+    //boost::trim_if(buf, boost::is_any_of(FileDelim));
+    //boost::split(fields, buf, boost::is_any_of(FileDelim));
+    boost::split(fields, paths, boost::is_any_of(FileDelim));
+    vector<string>::iterator iter;
+    for(iter = fields.begin(); iter != fields.end(); iter++){
+        BlockDevice *bdev = new KernelDevice();
+
+        if (bdev->Open(*iter) < 0) {
+            return false;
+        }__DEBUG("Open Device %s Success!", (*iter).c_str());
+
+        bdevMap_.insert(map<string, BlockDevice*>::value_type(*iter, bdev));
+    }
+    return true;
+}
+
+void KVDS::closeAllDevices() {
+    map<string, BlockDevice *>::iterator iter;
+    for ( iter = bdevMap_.begin() ; iter != bdevMap_.end(); ) {
+        BlockDevice *bdev = iter->second;
+        delete bdev;
+        bdevMap_.erase(iter++);
+    }
+}
+
+KVDS::KVDS(const char* filename, Options opts) :
+    paths_(string(filename)), sbMgr_(NULL), idxMgr_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts) {
+
     sbMgr_ = new SuperBlockManager(options_);
     idxMgr_ = new IndexManager(sbMgr_, options_);
 
@@ -154,8 +194,8 @@ KVDS::KVDS(const char* filename, Options opts) :
         rdCache_ = new ReadCache(CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
 
-    dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, idxMgr_);
-    metaStor_ = new MetaStor(filename, bdev_, sbMgr_, idxMgr_, dataStor_, options_);
+    dataStor_ = new SimpleDS_Impl(options_, bdevMap_, sbMgr_, idxMgr_);
+    metaStor_ = new MetaStor(filename, bdevMap_, sbMgr_, idxMgr_, dataStor_, options_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
@@ -243,7 +283,10 @@ void KVDS::Do_GC() {
 }
 
 void KVDS::ClearReadCache() {
-    bdev_->ClearReadCache();
+    std::map<std::string, BlockDevice*>::iterator iter;
+    for (iter = bdevMap_.begin(); iter != bdevMap_.end(); iter++) {
+        iter->second->ClearReadCache();
+    }
 }
 
 }

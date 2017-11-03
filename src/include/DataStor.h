@@ -42,7 +42,7 @@ public:
 class SimpleDS_Impl : public DataStor {
 public:
 
-    SimpleDS_Impl(Options &opts, BlockDevice* dev, SuperBlockManager* sb, IndexManager* idx);
+    SimpleDS_Impl(Options &opts, std::map<std::string, BlockDevice*> &dev_map, SuperBlockManager* sb, IndexManager* idx);
     ~SimpleDS_Impl();
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
@@ -106,11 +106,13 @@ public:
 
 private:
     Status updateMeta(Request *req);
+    void createAllVolumes();
+    void deleteAllVolumes();
 
 //private:
 public:
     Options &options_;
-    BlockDevice* bdev_;
+    std::map<std::string, BlockDevice*> &bdevMap_;
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
