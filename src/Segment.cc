@@ -248,7 +248,8 @@ void SegBase::fillEntryToSlice() {
             vol_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
-            HashEntry hash_entry(data_header, header_offset, NULL);
+            DataHeaderAddress addrs(0, header_offset);
+            HashEntry hash_entry(data_header, addrs, NULL);
             slice->SetHashEntry(&hash_entry);
 
             head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
@@ -265,7 +266,8 @@ void SegBase::fillEntryToSlice() {
             vol_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
-            HashEntry hash_entry(data_header, header_offset, NULL);
+            DataHeaderAddress addrs(0, header_offset);
+            HashEntry hash_entry(data_header, addrs, NULL);
             slice->SetHashEntry(&hash_entry);
 
             head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();

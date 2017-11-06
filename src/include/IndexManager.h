@@ -67,21 +67,26 @@ public:
 
 }__attribute__((__packed__));
 
-class DataHeaderOffset {
+class DataHeaderAddress {
 private:
+    uint16_t location;
     uint64_t physical_offset;
 
 public:
-    DataHeaderOffset() :
-        physical_offset(0) {
+    DataHeaderAddress() :
+        location(0), physical_offset(0) {
     }
-    DataHeaderOffset(uint64_t offset) :
-        physical_offset(offset) {
+    DataHeaderAddress(uint16_t lctn, uint64_t offset) :
+        location(lctn), physical_offset(offset) {
     }
-    ~DataHeaderOffset();
+    ~DataHeaderAddress();
 
     uint64_t GetHeaderOffset() const {
         return physical_offset;
+    }
+
+    uint16_t GetLocation() const {
+        return location;
     }
 
 }__attribute__((__packed__));
@@ -89,18 +94,20 @@ public:
 class HashEntryOnDisk {
 private:
     DataHeader header;
-    DataHeaderOffset header_offset;
+    DataHeaderAddress address;
 
 public:
     HashEntryOnDisk();
-    HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset);
-    HashEntryOnDisk(DataHeader& dataheader, uint64_t offset);
+    HashEntryOnDisk(DataHeader& dataheader, DataHeaderAddress& addrs);
     HashEntryOnDisk(const HashEntryOnDisk& toBeCopied);
     ~HashEntryOnDisk();
     HashEntryOnDisk& operator=(const HashEntryOnDisk& toBeCopied);
 
+    uint16_t GetHeaderLocation() const {
+        return address.GetLocation();
+    }
     uint64_t GetHeaderOffsetPhy() const {
-        return header_offset.GetHeaderOffset();
+        return address.GetHeaderOffset();
     }
     uint16_t GetKeySize() const {
         return header.GetKeySize();
@@ -187,12 +194,15 @@ public:
 
         HashEntry();
         HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr);
-        HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr);
+        HashEntry(DataHeader& data_header, DataHeaderAddress& addrs, void* read_ptr);
         HashEntry(const HashEntry&);
         ~HashEntry();
         bool operator==(const HashEntry& toBeCompare) const;
         HashEntry& operator=(const HashEntry& toBeCopied);
 
+        uint16_t GetHeaderLocation() const {
+            return entryPtr_->GetHeaderLocation();
+        }
         uint64_t GetHeaderOffsetPhy() const {
             return entryPtr_->GetHeaderOffsetPhy();
         }

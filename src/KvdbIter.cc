@@ -71,7 +71,8 @@ void KvdbIter::Seek(const char* key) {
     KVSlice slice(key, key_len, NULL, 0);
     DataHeader data_header;
     data_header.SetDigest(slice.GetDigest());
-    HashEntry entry(data_header, 0, NULL);
+    DataHeaderAddress addrs;
+    HashEntry entry(data_header, addrs, NULL);
     
     LinkedList<HashEntry> *entry_list;
     hashEntry_ = NULL;

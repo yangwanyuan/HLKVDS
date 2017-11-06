@@ -256,7 +256,9 @@ void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
         memcpy(&header, &dataBuf_[head_offset],
                IndexManager::SizeOfDataHeader());
 
-        HashEntry hash_entry(header, phy_offset + (uint64_t) head_offset, NULL);
+        DataHeaderAddress addrs(0, phy_offset + (uint64_t)head_offset);
+        HashEntry hash_entry(header, addrs, NULL);
+
         __DEBUG("load hash_entry from seg_offset = %ld, header_offset = %d", phy_offset, head_offset );
 
         if (idxMgr_->IsSameInMem(hash_entry)) {

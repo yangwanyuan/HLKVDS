@@ -32,28 +32,21 @@ void DataHeader::SetDigest(const Kvdb_Digest& digest) {
     key_digest = digest;
 }
 
-DataHeaderOffset::~DataHeaderOffset() {
+DataHeaderAddress::~DataHeaderAddress() {
 }
 
 HashEntryOnDisk::HashEntryOnDisk() :
-    header(DataHeader()), header_offset(DataHeaderOffset()) {
+    header(DataHeader()), address(DataHeaderAddress()) {
 }
 
 HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader,
-                                 DataHeaderOffset& offset) :
-    header(dataheader), header_offset(offset) {
-}
-
-HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, uint64_t offset) {
-    header = dataheader;
-    DataHeaderOffset h_off(offset);
-    header_offset = h_off;
-    return;
+                                 DataHeaderAddress& addrs) :
+    header(dataheader), address(addrs) {
 }
 
 HashEntryOnDisk::HashEntryOnDisk(const HashEntryOnDisk& toBeCopied) {
     header = toBeCopied.header;
-    header_offset = toBeCopied.header_offset;
+    address = toBeCopied.address;
 }
 
 HashEntryOnDisk::~HashEntryOnDisk() {
@@ -61,7 +54,7 @@ HashEntryOnDisk::~HashEntryOnDisk() {
 
 HashEntryOnDisk& HashEntryOnDisk::operator=(const HashEntryOnDisk& toBeCopied) {
     header = toBeCopied.header;
-    header_offset = toBeCopied.header_offset;
+    address = toBeCopied.address;
     return *this;
 }
 
@@ -82,11 +75,11 @@ HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp,
     entryPtr_ = new HashEntryOnDisk(entry_ondisk);
 }
 
-HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset,
-                     void* read_ptr) {
+HashEntry::HashEntry(DataHeader& data_header, DataHeaderAddress &addrs,
+                     void* read_ptr) :
+    cachePtr_(read_ptr) {
     stampPtr_ = new LogicStamp;
-    entryPtr_ = new HashEntryOnDisk(data_header, header_offset);
-    cachePtr_ = read_ptr;
+    entryPtr_ = new HashEntryOnDisk(data_header, addrs);
 }
 
 HashEntry::HashEntry(const HashEntry& toBeCopied) {
