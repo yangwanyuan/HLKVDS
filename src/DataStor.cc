@@ -14,8 +14,8 @@ namespace hlkvds {
 //    return new SimpleDS_Impl();
 //}
 
-SimpleDS_Impl::SimpleDS_Impl(Options& opts, std::map<std::string, BlockDevice*> &bdev_map, SuperBlockManager* sb, IndexManager* idx) :
-        options_(opts), bdevMap_(bdev_map), sbMgr_(sb), idxMgr_(idx), seg_(NULL),
+SimpleDS_Impl::SimpleDS_Impl(Options& opts, vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx) :
+        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
 }
 
@@ -25,9 +25,7 @@ SimpleDS_Impl::~SimpleDS_Impl() {
 }
 
 void SimpleDS_Impl::createAllVolumes() {
-    std::map<string, BlockDevice*>::iterator iter;
-    iter = bdevMap_.begin();
-    BlockDevice * bdev = iter->second;
+    BlockDevice * bdev = bdVec_[0];
     vol_ = new Volumes(bdev, sbMgr_, idxMgr_, options_);
 }
 

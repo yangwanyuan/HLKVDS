@@ -1,7 +1,7 @@
 #ifndef _HLKVDS_KVDB_IMPL_H_
 #define _HLKVDS_KVDB_IMPL_H_
 
-#include <map>
+#include <vector>
 #include <string>
 
 #include "hlkvds/Options.h"
@@ -64,7 +64,7 @@ private:
 
     Options options_;
 
-    std::map<std::string, BlockDevice *> bdevMap_;
+    std::vector<BlockDevice *> bdVec_;
 
 
 };

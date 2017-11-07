@@ -5,7 +5,7 @@
 #include <mutex>
 #include <thread>
 #include <atomic>
-#include <map>
+#include <vector>
 
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
@@ -42,7 +42,7 @@ public:
 class SimpleDS_Impl : public DataStor {
 public:
 
-    SimpleDS_Impl(Options &opts, std::map<std::string, BlockDevice*> &dev_map, SuperBlockManager* sb, IndexManager* idx);
+    SimpleDS_Impl(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
     ~SimpleDS_Impl();
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
@@ -92,7 +92,7 @@ private:
 //private:
 public:
     Options &options_;
-    std::map<std::string, BlockDevice*> &bdevMap_;
+    std::vector<BlockDevice *> &bdVec_;
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
