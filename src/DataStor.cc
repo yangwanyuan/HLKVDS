@@ -191,7 +191,7 @@ void SimpleDS_Impl::StopThds() {
 
 string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
     uint64_t key_offset = 0;
-    if (!ComputeKeyOffsetPhyFromEntry(entry, key_offset)) {
+    if (!vol_->ComputeKeyOffsetPhyFromEntry(entry, key_offset)) {
         return "";
     }
     __DEBUG("key offset: %lu",key_offset);
@@ -212,7 +212,7 @@ string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
 
 string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
     uint64_t data_offset = 0;
-    if (!ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
+    if (!vol_->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
         return "";
     }
     __DEBUG("data offset: %lu",data_offset);
@@ -235,14 +235,6 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
 }
 
 ////////////////////////////////////////////////////
-
-bool SimpleDS_Impl::ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset) {
-    return vol_->ComputeDataOffsetPhyFromEntry(entry, data_offset);
-}
-
-bool SimpleDS_Impl::ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset) {
-    return vol_->ComputeKeyOffsetPhyFromEntry(entry, key_offset);
-}
 
 void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
     vol_->ModifyDeathEntry(entry);
@@ -269,37 +261,6 @@ uint32_t SimpleDS_Impl::GetMaxValueLength() {
     return vol_->GetMaxValueLength();
 }
 
-uint32_t SimpleDS_Impl::GetTotalUsedSegs() {
-    return vol_->GetTotalUsedSegs();
-}
-
-void SimpleDS_Impl::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils) {
-    return vol_->SortSegsByUtils(cand_map, utils);
-}
-
-uint32_t SimpleDS_Impl::GetSegmentSize() {
-    return vol_->GetSegmentSize();
-}
-uint32_t SimpleDS_Impl::GetNumberOfSeg() {
-    return vol_->GetNumberOfSeg();
-}
-
-bool SimpleDS_Impl::AllocForGC(uint32_t& seg_id) {
-    return vol_->AllocForGC(seg_id);
-}
-void SimpleDS_Impl::FreeForFailed(uint32_t seg_id) {
-    return vol_->FreeForFailed(seg_id);
-}
-void SimpleDS_Impl::FreeForGC(uint32_t seg_id) {
-    return vol_->FreeForGC(seg_id);
-}
-void SimpleDS_Impl::Use(uint32_t seg_id, uint32_t free_size) {
-    return vol_->Use(seg_id, free_size);
-}
-
-bool SimpleDS_Impl::ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
-    return vol_->ComputeSegOffsetFromId(seg_id, offset);
-}
 
 /////////////////////////////////////////////////////
 
