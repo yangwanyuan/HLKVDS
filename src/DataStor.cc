@@ -24,9 +24,10 @@ SimpleDS_Impl::~SimpleDS_Impl() {
     deleteAllVolumes();
 }
 
-void SimpleDS_Impl::createAllVolumes() {
+void SimpleDS_Impl::createAllVolumes(uint64_t sst_offset, uint32_t seg_num) {
     BlockDevice * bdev = bdVec_[0];
-    Volumes *vol = new Volumes(bdev, sbMgr_, idxMgr_, options_);
+    uint64_t start_off = sst_offset + ComputeTotalSSTsSizeOnDisk(seg_num);
+    Volumes *vol = new Volumes(bdev, sbMgr_, idxMgr_, options_, start_off);
     volVec_.push_back(vol);
 }
 
@@ -150,8 +151,8 @@ bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
 }
 
 void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
-    createAllVolumes();
-    volVec_[0]->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
+    createAllVolumes(sst_offset, number_segments);
+    volVec_[0]->InitMeta(segment_size, number_segments, cur_seg_id);
 }
 
 void SimpleDS_Impl::UpdateMetaToSB() {

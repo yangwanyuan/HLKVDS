@@ -90,21 +90,21 @@ public:
         if (seg_id >= segNum_) {
             return false;
         }
-        offset = dataStartOff_ + ((uint64_t) seg_id << segSizeBit_);
+        offset = ((uint64_t) seg_id << segSizeBit_);
         return true;
     }
 
     inline bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id) {
-        if (offset < dataStartOff_ || offset > dataEndOff_) {
+        seg_id = offset >> segSizeBit_;
+        if (seg_id >= segNum_) {
             return false;
         }
-        seg_id = (offset - dataStartOff_) >> segSizeBit_;
         return true;
     }
 
     bool Get(char *buf, uint64_t length);
     bool Set(char *buf, uint64_t length);
-    void InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
+    void InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
     void UpdateMetaToSB();
 
     bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
@@ -129,8 +129,6 @@ public:
 
 private:
     std::vector<SegmentStat> segTable_;
-    uint64_t dataStartOff_;
-    uint64_t dataEndOff_;
     uint32_t segSize_;
     uint32_t segSizeBit_;
     uint32_t segNum_;

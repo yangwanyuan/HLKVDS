@@ -86,7 +86,7 @@ public:
 
 private:
     Status updateMeta(Request *req);
-    void createAllVolumes();
+    void createAllVolumes(uint64_t sst_offset, uint32_t seg_num);
     void deleteAllVolumes();
 
 //private:

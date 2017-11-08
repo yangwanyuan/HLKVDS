@@ -77,15 +77,12 @@ bool SegmentManager::Set(char* buf, uint64_t length) {
     return true;
 }
 
-void SegmentManager::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
+void SegmentManager::InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
     segSize_ = segment_size;
     segNum_ = number_segments;
     curSegId_ = cur_seg_id;
 
-    dataStartOff_ = sst_offset + Volumes::ComputeSegTableSizeOnDisk(segNum_);
-
     segSizeBit_ = log2(segSize_);
-    dataEndOff_ = dataStartOff_ + ((uint64_t) segNum_ << segSizeBit_);
     maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
     freedCounter_ = segNum_;
@@ -262,9 +259,9 @@ void SegmentManager::SortSegsByUtils(
 }
 
 SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt)
-    : dataStartOff_(0), dataEndOff_(0), segSize_(0), segSizeBit_(0),
-        segNum_(0), curSegId_(0), usedCounter_(0), freedCounter_(0),
-        reservedCounter_(0), maxValueLen_(0), sbMgr_(sbm), options_(opt) {
+    : segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0),
+    usedCounter_(0), freedCounter_(0), reservedCounter_(0),
+    maxValueLen_(0), sbMgr_(sbm), options_(opt) {
 }
 
 SegmentManager::~SegmentManager() {

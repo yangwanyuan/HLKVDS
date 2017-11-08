@@ -10,8 +10,8 @@
 
 namespace hlkvds {         
     
-Volumes::Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts)
-    : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), sbMgr_(sbm), idxMgr_(im), options_(opts) {
+Volumes::Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off)
+    : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), sbMgr_(sbm), idxMgr_(im), options_(opts), startOff_(start_off) {
     segMgr_ = new SegmentManager(sbMgr_, options_);
     gcMgr_ = new GcManager(idxMgr_, this, options_);
 }
@@ -51,12 +51,13 @@ bool Volumes::SetSST(char* buf, uint64_t length) {
     return segMgr_->Set(buf, length);
 }
 
-void Volumes::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
-    return segMgr_->InitMeta(sst_offset, segment_size, number_segments, cur_seg_id);
+void Volumes::InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
+    return segMgr_->InitMeta(segment_size, number_segments, cur_seg_id);
 }
 
 bool Volumes::Read(char* data, size_t count, off_t offset) {
-    if (bdev_->pRead(data, count, offset) != (ssize_t)count) {
+    uint64_t phy_offset = offset + startOff_;
+    if (bdev_->pRead(data, count, phy_offset) != (ssize_t)count) {
         __ERROR("Read data error!!!");
         return false;
     }
@@ -64,7 +65,8 @@ bool Volumes::Read(char* data, size_t count, off_t offset) {
 }
 
 bool Volumes::Write(char* data, size_t count, off_t offset) {
-    if (bdev_->pWrite(data, count, offset) != (ssize_t)count) {
+    uint64_t phy_offset = offset + startOff_;
+    if (bdev_->pWrite(data, count, phy_offset) != (ssize_t)count) {
         __ERROR("Write data error!!!");
         return false;
     }
@@ -165,16 +167,5 @@ void Volumes::FullGC() {
 void Volumes::BackGC() {
     return gcMgr_->BackGC();
 }
-
-
-
-
-
-
-
-
-
-
-
 
 }// namespace hlkvds

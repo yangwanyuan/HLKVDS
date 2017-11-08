@@ -23,7 +23,7 @@ class HashEntry;
 
 class Volumes {
 public:
-    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts);
+    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off);
     ~Volumes();
 
     void StartThds();
@@ -31,7 +31,7 @@ public:
 
     bool GetSST(char* buf, uint64_t length);
     bool SetSST(char* buf, uint64_t length);
-    void InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
+    void InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
 
     bool Read(char* data, size_t count, off_t offset);
     bool Write(char* data, size_t count, off_t offset);
