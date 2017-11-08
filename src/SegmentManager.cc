@@ -3,6 +3,7 @@
 #include "SegmentManager.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
+#include "Volumes.h"
 
 namespace hlkvds {
 
@@ -38,7 +39,7 @@ void SegmentOnDisk::Update() {
 
 bool SegmentManager::Get(char* buf, uint64_t length) {
     uint64_t stat_size = sizeof(SegmentStat);
-    uint64_t stat_table_size = SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
+    uint64_t stat_table_size = Volumes::ComputeSegTableSizeOnDisk(segNum_);
     if (length != stat_table_size) {
         return false;
     }
@@ -57,7 +58,7 @@ bool SegmentManager::Get(char* buf, uint64_t length) {
 
 bool SegmentManager::Set(char* buf, uint64_t length) {
     uint64_t stat_size = sizeof(SegmentStat);
-    uint64_t stat_table_size = SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
+    uint64_t stat_table_size = Volumes::ComputeSegTableSizeOnDisk(segNum_);
     if (length != stat_table_size) {
         return false;
     }
@@ -81,7 +82,7 @@ void SegmentManager::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32
     segNum_ = number_segments;
     curSegId_ = cur_seg_id;
 
-    dataStartOff_ = sst_offset + SegmentManager::ComputeSegTableSizeOnDisk(segNum_);
+    dataStartOff_ = sst_offset + Volumes::ComputeSegTableSizeOnDisk(segNum_);
 
     segSizeBit_ = log2(segSize_);
     dataEndOff_ = dataStartOff_ + ((uint64_t) segNum_ << segSizeBit_);
@@ -94,24 +95,6 @@ void SegmentManager::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32
 
 void SegmentManager::UpdateMetaToSB() {
     sbMgr_->SetCurSegId(curSegId_);
-}
-
-uint64_t SegmentManager::ComputeSegTableSizeOnDisk(uint32_t seg_num) {
-    uint64_t segtable_size = sizeof(SegmentStat) * seg_num;
-    uint64_t segtable_size_pages = segtable_size / getpagesize();
-    return (segtable_size_pages + 1) * getpagesize();
-}
-
-uint32_t SegmentManager::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
-    uint32_t seg_num = total_size / seg_size;
-    uint32_t seg_size_bit = log2(seg_size);
-    uint64_t seg_table_size =
-            SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
-    while (seg_table_size + ((uint64_t) seg_num << seg_size_bit) > total_size) {
-        seg_num--;
-        seg_table_size = SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
-    }
-    return seg_num;
 }
 
 bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset,

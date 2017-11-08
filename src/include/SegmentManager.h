@@ -69,8 +69,6 @@ public:
     static inline size_t SizeOfSegOnDisk() {
         return sizeof(SegmentOnDisk);
     }
-    static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
-    static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
 
     uint32_t GetNowSegId() {
         return curSegId_;

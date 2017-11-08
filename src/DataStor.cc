@@ -253,7 +253,7 @@ uint32_t SimpleDS_Impl::ComputeTotalSegNum(uint32_t seg_size, uint64_t meta_star
     // compute meta device segment number
     dev_capacity = bdev->GetDeviceCapacity();
     vol_capacity =dev_capacity - meta_start_off;
-    seg_num += SegmentManager::ComputeSegNum(vol_capacity, seg_size);
+    seg_num += Volumes::ComputeSegNum(vol_capacity, seg_size);
     iter++;
     __DEBUG("Compute seg_num is: %d", seg_num);
 
@@ -261,7 +261,7 @@ uint32_t SimpleDS_Impl::ComputeTotalSegNum(uint32_t seg_size, uint64_t meta_star
     while ( iter!= bdVec_.end() ) {
         bdev = *iter;
         dev_capacity = bdev->GetDeviceCapacity();
-        seg_num += SegmentManager::ComputeSegNum(dev_capacity, seg_size);
+        seg_num += Volumes::ComputeSegNum(dev_capacity, seg_size);
         iter++;
         __DEBUG("Compute seg_num is: %d", seg_num);
     }
@@ -270,7 +270,7 @@ uint32_t SimpleDS_Impl::ComputeTotalSegNum(uint32_t seg_size, uint64_t meta_star
 }
 
 uint64_t SimpleDS_Impl::ComputeTotalSSTsSizeOnDisk(uint32_t seg_num) {
-    return SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
+    return Volumes::ComputeSegTableSizeOnDisk(seg_num);
 }
 
 uint64_t SimpleDS_Impl::GetDataRegionSize() {

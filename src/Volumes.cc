@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "Volumes.h"
 #include "BlockDevice.h"
 #include "SegmentManager.h"
@@ -73,6 +75,23 @@ void Volumes::UpdateMetaToSB() {
     return segMgr_->UpdateMetaToSB();
 }
 
+
+uint32_t Volumes::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
+    uint32_t seg_num = total_size / seg_size;
+    uint32_t seg_size_bit = log2(seg_size);
+    uint64_t seg_table_size = Volumes::ComputeSegTableSizeOnDisk(seg_num);
+    while (seg_table_size + ((uint64_t) seg_num << seg_size_bit) > total_size) {
+        seg_num--;
+        seg_table_size = Volumes::ComputeSegTableSizeOnDisk(seg_num);
+    }
+    return seg_num;
+}
+
+uint64_t Volumes::ComputeSegTableSizeOnDisk(uint64_t seg_num) {
+    uint64_t segtable_size = sizeof(SegmentStat) * seg_num;
+    uint64_t segtable_size_pages = segtable_size / getpagesize();
+    return (segtable_size_pages + 1) * getpagesize();
+}
 ////////////////////////////////////////////////////
 
 bool Volumes::ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset) {

@@ -63,6 +63,9 @@ public:
     void FullGC();
     void BackGC();
 
+    static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
+    static uint64_t ComputeSegTableSizeOnDisk(uint64_t seg_num);
+
 private:
     BlockDevice* bdev_;
     SegmentManager* segMgr_;
