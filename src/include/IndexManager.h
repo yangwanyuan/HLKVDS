@@ -70,19 +70,19 @@ public:
 class DataHeaderAddress {
 private:
     uint16_t location;
-    uint64_t physical_offset;
+    uint64_t offset;
 
 public:
     DataHeaderAddress() :
-        location(0), physical_offset(0) {
+        location(0), offset(0) {
     }
     DataHeaderAddress(uint16_t lctn, uint64_t offset) :
-        location(lctn), physical_offset(offset) {
+        location(lctn), offset(offset) {
     }
     ~DataHeaderAddress();
 
     uint64_t GetHeaderOffset() const {
-        return physical_offset;
+        return offset;
     }
 
     uint16_t GetLocation() const {
@@ -106,7 +106,7 @@ public:
     uint16_t GetHeaderLocation() const {
         return address.GetLocation();
     }
-    uint64_t GetHeaderOffsetPhy() const {
+    uint64_t GetHeaderOffset() const {
         return address.GetHeaderOffset();
     }
     uint16_t GetKeySize() const {
@@ -203,8 +203,8 @@ public:
         uint16_t GetHeaderLocation() const {
             return entryPtr_->GetHeaderLocation();
         }
-        uint64_t GetHeaderOffsetPhy() const {
-            return entryPtr_->GetHeaderOffsetPhy();
+        uint64_t GetHeaderOffset() const {
+            return entryPtr_->GetHeaderOffset();
         }
 
         uint16_t GetKeySize() const {

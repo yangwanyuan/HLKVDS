@@ -109,7 +109,7 @@ bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset,
 bool SegmentManager::ComputeDataOffsetPhyFromEntry(HashEntry* entry,
                                                    uint64_t& data_offset) {
     uint64_t seg_offset = 0;
-    uint64_t header_offset = entry->GetHeaderOffsetPhy();
+    uint64_t header_offset = entry->GetHeaderOffset();
     if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
         return false;
     }
@@ -120,7 +120,7 @@ bool SegmentManager::ComputeDataOffsetPhyFromEntry(HashEntry* entry,
 bool SegmentManager::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
                                                     uint64_t& key_offset) {
     uint64_t seg_offset = 0;
-    uint64_t header_offset = entry->GetHeaderOffsetPhy();
+    uint64_t header_offset = entry->GetHeaderOffset();
     if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
         return false;
     }
@@ -216,7 +216,7 @@ void SegmentManager::Use(uint32_t seg_id, uint32_t free_size) {
 
 void SegmentManager::ModifyDeathEntry(HashEntry &entry) {
     uint32_t seg_id;
-    uint64_t offset = entry.GetHeaderOffsetPhy();
+    uint64_t offset = entry.GetHeaderOffset();
     if (!ComputeSegIdFromOffset(offset, seg_id)) {
         __ERROR("Compute Seg Id Wrong!!! offset = %ld", offset);
     }

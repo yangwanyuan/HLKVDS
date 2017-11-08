@@ -133,7 +133,7 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     data.assign(mdata, data_len);
     delete[] mdata;
 
-    __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffsetPhy());
+    __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffset());
 
     return Status::OK();
 }

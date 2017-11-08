@@ -364,7 +364,7 @@ bool IndexManager::GetHashEntry(KVSlice *slice) {
                 entry = *iter;
                 slice->SetHashEntry(&entry);
                 __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u",
-                        entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(),
+                        entry.GetHeaderOffset(), entry.GetDataOffsetInSeg(),
                         entry.GetNextHeadOffsetInSeg());
                 return true;
             }
@@ -397,8 +397,8 @@ bool IndexManager::IsSameInMem(HashEntry entry)
         return false;
     } else {
         HashEntry *entry_inMem = entry_list->getRef(entry);
-        __DEBUG("the entry header_offset = %ld, in memory entry header_offset=%ld", entry.GetHeaderOffsetPhy(), entry_inMem->GetHeaderOffsetPhy());
-        if (entry_inMem->GetHeaderOffsetPhy() == entry.GetHeaderOffsetPhy()) {
+        __DEBUG("the entry header_offset = %ld, in memory entry header_offset=%ld", entry.GetHeaderOffset(), entry_inMem->GetHeaderOffset());
+        if (entry_inMem->GetHeaderOffset() == entry.GetHeaderOffset()) {
             __DEBUG("Same, because entry is same with in memory!");
             return true;
         }
