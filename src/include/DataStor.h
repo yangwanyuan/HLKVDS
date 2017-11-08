@@ -75,8 +75,8 @@ public:
     void ModifyDeathEntry(HashEntry &entry);
 
     //use in MetaStor
-    static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
-    static uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
+    uint32_t ComputeTotalSegNum(uint32_t seg_size, uint64_t meta_start_off);
+    uint64_t ComputeTotalSSTsSizeOnDisk(uint32_t seg_num);
 
     uint64_t GetDataRegionSize();
 
@@ -96,7 +96,7 @@ public:
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
-    Volumes* vol_;
+    std::vector<Volumes *> volVec_;
     SegForReq *seg_;
     std::mutex segMtx_;
 

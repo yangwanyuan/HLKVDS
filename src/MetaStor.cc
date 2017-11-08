@@ -80,15 +80,15 @@ bool MetaStor::CreateMetaData() {
     __DEBUG("Init index region success.");
 
     //Init Segment region
-    uint64_t seg_total_size = device_capacity - db_sb_size - db_index_size;
+    uint64_t sb_index_total_size = db_sb_size + db_index_size;
+    uint64_t seg_total_size = device_capacity - sb_index_total_size;
 
     if (segment_size <= 0 || segment_size > seg_total_size) {
         __ERROR("Improper segment size, %d",segment_size);
         return false;
     }
 
-    number_segments = SimpleDS_Impl::ComputeSegNum(seg_total_size,
-                                                    segment_size);
+    number_segments = dataStor_->ComputeTotalSegNum(segment_size, sb_index_total_size);
 
     uint64_t segtable_offset = db_sb_size + db_index_size;
 
@@ -101,7 +101,7 @@ bool MetaStor::CreateMetaData() {
     __DEBUG("Init segment region success.");
 
     //Set zero to device.
-    db_seg_table_size = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
+    db_seg_table_size = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
     db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
 
     int r = metaDev_->SetNewDBZero(db_meta_size);
@@ -295,7 +295,7 @@ bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments, int fir
     else {
         dataStor_->InitMeta(sstOff_, segment_size, number_segments, sbMgr_->GetCurSegmentId());
     }
-    uint64_t length = SimpleDS_Impl::ComputeSegTableSizeOnDisk(number_segments);
+    uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
     char *buff = new char[length];
     memset(buff, 0 , length);
     if (!first_create) {

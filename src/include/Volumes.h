@@ -41,8 +41,6 @@ public:
     bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
     void ModifyDeathEntry(HashEntry &entry);
     
-    uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
-    uint64_t ComputeSegTableSizeOnDisk(uint32_t seg_num);
     uint64_t GetDataRegionSize();
     uint32_t GetTotalFreeSegs();
     uint32_t GetMaxValueLength();

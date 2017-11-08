@@ -87,14 +87,6 @@ void Volumes::ModifyDeathEntry(HashEntry &entry) {
     segMgr_->ModifyDeathEntry(entry);
 }
 
-uint32_t Volumes::ComputeSegNum(uint64_t total_size, uint32_t seg_size) {
-    return SegmentManager::ComputeSegNum(total_size, seg_size);
-}
-
-uint64_t Volumes::ComputeSegTableSizeOnDisk(uint32_t seg_num) {
-    return SegmentManager::ComputeSegTableSizeOnDisk(seg_num);
-}
-
 uint64_t Volumes::GetDataRegionSize() {
     return segMgr_->GetDataRegionSize();
 }
