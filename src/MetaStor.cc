@@ -11,10 +11,18 @@ using namespace std;
 
 namespace hlkvds {
 
-MetaStor::MetaStor(const char* paths, vector<BlockDevice*> &dev_vec, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt) : paths_(paths), bdVec_(dev_vec), metaDev_(NULL), sbMgr_(sbm), idxMgr_(im), dataStor_(ds), options_(opt), sbOff_(-1), idxOff_(-1), sstOff_(-1) {
+MetaStor::MetaStor(const char* paths, vector<BlockDevice*> &dev_vec,
+                    SuperBlockManager *sbm, IndexManager *im, Options &opt)
+    : paths_(paths), bdVec_(dev_vec), metaDev_(NULL),
+    sbMgr_(sbm), idxMgr_(im), options_(opt), sbOff_(-1),
+    idxOff_(-1), sstOff_(-1) {
 }
 
 MetaStor::~MetaStor() {}
+
+void MetaStor::InitDataStor(SimpleDS_Impl* ds) {
+    dataStor_ = ds;
+}
 
 void MetaStor::checkMetaDevice() {
     metaDev_ = bdVec_[0];

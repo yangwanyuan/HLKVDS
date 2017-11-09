@@ -23,8 +23,10 @@ public:
     bool PersistSSTsToDevice();
     bool FastRecovery();
 
-    MetaStor(const char* paths, std::vector<BlockDevice*> &dev_vec, SuperBlockManager *sbm, IndexManager *im, SimpleDS_Impl *ds, Options &opt);
+    MetaStor(const char* paths, std::vector<BlockDevice*> &dev_vec, SuperBlockManager *sbm, IndexManager *im, Options &opt);
     ~MetaStor();
+
+    void InitDataStor(SimpleDS_Impl* ds);
 
 private:
     bool LoadSuperBlock(int first_create = 0);

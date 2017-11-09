@@ -22,26 +22,32 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
         return NULL;
     }
 
-    KVDS* ds = new KVDS(filename, opts);
+    KVDS* kvds = new KVDS(filename, opts);
 
-    if (!ds->openAllDevices(ds->paths_)) {
-        delete ds;
+
+    if (!kvds->openAllDevices(kvds->paths_)) {
+        delete kvds;
         return NULL;
     }
 
-    if (!ds->metaStor_->CreateMetaData()) {
-        delete ds;
+    // TODO:Find DataStor Type;
+    // ...
+    kvds->dataStor_ = new SimpleDS_Impl(kvds->options_, kvds->bdVec_, kvds->sbMgr_, kvds->idxMgr_);
+    kvds->metaStor_->InitDataStor(kvds->dataStor_);
+
+    if (!kvds->metaStor_->CreateMetaData()) {
+        delete kvds;
         return NULL;
     }
 
     __INFO("\nCreateKVDS Success!!!\n");
-    ds->printDbStates();
+    kvds->printDbStates();
 
-    ds->dataStor_->InitSegment();
-    ds->idxMgr_->InitDataStor(ds->dataStor_);
-    ds->startThds();
+    kvds->dataStor_->InitSegment();
+    kvds->idxMgr_->InitDataStor(kvds->dataStor_);
+    kvds->startThds();
 
-    return ds;
+    return kvds;
 
 }
 
@@ -95,14 +101,14 @@ void KVDS::printDbStates() {
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
-    KVDS *instance_ = new KVDS(filename, opts);
+    KVDS *kvds = new KVDS(filename, opts);
 
-    Status s = instance_->openDB();
+    Status s = kvds->openDB();
     if (!s.ok()) {
-        delete instance_;
+        delete kvds;
         return NULL;
     }
-    return instance_;
+    return kvds;
 
 }
 
@@ -110,6 +116,11 @@ Status KVDS::openDB() {
     if (!openAllDevices(paths_)) {
         return Status::IOError("Could not open all device");
     }
+
+    // TODO:Find DataStor Type;
+    // ...
+    dataStor_ = new SimpleDS_Impl(options_, bdVec_, sbMgr_, idxMgr_);
+    metaStor_->InitDataStor(dataStor_);
 
     if (!metaStor_->LoadMetaData()) {
         return Status::IOError("Could not read meta data");
@@ -150,7 +161,9 @@ KVDS::~KVDS() {
         delete rdCache_;
     }
     delete metaStor_;
-    delete dataStor_;
+    if (dataStor_) {
+        delete dataStor_;
+    }
     closeAllDevices();
 
 }
@@ -194,8 +207,7 @@ KVDS::KVDS(const char* filename, Options opts) :
         rdCache_ = new ReadCache(CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
 
-    dataStor_ = new SimpleDS_Impl(options_, bdVec_, sbMgr_, idxMgr_);
-    metaStor_ = new MetaStor(filename, bdVec_, sbMgr_, idxMgr_, dataStor_, options_);
+    metaStor_ = new MetaStor(filename, bdVec_, sbMgr_, idxMgr_, options_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
