@@ -43,7 +43,6 @@ public:
     
     uint64_t GetDataRegionSize();
     uint32_t GetTotalFreeSegs();
-    uint32_t GetMaxValueLength();
     uint32_t GetTotalUsedSegs();
     
     void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);

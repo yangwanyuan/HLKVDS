@@ -117,10 +117,6 @@ uint32_t Volumes::GetTotalFreeSegs() {
     return segMgr_->GetTotalFreeSegs();
 }
 
-uint32_t Volumes::GetMaxValueLength() {
-    return segMgr_->GetMaxValueLength();
-}
-
 uint32_t Volumes::GetTotalUsedSegs() {
     return segMgr_->GetTotalUsedSegs();
 }

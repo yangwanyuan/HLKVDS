@@ -15,7 +15,7 @@ namespace hlkvds {
 //}
 
 SimpleDS_Impl::SimpleDS_Impl(Options& opts, vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx) :
-        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL),
+        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL), maxValueLen_(0),
         reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
 }
 
@@ -153,6 +153,9 @@ bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
 void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
     createAllVolumes(sst_offset, number_segments);
     volVec_[0]->InitMeta(segment_size, number_segments, cur_seg_id);
+
+    maxValueLen_ = segment_size - SegmentManager::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+
 }
 
 void SimpleDS_Impl::UpdateMetaToSB() {
@@ -282,11 +285,6 @@ uint64_t SimpleDS_Impl::GetDataRegionSize() {
 uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
     return volVec_[0]->GetTotalFreeSegs();
 }
-
-uint32_t SimpleDS_Impl::GetMaxValueLength() {
-    return volVec_[0]->GetMaxValueLength();
-}
-
 
 /////////////////////////////////////////////////////
 

@@ -83,7 +83,6 @@ void SegmentManager::InitMeta(uint32_t segment_size, uint32_t number_segments, u
     curSegId_ = cur_seg_id;
 
     segSizeBit_ = log2(segSize_);
-    maxValueLen_ = segSize_ - SegmentManager::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
     freedCounter_ = segNum_;
     usedCounter_ = 0;
@@ -261,7 +260,7 @@ void SegmentManager::SortSegsByUtils(
 SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt)
     : segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0),
     usedCounter_(0), freedCounter_(0), reservedCounter_(0),
-    maxValueLen_(0), sbMgr_(sbm), options_(opt) {
+    sbMgr_(sbm), options_(opt) {
 }
 
 SegmentManager::~SegmentManager() {

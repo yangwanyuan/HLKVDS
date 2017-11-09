@@ -82,9 +82,6 @@ public:
     uint32_t GetSegmentSize() {
         return segSize_;
     }
-    uint32_t GetMaxValueLength() {
-        return maxValueLen_;
-    }
 
     inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
         if (seg_id >= segNum_) {
@@ -136,7 +133,6 @@ private:
     uint32_t usedCounter_;
     uint32_t freedCounter_;
     uint32_t reservedCounter_;
-    uint32_t maxValueLen_;
 
     SuperBlockManager* sbMgr_;
     Options &options_;

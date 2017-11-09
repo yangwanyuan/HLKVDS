@@ -82,7 +82,9 @@ public:
 
     //use in Kvdb_Impl
     uint32_t GetTotalFreeSegs();
-    uint32_t GetMaxValueLength();
+    uint32_t GetMaxValueLength() const {
+        return maxValueLen_;
+    }
 
 private:
     Status updateMeta(Request *req);
@@ -99,6 +101,8 @@ public:
     std::vector<Volumes *> volVec_;
     SegForReq *seg_;
     std::mutex segMtx_;
+
+    uint32_t maxValueLen_;
 
     // Request Merge thread
 private:
