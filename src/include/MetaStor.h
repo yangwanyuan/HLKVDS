@@ -29,9 +29,12 @@ public:
     void InitDataStor(SimpleDS_Impl* ds);
 
 private:
-    bool LoadSuperBlock(int first_create = 0);
-    bool LoadIndex(uint32_t ht_size, uint64_t index_size, int first_create = 0);
-    bool LoadSSTs(uint32_t segment_size, uint32_t number_segments,int first_create = 0);
+    bool createSuperBlock();
+    bool createIndex(uint32_t ht_size, uint64_t index_size);
+    bool createDataStor(uint32_t segment_size, uint32_t number_segments);
+    bool LoadSuperBlock();
+    bool LoadIndex(uint32_t ht_size, uint64_t index_size);
+    bool LoadSSTs(uint32_t segment_size, uint32_t number_segments);
 
     bool PersistSuperBlockToDevice();
 

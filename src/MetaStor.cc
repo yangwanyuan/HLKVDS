@@ -43,7 +43,6 @@ bool MetaStor::CreateMetaData() {
     uint64_t data_theory_size = 0;
 
     uint32_t hashtable_size = options_.hashtable_size;
-
     uint32_t segment_size = options_.segment_size;
 
     //Init Block Device
@@ -59,7 +58,7 @@ bool MetaStor::CreateMetaData() {
     }
 
     sbOff_ = 0;
-    if (!LoadSuperBlock(1)) {
+    if (!createSuperBlock()) {
         return false;
     }
 
@@ -81,7 +80,7 @@ bool MetaStor::CreateMetaData() {
     }
 
     idxOff_ = db_sb_size;
-    if (!LoadIndex(hashtable_size, db_index_size, 1)) {
+    if (!createIndex(hashtable_size, db_index_size)) {
         return false;
     }
     
@@ -101,7 +100,7 @@ bool MetaStor::CreateMetaData() {
     uint64_t segtable_offset = db_sb_size + db_index_size;
 
     sstOff_ = segtable_offset;
-    if (!LoadSSTs(segment_size, number_segments, 1)) {
+    if (!createDataStor(segment_size, number_segments)) {
         __ERROR("Segment region init failed.");
         return false;
     }
@@ -182,17 +181,30 @@ bool MetaStor::PersistMetaData() {
     return true;
 }
 
-bool MetaStor::LoadSuperBlock(int first_create){
+bool MetaStor::createSuperBlock() {
     uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
     char *buff = new char[length];
     memset(buff, 0, length);
 
-    if (!first_create) {
-        if ((uint64_t) metaDev_->pRead(buff, length, sbOff_) != length){
-            __ERROR("Could not read superblock from device at %ld\n", sbOff_);
-            delete[] buff;
-            return false;
-        }
+    if (!sbMgr_->Set(buff, length))
+    {
+        __ERROR("Can't Set SuperBlock, Load Failed!");
+        delete[] buff;
+        return false;
+    }
+    delete[] buff;
+    return true;
+}
+
+bool MetaStor::LoadSuperBlock(){
+    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    char *buff = new char[length];
+    memset(buff, 0, length);
+
+    if ((uint64_t) metaDev_->pRead(buff, length, sbOff_) != length){
+        __ERROR("Could not read superblock from device at %ld\n", sbOff_);
+        delete[] buff;
+        return false;
     }
 
     if (!sbMgr_->Set(buff, length))
@@ -233,22 +245,34 @@ bool MetaStor::PersistSuperBlockToDevice(){
     return true;
 }
 
-bool MetaStor::LoadIndex(uint32_t ht_size, uint64_t index_size, int first_create) {
-    if (first_create) {
-        idxMgr_->InitMeta(ht_size, index_size, 0, 0);
-    }
-    else {
-        idxMgr_->InitMeta(ht_size, index_size, sbMgr_->GetDataTheorySize(), sbMgr_->GetElementNum());
-    }
+bool MetaStor::createIndex(uint32_t ht_size, uint64_t index_size) {
+    idxMgr_->InitMeta(ht_size, index_size, 0, 0);
+
     uint64_t length = index_size;
     char *buff = new char[length];
     memset(buff, 0, length);
-    if (!first_create) {
-        if ((uint64_t) metaDev_->pRead(buff, length, idxOff_) != length) {
-            __ERROR("Could not read Index region from device at %ld\n", idxOff_);
-            delete[] buff;
-            return false;
-        }
+
+    if(!idxMgr_->Set(buff, length)){
+        __ERROR("Can't Set Index Region, Load Failed!");
+        delete[] buff;
+        return false;
+    }
+
+    delete[] buff;
+    return true;
+}
+
+bool MetaStor::LoadIndex(uint32_t ht_size, uint64_t index_size) {
+    idxMgr_->InitMeta(ht_size, index_size, sbMgr_->GetDataTheorySize(), sbMgr_->GetElementNum());
+
+    uint64_t length = index_size;
+    char *buff = new char[length];
+    memset(buff, 0, length);
+
+    if ((uint64_t) metaDev_->pRead(buff, length, idxOff_) != length) {
+        __ERROR("Could not read Index region from device at %ld\n", idxOff_);
+        delete[] buff;
+        return false;
     }
 
     if(!idxMgr_->Set(buff, length)){
@@ -291,27 +315,38 @@ bool MetaStor::PersistIndexToDevice() {
     return true;
 }
 
-bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments, int first_create) {
-    if (first_create) {
-        uint32_t align_bit = log2(ALIGNED_SIZE);
-        if (segment_size != (segment_size >> align_bit) << align_bit) {
-            __ERROR("Segment Size is not page aligned!");
-            return false;
-        }
-        dataStor_->InitMeta(sstOff_, segment_size, number_segments, 0);
+bool MetaStor::createDataStor(uint32_t segment_size, uint32_t number_segments) {
+    uint32_t align_bit = log2(ALIGNED_SIZE);
+    if (segment_size != (segment_size >> align_bit) << align_bit) {
+        __ERROR("Segment Size is not page aligned!");
+        return false;
     }
-    else {
-        dataStor_->InitMeta(sstOff_, segment_size, number_segments, sbMgr_->GetCurSegmentId());
-    }
+    dataStor_->InitMeta(sstOff_, segment_size, number_segments, 0);
+
     uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
     char *buff = new char[length];
     memset(buff, 0 , length);
-    if (!first_create) {
-        if ((uint64_t) metaDev_->pRead(buff, length, sstOff_) != length) {
-            __ERROR("Could not read SST region from device at %ld\n", idxOff_);
-            delete[] buff;
-            return false;
-        }
+
+    if (!dataStor_->SetAllSSTs(buff, length)) {
+        __ERROR("Can't Set SST Region, Load Failed!");
+        delete[] buff;
+        return false;
+    }
+
+    delete[] buff;
+    return true;
+}
+
+bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments) {
+    dataStor_->InitMeta(sstOff_, segment_size, number_segments, sbMgr_->GetCurSegmentId());
+
+    uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
+    char *buff = new char[length];
+    memset(buff, 0 , length);
+    if ((uint64_t) metaDev_->pRead(buff, length, sstOff_) != length) {
+        __ERROR("Could not read SST region from device at %ld\n", idxOff_);
+        delete[] buff;
+        return false;
     }
 
     if (!dataStor_->SetAllSSTs(buff, length)) {
