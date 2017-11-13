@@ -13,6 +13,12 @@ bool SuperBlockManager::Get(char* buff, uint64_t length) {
         return false;
     }
     memcpy((void *)buff, (const void*)&sb_, SuperBlockManager::SizeOfDBSuperBlock());
+
+    //if (resCont_ == NULL) {
+    //    return false;
+    //}
+    //char *cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
+    //memcpy((void*)cont_ptr, (const void*)resCont_, sb_.reserved_region_length);
     return true;
 }
 
@@ -21,28 +27,33 @@ bool SuperBlockManager::Set(char* buff, uint64_t length) {
         return false;
     }
     memcpy((void*)&sb_, (const void*)buff, SuperBlockManager::SizeOfDBSuperBlock());
+
+    //if (resCont_ == NULL) {
+    //    resCont_ = new char[sb_.reserved_region_length];
+    //}
+    //char * cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
+    //memcpy((void*)resCont_, (const void*)cont_ptr, sb_.reserved_region_length);
     return true;
 }
 
 void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
-    std::lock_guard < std::mutex > l(mtx_);
-    sb_.hashtable_size = sb.hashtable_size;
-    sb_.number_elements = sb.number_elements;
-    sb_.segment_size = sb.segment_size;
-    sb_.number_segments = sb.number_segments;
-    sb_.current_segment = sb.current_segment;
-    sb_.db_sb_size = sb.db_sb_size;
-    sb_.db_index_size = sb.db_index_size;
-    sb_.db_seg_table_size = sb.db_seg_table_size;
-    sb_.db_data_region_size = sb.db_data_region_size;
-    sb_.device_capacity = sb.device_capacity;
-    sb_.data_theory_size = sb.data_theory_size;
-}
-
-uint64_t SuperBlockManager::GetSuperBlockSizeOnDevice() {
-    uint64_t sb_size_pages = SuperBlockManager::SizeOfDBSuperBlock()
-            / getpagesize();
-    return (sb_size_pages + 1) * getpagesize();
+    std::lock_guard<std::mutex> l(mtx_);
+    sb_.magic_number            = sb.magic_number;
+    sb_.index_ht_size           = sb.index_ht_size;
+    sb_.index_region_offset     = sb.index_region_offset;
+    sb_.index_region_length     = sb.index_region_length;
+    sb_.sst_total_num           = sb.sst_total_num;
+    sb_.sst_region_offset       = sb.sst_region_offset;
+    sb_.sst_region_length       = sb.sst_region_length;
+    sb_.data_store_type         = sb.data_store_type;
+    sb_.reserved_region_offset  = sb.reserved_region_offset;
+    sb_.reserved_region_length  = sb.reserved_region_length;
+    sb_.entry_count             = sb.entry_count;
+    sb_.entry_theory_data_size  = sb.entry_theory_data_size;
+    sb_.grace_close_flag        = sb.grace_close_flag;
+    sb_.segment_size            = sb.segment_size;
+    sb_.segment_num             = sb.segment_num;
+    sb_.cur_seg_id              = sb.cur_seg_id;
 }
 
 SuperBlockManager::SuperBlockManager(Options &opt) :
@@ -50,21 +61,33 @@ SuperBlockManager::SuperBlockManager(Options &opt) :
 }
 
 SuperBlockManager::~SuperBlockManager() {
+    //if (resCont_) {
+    //    delete[] resCont_;
+    //}
 }
 
-void SuperBlockManager::SetElementNum(uint32_t num) {
-    std::lock_guard < std::mutex > l(mtx_);
-    sb_.number_elements = num;
+void SuperBlockManager::SetEntryCount(uint32_t num) {
+    std::lock_guard<std::mutex> l(mtx_);
+    sb_.entry_count = num;
 }
 
 void SuperBlockManager::SetCurSegId(uint32_t id) {
-    std::lock_guard < std::mutex > l(mtx_);
-    sb_.current_segment = id;
+    std::lock_guard<std::mutex> l(mtx_);
+    sb_.cur_seg_id = id;
+}
+
+bool SuperBlockManager::SetReservedContent(char* content, uint64_t length) {
+    //std::lock_guard<std::mutex> l(mtx_);
+    //if (length != sb_.reserved_region_length) {
+    //    return false;
+    //}
+    //memcpy((void*)resCont_, (const void*)content, length);
+    return true;
 }
 
 void SuperBlockManager::SetDataTheorySize(uint64_t size) {
-    std::lock_guard < std::mutex > l(mtx_);
-    sb_.data_theory_size = size;
+    std::lock_guard<std::mutex> l(mtx_);
+    sb_.entry_theory_data_size = size;
 }
 
 } // namespace hlkvds

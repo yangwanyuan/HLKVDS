@@ -134,7 +134,7 @@ void IndexManager::InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t dat
 void IndexManager::UpdateMetaToSB() {
     //Update data theory size to superblock
     sbMgr_->SetDataTheorySize(dataTheorySize_);
-    sbMgr_->SetElementNum(keyCounter_);
+    sbMgr_->SetEntryCount(keyCounter_);
 }
 
 bool IndexManager::Get(char* buff, uint64_t length) {

@@ -57,47 +57,55 @@ Iterator* KVDS::NewIterator() {
 
 void KVDS::printDbStates() {
 
-    uint32_t hash_table_size = sbMgr_->GetHTSize();
-    uint32_t num_entries = idxMgr_->GetKeyCounter();
-    uint32_t segment_size = sbMgr_->GetSegmentSize();
-    uint32_t number_segments = sbMgr_->GetSegmentNum();
-    uint32_t free_segment = dataStor_->GetTotalFreeSegs();
-    uint64_t db_sb_size = sbMgr_->GetSbSize();
-    uint64_t db_index_size = sbMgr_->GetIndexSize();
-    uint64_t db_seg_table_size = sbMgr_->GetSegTableSize();
-    uint64_t db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
-    uint64_t db_data_region_size = sbMgr_->GetDataRegionSize();
-    uint64_t db_size = db_meta_size + db_data_region_size;
-    uint64_t device_capacity = sbMgr_->GetDeviceCapacity();
+    uint32_t index_ht_size          = sbMgr_->GetHTSize();
+    uint64_t index_region_offset    = sbMgr_->GetIndexRegionOffset();
+    uint64_t index_region_length    = sbMgr_->GetIndexRegionLength();
+
+    uint32_t sst_total_num          = sbMgr_->GetSSTTotalNum();
+    uint64_t sst_region_offset      = sbMgr_->GetSSTRegionOffset();
+    uint64_t sst_region_length      = sbMgr_->GetSSTRegionLength();
+
+    uint32_t data_store_type        = sbMgr_->GetDataStoreType();
+    uint64_t reserved_region_offset = sbMgr_->GetReservedRegionOffset();
+    uint64_t reserved_region_length = sbMgr_->GetReservedRegionLength();
+
+    uint32_t entry_count            = sbMgr_->GetEntryCount();
+    uint64_t entry_theory_data_size = sbMgr_->GetDataTheorySize();
+
+    uint32_t segment_size           = sbMgr_->GetSegmentSize();
+    uint32_t segment_num            = sbMgr_->GetSegmentNum();
+    uint32_t cur_seg_id             = sbMgr_->GetCurrentSegId();
 
     __INFO("\n DB Static information:\n"
-            "\t hashtable_size            : %d\n"
-            "\t segment_size              : %d Bytes\n"
-            "\t number_segments           : %d\n"
-            "\t Database Superblock Size  : %ld Bytes\n"
-            "\t Database Index Size       : %ld Bytes\n"
-            "\t Database Seg Table Size   : %ld Bytes\n"
-            "\t Total DB Meta Region Size : %ld Bytes\n"
-            "\t Total DB Data Region Size : %ld Bytes\n"
-            "\t Total DB Total Size       : %ld Bytes\n"
-            "\t Total Device Size         : %ld Bytes",
-            hash_table_size, segment_size,
-            number_segments, db_sb_size,
-            db_index_size, db_seg_table_size, db_meta_size,
-            db_data_region_size, db_size, device_capacity);
+            "\t index hashtable size        : %d\n"
+            "\t index region offset         : %ld\n"
+            "\t index region length         : %ld Bytes\n"
+            "\t sst total segment num       : %d\n"
+            "\t sst region offset           : %ld\n"
+            "\t sst region length           : %ld Bytes\n"
+            "\t data store type             : %d\n"
+            "\t reserved region offset      : %ld\n"
+            "\t reserved region length      : %ld Bytes\n"
+            "\t Segment SIZE =              : %d\n"
+            "\t Segment Num =               : %d\n"
+            "\t Current Seg Id =            : %d\n",
+            index_ht_size, index_region_offset,
+            index_region_length, sst_total_num,
+            sst_region_offset, sst_region_length,
+            data_store_type,reserved_region_offset,
+            reserved_region_length,
+            segment_size, segment_num, cur_seg_id);
 
     __INFO("\n DB Dynamic information: \n"
-            "\t # of entries              : %d\n"
-            "\t # of free segments        : %d\n"
-            "\t Current Segment ID        : %d\n"
-            "\t DB Data Theory Size       : %ld Bytes\n"
-            "\t Request Queue Size        : %d\n"
-            "\t Segment Write Queue Size  : %d\n"
-            "\t Segment Reaper Queue Size : %d",
-            num_entries, free_segment,
-            sbMgr_->GetCurSegmentId(),
-            sbMgr_->GetDataTheorySize(), dataStor_->GetReqQueSize(),
-            dataStor_->GetSegWriteQueSize(), idxMgr_->GetSegReaperQueSize());
+            "\t number of entries           : %d\n"
+            "\t Entry Theory Data Size      : %ld Bytes\n"
+            "\t Request Queue Size          : %d\n"
+            "\t Segment Write Queue Size    : %d\n"
+            "\t Segment Reaper Queue Size   : %d",
+            entry_count, entry_theory_data_size,
+            dataStor_->GetReqQueSize(),
+            dataStor_->GetSegWriteQueSize(),
+            idxMgr_->GetSegReaperQueSize());
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
