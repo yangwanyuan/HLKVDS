@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <vector>
+#include <map>
 
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
@@ -98,7 +99,7 @@ public:
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
-    std::vector<Volumes *> volVec_;
+    std::map<int, Volumes *> volMap_;
     SegForReq *seg_;
     std::mutex segMtx_;
 
