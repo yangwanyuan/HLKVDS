@@ -77,18 +77,6 @@ bool SegmentManager::Set(char* buf, uint64_t length) {
     return true;
 }
 
-void SegmentManager::InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
-    segSize_ = segment_size;
-    segNum_ = number_segments;
-    curSegId_ = cur_seg_id;
-
-    segSizeBit_ = log2(segSize_);
-
-    freedCounter_ = segNum_;
-    usedCounter_ = 0;
-    reservedCounter_ = 0;
-}
-
 void SegmentManager::UpdateMetaToSB() {
     sbMgr_->SetCurSegId(curSegId_);
 }
@@ -257,10 +245,12 @@ void SegmentManager::SortSegsByUtils(
     } __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
 }
 
-SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt)
-    : segSize_(0), segSizeBit_(0), segNum_(0), curSegId_(0),
-    usedCounter_(0), freedCounter_(0), reservedCounter_(0),
-    sbMgr_(sbm), options_(opt) {
+SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id)
+    : segSize_(segment_size), segSizeBit_(0), segNum_(segment_num), curSegId_(cur_seg_id),
+        usedCounter_(0), freedCounter_(0), reservedCounter_(0),
+        sbMgr_(sbm), options_(opt) {
+    segSizeBit_ = log2(segSize_);
+    freedCounter_ = segNum_;
 }
 
 SegmentManager::~SegmentManager() {

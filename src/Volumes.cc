@@ -10,9 +10,13 @@
 
 namespace hlkvds {         
     
-Volumes::Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off)
-    : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), sbMgr_(sbm), idxMgr_(im), options_(opts), startOff_(start_off) {
-    segMgr_ = new SegmentManager(sbMgr_, options_);
+Volumes::Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im,
+                Options& opts, uint64_t start_off, uint32_t segment_size,
+                uint32_t segment_num, uint32_t cur_seg_id)
+    : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), sbMgr_(sbm), idxMgr_(im),
+        options_(opts), startOff_(start_off), segSize_(segment_size),
+        segNum_(segment_num), curSegId_(cur_seg_id)  {
+    segMgr_ = new SegmentManager(sbMgr_, options_, segSize_, segNum_, curSegId_);
     gcMgr_ = new GcManager(idxMgr_, this, options_);
 }
 
@@ -49,10 +53,6 @@ bool Volumes::GetSST(char* buf, uint64_t length) {
 
 bool Volumes::SetSST(char* buf, uint64_t length) {
     return segMgr_->Set(buf, length);
-}
-
-void Volumes::InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
-    return segMgr_->InitMeta(segment_size, number_segments, cur_seg_id);
 }
 
 bool Volumes::Read(char* data, size_t count, off_t offset) {

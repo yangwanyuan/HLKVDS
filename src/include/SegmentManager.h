@@ -101,7 +101,6 @@ public:
 
     bool Get(char *buf, uint64_t length);
     bool Set(char *buf, uint64_t length);
-    void InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
     void UpdateMetaToSB();
 
     bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
@@ -121,7 +120,7 @@ public:
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
 
-    SegmentManager(SuperBlockManager* sbMgr_, Options &opt);
+    SegmentManager(SuperBlockManager* sbMgr_, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id);
     ~SegmentManager();
 
 private:

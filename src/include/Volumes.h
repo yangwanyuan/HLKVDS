@@ -23,7 +23,7 @@ class HashEntry;
 
 class Volumes {
 public:
-    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off);
+    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id);
     ~Volumes();
 
     void StartThds();
@@ -74,6 +74,9 @@ private:
     IndexManager *idxMgr_;
     Options& options_;
     uint64_t startOff_;
+    uint32_t segSize_;
+    uint32_t segNum_;
+    uint32_t curSegId_;
 
     std::thread gcT_;
     std::atomic<bool> gcT_stop_; 
