@@ -6,7 +6,6 @@
 #include <inttypes.h>
 
 #include "Segment.h"
-#include "SegmentManager.h"
 #include "IndexManager.h"
 #include "Volumes.h"
 
@@ -195,7 +194,7 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
 SegBase::SegBase(Volumes* vol) :
     segId_(-1), vol_(vol),
         segSize_(vol_->GetSegmentSize()),
-        headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
+        headPos_(Volumes::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
 }
@@ -231,7 +230,7 @@ bool SegBase::WriteSegToDevice() {
 }
 
 void SegBase::fillEntryToSlice() {
-    uint32_t head_pos = SegmentManager::SizeOfSegOnDisk();
+    uint32_t head_pos = Volumes::SizeOfSegOnDisk();
     uint32_t tail_pos = segSize_;
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
             != sliceList_.end(); iter++) {
@@ -307,7 +306,7 @@ void SegBase::copyToDataBuf() {
     uint32_t offset_begin = 0;
     uint32_t offset_end = segSize_;
 
-    offset_begin += SegmentManager::SizeOfSegOnDisk();
+    offset_begin += Volumes::SizeOfSegOnDisk();
 
     //aggregate iovec
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -341,7 +340,7 @@ void SegBase::copyToDataBuf() {
     //segOndisk_->SetTS(persistTime_);
     segOndisk_->SetKeyNum(keyNum_);
     //setOndisk_->SetCrc(crc_num);
-    memcpy(dataBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+    memcpy(dataBuf_, segOndisk_, Volumes::SizeOfSegOnDisk());
 
     //set 0 to free data buffer
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));

@@ -1,41 +1,9 @@
-#include <math.h>
-
 #include "SegmentManager.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Volumes.h"
 
 namespace hlkvds {
-
-SegmentOnDisk::SegmentOnDisk() :
-    checksum(0), number_keys(0) {
-    time_stamp = KVTime::GetNow();
-}
-
-SegmentOnDisk::~SegmentOnDisk() {
-}
-
-SegmentOnDisk::SegmentOnDisk(const SegmentOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
-    number_keys = toBeCopied.number_keys;
-}
-
-SegmentOnDisk& SegmentOnDisk::operator=(const SegmentOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
-    number_keys = toBeCopied.number_keys;
-    return *this;
-}
-
-SegmentOnDisk::SegmentOnDisk(uint32_t num) :
-    checksum(0), number_keys(num) {
-    time_stamp = KVTime::GetNow();
-}
-
-void SegmentOnDisk::Update() {
-    time_stamp = KVTime::GetNow();
-}
 
 bool SegmentManager::Get(char* buf, uint64_t length) {
     uint64_t stat_size = sizeof(SegmentStat);
@@ -79,45 +47,6 @@ bool SegmentManager::Set(char* buf, uint64_t length) {
 
 void SegmentManager::UpdateMetaToSB() {
     sbMgr_->SetCurSegId(curSegId_);
-}
-
-bool SegmentManager::ComputeSegOffsetFromOffset(uint64_t offset,
-                                                uint64_t& seg_offset) {
-    uint32_t seg_id = 0;
-    if (!ComputeSegIdFromOffset(offset, seg_id)) {
-        return false;
-    }
-    if (!ComputeSegOffsetFromId(seg_id, seg_offset)) {
-        return false;
-    }
-    return true;
-}
-
-bool SegmentManager::ComputeDataOffsetPhyFromEntry(HashEntry* entry,
-                                                   uint64_t& data_offset) {
-    uint64_t seg_offset = 0;
-    uint64_t header_offset = entry->GetHeaderOffset();
-    if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
-        return false;
-    }
-    data_offset = seg_offset + entry->GetDataOffsetInSeg();
-    return true;
-}
-
-bool SegmentManager::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
-                                                    uint64_t& key_offset) {
-    uint64_t seg_offset = 0;
-    uint64_t header_offset = entry->GetHeaderOffset();
-    if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
-        return false;
-    }
-    uint32_t data_size = entry->GetDataSize();
-    if ( data_size == ALIGNED_SIZE) {
-        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize();
-    } else {
-        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize() - data_size;
-    }
-    return true;
 }
 
 bool SegmentManager::Alloc(uint32_t& seg_id) {
@@ -201,17 +130,7 @@ void SegmentManager::Use(uint32_t seg_id, uint32_t free_size) {
 //    segTable_[seg_id].state = SegUseStat::RESERVED;
 //}
 
-void SegmentManager::ModifyDeathEntry(HashEntry &entry) {
-    uint32_t seg_id;
-    uint64_t offset = entry.GetHeaderOffset();
-    if (!ComputeSegIdFromOffset(offset, seg_id)) {
-        __ERROR("Compute Seg Id Wrong!!! offset = %ld", offset);
-    }
-
-    uint16_t data_size = entry.GetDataSize();
-    uint32_t death_size = (uint32_t) data_size
-            + (uint32_t) IndexManager::SizeOfDataHeader();
-
+void SegmentManager::AddDeathSize(uint32_t seg_id, uint32_t death_size) {
     std::lock_guard < std::mutex > l(mtx_);
     segTable_[seg_id].death_size += death_size;
 }
@@ -237,7 +156,7 @@ void SegmentManager::SortSegsByUtils(
         if (segTable_[index].state == SegUseStat::USED) {
             used_size = segSize_ - (segTable_[index].free_size
                     + segTable_[index].death_size
-                    + (uint32_t) SegmentManager::SizeOfSegOnDisk());
+                    + (uint32_t) Volumes::SizeOfSegOnDisk());
             if (used_size < thld) {
                 cand_map.insert(std::pair<uint32_t, uint32_t>(used_size, index));
             }
@@ -245,12 +164,10 @@ void SegmentManager::SortSegsByUtils(
     } __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
 }
 
-SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id)
-    : segSize_(segment_size), segSizeBit_(0), segNum_(segment_num), curSegId_(cur_seg_id),
-        usedCounter_(0), freedCounter_(0), reservedCounter_(0),
-        sbMgr_(sbm), options_(opt) {
-    segSizeBit_ = log2(segSize_);
-    freedCounter_ = segNum_;
+SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit)
+    : segSize_(segment_size), segSizeBit_(seg_size_bit), segNum_(segment_num),
+        curSegId_(cur_seg_id), usedCounter_(0), freedCounter_(segNum_),
+        reservedCounter_(0), sbMgr_(sbm), options_(opt) {
 }
 
 SegmentManager::~SegmentManager() {

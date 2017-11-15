@@ -22,24 +22,6 @@ enum struct SegUseStat {
     RESERVED
 };
 
-class SegmentOnDisk {
-public:
-    uint64_t time_stamp;
-    uint32_t checksum;
-    uint32_t number_keys;
-public:
-    SegmentOnDisk();
-    ~SegmentOnDisk();
-    SegmentOnDisk(const SegmentOnDisk& toBeCopied);
-    SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
-
-    SegmentOnDisk(uint32_t num);
-    void Update();
-    void SetKeyNum(uint32_t num) {
-        number_keys = num;
-    }
-};
-
 class SegmentStat {
 public:
     SegUseStat state;
@@ -66,53 +48,20 @@ public:
 
 class SegmentManager {
 public:
-    static inline size_t SizeOfSegOnDisk() {
-        return sizeof(SegmentOnDisk);
-    }
-
     uint32_t GetNowSegId() {
         return curSegId_;
-    }
-    uint32_t GetNumberOfSeg() {
-        return segNum_;
-    }
-    uint64_t GetDataRegionSize() {
-        return (uint64_t) segNum_ << segSizeBit_;
-    }
-    uint32_t GetSegmentSize() {
-        return segSize_;
-    }
-
-    inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
-        if (seg_id >= segNum_) {
-            return false;
-        }
-        offset = ((uint64_t) seg_id << segSizeBit_);
-        return true;
-    }
-
-    inline bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id) {
-        seg_id = offset >> segSizeBit_;
-        if (seg_id >= segNum_) {
-            return false;
-        }
-        return true;
     }
 
     bool Get(char *buf, uint64_t length);
     bool Set(char *buf, uint64_t length);
     void UpdateMetaToSB();
 
-    bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
-    bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
-    bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
-
     bool Alloc(uint32_t& seg_id);
     bool AllocForGC(uint32_t& seg_id);
     void FreeForFailed(uint32_t seg_id);
     void FreeForGC(uint32_t seg_id);
     void Use(uint32_t seg_id, uint32_t free_size);
-    void ModifyDeathEntry(HashEntry &entry);
+    void AddDeathSize(uint32_t seg_id, uint32_t death_size);
 
     void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map,
                          double utils);
@@ -120,7 +69,7 @@ public:
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
 
-    SegmentManager(SuperBlockManager* sbMgr_, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id);
+    SegmentManager(SuperBlockManager* sbMgr_, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit);
     ~SegmentManager();
 
 private:

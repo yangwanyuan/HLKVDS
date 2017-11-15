@@ -3,7 +3,6 @@
 #include "IndexManager.h"
 #include "Volumes.h"
 #include "Segment.h"
-#include "SegmentManager.h"
 
 using namespace std;
 
@@ -249,7 +248,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
 
 void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                           uint64_t phy_offset) {
-    uint32_t head_offset = SegmentManager::SizeOfSegOnDisk();
+    uint32_t head_offset = Volumes::SizeOfSegOnDisk();
 
     for (uint32_t index = 0; index < num_keys; index++) {
         DataHeader header;
@@ -304,7 +303,7 @@ bool GcManager::loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list) {
     }
 
     SegmentOnDisk seg_disk;
-    memcpy(&seg_disk, dataBuf_, SegmentManager::SizeOfSegOnDisk());
+    memcpy(&seg_disk, dataBuf_, Volumes::SizeOfSegOnDisk());
 
     uint32_t num_keys = seg_disk.number_keys;
 

@@ -2,8 +2,6 @@
 #include "Db_Structure.h"
 #include "BlockDevice.h"
 #include "IndexManager.h"
-#include "GcManager.h"
-#include "SegmentManager.h"
 #include "Volumes.h"
 
 using namespace std;
@@ -153,7 +151,7 @@ bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
 void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
     createAllVolumes(sst_offset, number_segments, segment_size, cur_seg_id);
 
-    maxValueLen_ = segment_size - SegmentManager::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    maxValueLen_ = segment_size - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
 }
 

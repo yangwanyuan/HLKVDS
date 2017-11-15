@@ -21,6 +21,24 @@ class IndexManager;
 class KVSlice;
 class HashEntry;
 
+class SegmentOnDisk {
+public:
+    uint64_t time_stamp;
+    uint32_t checksum;
+    uint32_t number_keys;
+public:
+    SegmentOnDisk();
+    ~SegmentOnDisk();
+    SegmentOnDisk(const SegmentOnDisk& toBeCopied);
+    SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
+
+    SegmentOnDisk(uint32_t num);
+    void Update();
+    void SetKeyNum(uint32_t num) {
+        number_keys = num;
+    }
+};
+
 class Volumes {
 public:
     Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id);
@@ -37,18 +55,12 @@ public:
     bool Write(char* data, size_t count, off_t offset);
     
     void UpdateMetaToSB();
-    bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
-    bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
-    void ModifyDeathEntry(HashEntry &entry);
     
-    uint64_t GetDataRegionSize();
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
     
     void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);
     
-    uint32_t GetSegmentSize();
-    uint32_t GetNumberOfSeg();
     
     bool Alloc(uint32_t& seg_id);
     bool AllocForGC(uint32_t& seg_id);
@@ -56,14 +68,54 @@ public:
     void FreeForGC(uint32_t seg_id);
     void Use(uint32_t seg_id, uint32_t free_size);
     
-    bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset);
- 
     bool ForeGC();
     void FullGC();
     void BackGC();
 
     static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
     static uint64_t ComputeSegTableSizeOnDisk(uint64_t seg_num);
+
+//move from SegmentManager
+public:
+
+    static inline size_t SizeOfSegOnDisk() {
+        return sizeof(SegmentOnDisk);
+    }
+
+    uint32_t GetNumberOfSeg() {
+        return segNum_;
+    }
+
+    uint64_t GetDataRegionSize() {
+        return (uint64_t) segNum_ << segSizeBit_;
+    }
+
+    uint32_t GetSegmentSize() {
+        return segSize_;
+    }
+
+    inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
+        if (seg_id >= segNum_) {
+            return false;
+        }
+        offset = ((uint64_t) seg_id << segSizeBit_);
+        return true;
+    }
+
+    inline bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id) {
+        seg_id = offset >> segSizeBit_;
+        if (seg_id >= segNum_) {
+            return false;
+        }
+        return true;
+    }
+
+
+    bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
+    bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
+    bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
+
+    void ModifyDeathEntry(HashEntry &entry);
 
 private:
     BlockDevice* bdev_;
@@ -77,6 +129,7 @@ private:
     uint32_t segSize_;
     uint32_t segNum_;
     uint32_t curSegId_;
+    uint32_t segSizeBit_;
 
     std::thread gcT_;
     std::atomic<bool> gcT_stop_; 
