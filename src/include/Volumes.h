@@ -87,7 +87,7 @@ public:
     }
 
     uint64_t GetDataRegionSize() {
-        return (uint64_t) segNum_ << segSizeBit_;
+        return dataRegionSize_;
     }
 
     uint32_t GetSegmentSize() {
@@ -128,8 +128,8 @@ private:
     uint64_t startOff_;
     uint32_t segSize_;
     uint32_t segNum_;
-    uint32_t curSegId_;
     uint32_t segSizeBit_;
+    uint64_t dataRegionSize_;
 
     std::thread gcT_;
     std::atomic<bool> gcT_stop_; 
