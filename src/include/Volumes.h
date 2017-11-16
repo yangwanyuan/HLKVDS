@@ -74,6 +74,12 @@ public:
 
     static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
     static uint64_t ComputeSegTableSizeOnDisk(uint64_t seg_num);
+    static uint32_t ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
+    static uint32_t ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
+
+    uint32_t GetCurSegId();
+
+    std::string GetDevicePath();
 
 //move from SegmentManager
 public:

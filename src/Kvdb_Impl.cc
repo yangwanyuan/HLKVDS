@@ -33,6 +33,8 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     // TODO:Find DataStor Type;
     // ...
     kvds->dataStor_ = new SimpleDS_Impl(kvds->options_, kvds->bdVec_, kvds->sbMgr_, kvds->idxMgr_);
+
+    kvds->idxMgr_->InitDataStor(kvds->dataStor_);
     kvds->metaStor_->InitDataStor(kvds->dataStor_);
 
     if (!kvds->metaStor_->CreateMetaData()) {
@@ -44,7 +46,6 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     kvds->printDbStates();
 
     kvds->dataStor_->InitSegment();
-    kvds->idxMgr_->InitDataStor(kvds->dataStor_);
     kvds->startThds();
 
     return kvds;
@@ -128,6 +129,7 @@ Status KVDS::openDB() {
     // TODO:Find DataStor Type;
     // ...
     dataStor_ = new SimpleDS_Impl(options_, bdVec_, sbMgr_, idxMgr_);
+    idxMgr_->InitDataStor(dataStor_);
     metaStor_->InitDataStor(dataStor_);
 
     if (!metaStor_->LoadMetaData()) {
@@ -137,7 +139,6 @@ Status KVDS::openDB() {
     printDbStates();
 
     dataStor_->InitSegment();
-    idxMgr_->InitDataStor(dataStor_);
     startThds();
     return Status::OK();
 }

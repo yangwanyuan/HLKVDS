@@ -14,11 +14,8 @@ bool SuperBlockManager::Get(char* buff, uint64_t length) {
     }
     memcpy((void *)buff, (const void*)&sb_, SuperBlockManager::SizeOfDBSuperBlock());
 
-    //if (resCont_ == NULL) {
-    //    return false;
-    //}
-    //char *cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
-    //memcpy((void*)cont_ptr, (const void*)resCont_, sb_.reserved_region_length);
+    char *cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
+    memcpy((void*)cont_ptr, (const void*)resCont_, sb_.reserved_region_length);
     return true;
 }
 
@@ -28,11 +25,9 @@ bool SuperBlockManager::Set(char* buff, uint64_t length) {
     }
     memcpy((void*)&sb_, (const void*)buff, SuperBlockManager::SizeOfDBSuperBlock());
 
-    //if (resCont_ == NULL) {
-    //    resCont_ = new char[sb_.reserved_region_length];
-    //}
-    //char * cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
-    //memcpy((void*)resCont_, (const void*)cont_ptr, sb_.reserved_region_length);
+    char * cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
+    memcpy((void*)resCont_, (const void*)cont_ptr, sb_.reserved_region_length);
+
     return true;
 }
 
@@ -57,13 +52,14 @@ void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
 }
 
 SuperBlockManager::SuperBlockManager(Options &opt) :
-    options_(opt) {
+    resCont_(NULL), options_(opt) {
+        uint32_t length = SuperBlockManager::GetSuperBlockSizeOnDevice() - SuperBlockManager::SizeOfDBSuperBlock();
+        resCont_ = new char[length];
+        memset(resCont_, 0, length);
 }
 
 SuperBlockManager::~SuperBlockManager() {
-    //if (resCont_) {
-    //    delete[] resCont_;
-    //}
+    delete[] resCont_;
 }
 
 void SuperBlockManager::SetEntryCount(uint32_t num) {
@@ -77,11 +73,20 @@ void SuperBlockManager::SetCurSegId(uint32_t id) {
 }
 
 bool SuperBlockManager::SetReservedContent(char* content, uint64_t length) {
-    //std::lock_guard<std::mutex> l(mtx_);
-    //if (length != sb_.reserved_region_length) {
-    //    return false;
-    //}
-    //memcpy((void*)resCont_, (const void*)content, length);
+    std::lock_guard<std::mutex> l(mtx_);
+    if (length != sb_.reserved_region_length) {
+        return false;
+    }
+    memcpy((void*)resCont_, (const void*)content, length);
+    return true;
+}
+
+bool SuperBlockManager::GetReservedContent(char* content, uint64_t length) {
+    std::lock_guard<std::mutex> l(mtx_);
+    if (length != sb_.reserved_region_length) {
+        return false;
+    }
+    memcpy((void*)content,(const void*)resCont_, length);
     return true;
 }
 

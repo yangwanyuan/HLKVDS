@@ -1,6 +1,7 @@
 #include "DataStor.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
+#include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Volumes.h"
 
@@ -22,13 +23,6 @@ SimpleDS_Impl::~SimpleDS_Impl() {
     deleteAllVolumes();
 }
 
-void SimpleDS_Impl::createAllVolumes(uint64_t sst_offset, uint32_t seg_num, uint32_t segment_size, uint32_t cur_seg_id) {
-    BlockDevice * bdev = bdVec_[0];
-    uint64_t start_off = sst_offset + ComputeTotalSSTsSizeOnDisk(seg_num);
-    Volumes *vol = new Volumes(bdev, sbMgr_, idxMgr_, options_, start_off, segment_size, seg_num, cur_seg_id);
-    volMap_.insert( pair<int, Volumes*>(0, vol) );
-}
-
 void SimpleDS_Impl::deleteAllVolumes() {
     map<int, Volumes *>::iterator iter;
     for (iter = volMap_.begin(); iter != volMap_.end(); ) {
@@ -37,7 +31,6 @@ void SimpleDS_Impl::deleteAllVolumes() {
         volMap_.erase(iter++);
     }
 }
-
 
 Status SimpleDS_Impl::WriteData(KVSlice& slice) {
     Request *req = new Request(slice);
@@ -148,17 +141,120 @@ bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
     return volMap_[0]->SetSST(buf, length);
 }
 
-void SimpleDS_Impl::InitMeta(uint64_t sst_offset, uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id) {
-    createAllVolumes(sst_offset, number_segments, segment_size, cur_seg_id);
+void SimpleDS_Impl::initSBReservedContentForCreate(uint32_t segment_size) {
+    sbResHeader_.segment_size = segment_size;
+    sbResHeader_.volume_num = volNum_;
 
+    for(uint32_t i = 0; i < volNum_; i++)
+    {
+        SimpleDS_SB_Reserved_Volume sb_res_vol;
+
+        string dev_path = volMap_[0]->GetDevicePath();
+        memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
+
+        sb_res_vol.segment_num = volMap_[0]->GetNumberOfSeg();
+        sb_res_vol.cur_seg_id = volMap_[0]->GetCurSegId();
+
+        sbResVolVec_.push_back(sb_res_vol);
+    }
+}
+
+bool SimpleDS_Impl::InitSBReservedContent(uint64_t sst_offset, uint32_t segment_size) {
+    sbResHeader_.segment_size = segment_size;
+    sbResHeader_.volume_num = 1;
+    SimpleDS_SB_Reserved_Volume sb_res_vol;
+    string dev_path = bdVec_[0]->GetDevicePath();
+    memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
+
+    sb_res_vol.segment_num = ComputeTotalSegNum(segment_size, sst_offset);
+    sb_res_vol.cur_seg_id = 0;
+
+    sstTotalNum_ = sb_res_vol.segment_num;
+    return true;
+}
+
+bool SimpleDS_Impl::SetSBReservedContent(char* buf, uint64_t length) {
+    uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
+    memcpy((void*)&sbResHeader_, (const void*)buf, header_size);
+
+    SimpleDS_SB_Reserved_Volume sb_res_vol;
+    char * sb_res_vol_ptr = buf + header_size;
+    memcpy((void*)&sb_res_vol, (const void*)sb_res_vol_ptr, sizeof(SimpleDS_SB_Reserved_Volume));
+    sbResVolVec_.push_back(sb_res_vol);
+    return true;
+}
+
+bool SimpleDS_Impl::GetSBReservedContent(char* buf, uint64_t length) {
+    uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
+    memset((void*)buf, 0, length);
+
+    memcpy((void*)buf, (const void*)&sbResHeader_, header_size);
+    memcpy((void*)(buf+header_size), (const void*)&sbResVolVec_[0], sizeof(SimpleDS_SB_Reserved_Volume));
+    string str_path = string(sbResVolVec_[0].dev_path);
+    return true;
+}
+
+void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) {
+    int seg_total_num = 0;
+    volNum_ = bdVec_.size();
+
+    //Create Pure Volumes
+    if (volNum_ > 1) {
+        for (uint32_t i = 1; i < volNum_; i++ ) {
+            BlockDevice * bdev = bdVec_[i];
+            uint64_t device_capacity = bdev->GetDeviceCapacity();
+            uint32_t seg_num = Volumes::ComputeSegNumForPureVolume(device_capacity, segment_size);
+            seg_total_num += seg_num;
+            Volumes *vol = new Volumes(bdev, sbMgr_, idxMgr_, options_, 0, segment_size, seg_num, 0);
+            volMap_.insert( pair<int, Volumes *>(i, vol) );
+        }
+    }
+
+    //Create Meta Volumes
+    BlockDevice * bdev = bdVec_[0];
+    uint64_t device_capacity = bdev->GetDeviceCapacity();
+    uint32_t seg_num = Volumes::ComputeSegNumForMetaVolume(device_capacity, sst_offset, seg_total_num, segment_size);
+    seg_total_num += seg_num;
+    uint64_t start_off = sst_offset + Volumes::ComputeSegTableSizeOnDisk(seg_total_num);
+    Volumes *vol = new Volumes(bdev, sbMgr_, idxMgr_, options_, start_off, segment_size, seg_num, 0);
+    volMap_.insert( make_pair(0, vol) );
+
+    //set Meta value
+    sstTotalNum_ = seg_total_num;
     maxValueLen_ = segment_size - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
+    initSBReservedContentForCreate(segment_size);
+}
+
+void SimpleDS_Impl::OpenAllVolumes() {
+    volNum_ = sbResHeader_.volume_num;
+    uint32_t segment_size = sbResHeader_.segment_size;
+
+    BlockDevice *meta_bdev = bdVec_[0];
+    uint32_t meta_seg_num = sbResVolVec_[0].segment_num;
+    uint32_t meta_cur_seg_id = sbResVolVec_[0].cur_seg_id;
+
+    uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sbMgr_->GetSSTRegionLength();
+
+    Volumes *meta_vol = new Volumes(meta_bdev, sbMgr_, idxMgr_, options_, start_off, segment_size, meta_seg_num, meta_cur_seg_id);
+    volMap_.insert( pair<int, Volumes *>(0, meta_vol) );
+
+    if (volNum_ > 1){
+        for (uint32_t i = 1 ; i < volNum_; i++) {
+            BlockDevice *bdev = bdVec_[i];
+            uint32_t seg_num = sbResVolVec_[i].segment_num;
+            uint32_t cur_seg_id = sbResVolVec_[i].cur_seg_id;
+            Volumes *vol = new Volumes(bdev, sbMgr_, idxMgr_, options_, 0, segment_size, seg_num, cur_seg_id);
+            volMap_.insert( pair<int, Volumes *>(i, vol) );
+        }
+    }
+
+    maxValueLen_ = segment_size - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 }
 
 void SimpleDS_Impl::UpdateMetaToSB() {
     volMap_[0]->UpdateMetaToSB();
 }
-
 
 void SimpleDS_Impl::InitSegment() {
     seg_ = new SegForReq(volMap_[0], idxMgr_, options_.expired_time);

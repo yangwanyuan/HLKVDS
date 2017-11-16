@@ -152,6 +152,7 @@ public:
         return sb_.cur_seg_id;
     }
 
+    bool GetReservedContent(char* content, uint64_t length);
     void SetEntryCount(uint32_t num);
     bool SetReservedContent(char* content, uint64_t length);
     void SetDataTheorySize(uint64_t size);
@@ -164,7 +165,7 @@ public:
 
 private:
     DBSuperBlock sb_;
-    //char *resCont_;
+    char *resCont_;
 
     Options &options_;
 

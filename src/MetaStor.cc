@@ -124,16 +124,16 @@ bool MetaStor::CreateMetaData() {
         return false;
     }
 
+    //Init reserve region
+    data_store_type = 0;
+    reserved_region_offset = SuperBlockManager::SizeOfDBSuperBlock();
+    reserved_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice() - SuperBlockManager::SizeOfDBSuperBlock();
 
-    //Set Superblock
-    //db_data_region_size = dataStor_->GetDataRegionSize();
-    //data_store_type = 0;
-    //reserved_region_offset = SuperBlockManager::SizeOfDBSuperBlock();
-    //reserved_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice() - SuperBlockManager::SizeOfDBSuperBlock();
-    //grace_close_flag = 0;
+    grace_close_flag = 0;
 
     segment_num = sst_total_num;
 
+    //Set SuperBlock
     DBSuperBlock sb(MAGIC_NUMBER, index_ht_size, index_region_offset, index_region_length,
                     sst_total_num, sst_region_offset, sst_region_length, data_store_type,
                     reserved_region_offset, reserved_region_length, entry_count,
@@ -141,10 +141,11 @@ bool MetaStor::CreateMetaData() {
                     segment_size, segment_num, cur_seg_id);
     sbMgr_->SetSuperBlock(sb);
 
-    //char * reserved_content = new char[reserved_region_length];
-    //dataStor_->GetSBReservedContent(reserved_content, reserved_region_length);
-    //sbMgr_->SetReservedContent(reserved_content, reserved_region_length);
-    //delete[] reserved_content;
+    //Set SuperBlock reserved region
+    char * reserved_content = new char[reserved_region_length];
+    dataStor_->GetSBReservedContent(reserved_content, reserved_region_length);
+    sbMgr_->SetReservedContent(reserved_content, reserved_region_length);
+    delete[] reserved_content;
 
     return true;
 }
@@ -342,7 +343,7 @@ bool MetaStor::createDataStor(uint32_t segment_size, uint32_t number_segments) {
         __ERROR("Segment Size is not page aligned!");
         return false;
     }
-    dataStor_->InitMeta(sstOff_, segment_size, number_segments, 0);
+    dataStor_->CreateAllVolumes(sstOff_, segment_size);
 
     uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
     char *buff = new char[length];
@@ -359,7 +360,14 @@ bool MetaStor::createDataStor(uint32_t segment_size, uint32_t number_segments) {
 }
 
 bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments) {
-    dataStor_->InitMeta(sstOff_, segment_size, number_segments, sbMgr_->GetCurrentSegId());
+    uint64_t reserved_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice()
+                                        - SuperBlockManager::SizeOfDBSuperBlock();
+    char * reserved_content = new char[reserved_region_length];
+    sbMgr_->GetReservedContent(reserved_content, reserved_region_length);
+    dataStor_->SetSBReservedContent(reserved_content, reserved_region_length);
+    delete[] reserved_content;
+
+    dataStor_->OpenAllVolumes();
 
     uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
     char *buff = new char[length];

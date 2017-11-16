@@ -8,6 +8,7 @@
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 
+using namespace std;
 namespace hlkvds {         
 
 SegmentOnDisk::SegmentOnDisk() :
@@ -127,6 +128,36 @@ uint64_t Volumes::ComputeSegTableSizeOnDisk(uint64_t seg_num) {
     uint64_t segtable_size = sizeof(SegmentStat) * seg_num;
     uint64_t segtable_size_pages = segtable_size / getpagesize();
     return (segtable_size_pages + 1) * getpagesize();
+}
+
+uint32_t Volumes::ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size) {
+    return capacity / seg_size;
+}
+
+uint32_t Volumes::ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size) {
+    uint64_t valid_capacity = capacity - sst_offset;
+    uint32_t seg_num_candidate = valid_capacity / seg_size;
+
+    uint32_t seg_num_total = seg_num_candidate + total_buddy_seg_num;
+    uint64_t sst_length = Volumes::ComputeSegTableSizeOnDisk( seg_num_total );
+
+    uint32_t seg_size_bit = log2(seg_size);
+
+    while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
+         seg_num_candidate--;
+         seg_num_total = seg_num_candidate + total_buddy_seg_num;
+         sst_length = Volumes::ComputeSegTableSizeOnDisk( seg_num_total );
+    }
+    return seg_num_candidate;
+}
+
+
+uint32_t Volumes::GetCurSegId() {
+    return segMgr_->GetNowSegId();
+}
+
+string Volumes::GetDevicePath() {
+    return bdev_->GetDevicePath();
 }
 ////////////////////////////////////////////////////
 
