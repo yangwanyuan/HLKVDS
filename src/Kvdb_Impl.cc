@@ -67,8 +67,6 @@ void KVDS::printDbStates() {
     uint64_t sst_region_length      = sbMgr_->GetSSTRegionLength();
 
     uint32_t data_store_type        = sbMgr_->GetDataStoreType();
-    uint64_t reserved_region_offset = sbMgr_->GetReservedRegionOffset();
-    uint64_t reserved_region_length = sbMgr_->GetReservedRegionLength();
 
     uint32_t entry_count            = sbMgr_->GetEntryCount();
     uint64_t entry_theory_data_size = sbMgr_->GetDataTheorySize();
@@ -80,14 +78,11 @@ void KVDS::printDbStates() {
             "\t sst total segment num       : %d\n"
             "\t sst region offset           : %ld\n"
             "\t sst region length           : %ld Bytes\n"
-            "\t data store type             : %d\n"
-            "\t reserved region offset      : %ld\n"
-            "\t reserved region length      : %ld Bytes",
+            "\t data store type             : %d",
             index_ht_size, index_region_offset,
             index_region_length, sst_total_num,
             sst_region_offset, sst_region_length,
-            data_store_type,reserved_region_offset,
-            reserved_region_length);
+            data_store_type);
 
     __INFO("\n DB Dynamic information: \n"
             "\t number of entries           : %d\n"

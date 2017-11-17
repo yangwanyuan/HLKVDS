@@ -39,8 +39,6 @@ bool MetaStor::CreateMetaData() {
     uint64_t sst_region_offset      = 0;
     uint64_t sst_region_length      = 0;
     uint32_t data_store_type        = 0;
-    uint64_t reserved_region_offset = 0;
-    uint64_t reserved_region_length = 0;
     uint32_t entry_count            = 0;
     uint64_t entry_theory_data_size = 0;
     bool grace_close_flag           = false;
@@ -116,19 +114,16 @@ bool MetaStor::CreateMetaData() {
 
     //Init reserve region
     data_store_type = 0;
-    reserved_region_offset = SuperBlockManager::ReservedRegionOffset();
-    reserved_region_length = SuperBlockManager::ReservedRegionLength();
-
     grace_close_flag = 0;
 
     //Set SuperBlock
     DBSuperBlock sb(MAGIC_NUMBER, index_ht_size, index_region_offset, index_region_length,
                     sst_total_num, sst_region_offset, sst_region_length, data_store_type,
-                    reserved_region_offset, reserved_region_length, entry_count,
-                    entry_theory_data_size, grace_close_flag);
+                    entry_count, entry_theory_data_size, grace_close_flag);
     sbMgr_->SetSuperBlock(sb);
 
     //Set SuperBlock reserved region
+    uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
     char * reserved_content = new char[reserved_region_length];
     dataStor_->GetSBReservedContent(reserved_content, reserved_region_length);
     sbMgr_->SetReservedContent(reserved_content, reserved_region_length);

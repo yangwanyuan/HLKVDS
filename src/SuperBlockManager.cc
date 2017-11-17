@@ -14,8 +14,10 @@ bool SuperBlockManager::Get(char* buff, uint64_t length) {
     }
     memcpy((void *)buff, (const void*)&sb_, SuperBlockManager::SizeOfDBSuperBlock());
 
+    uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
+
     char *cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
-    memcpy((void*)cont_ptr, (const void*)resCont_, sb_.reserved_region_length);
+    memcpy((void*)cont_ptr, (const void*)resCont_, reserved_region_length);
     return true;
 }
 
@@ -25,8 +27,9 @@ bool SuperBlockManager::Set(char* buff, uint64_t length) {
     }
     memcpy((void*)&sb_, (const void*)buff, SuperBlockManager::SizeOfDBSuperBlock());
 
+    uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
     char * cont_ptr = buff + SuperBlockManager::SizeOfDBSuperBlock();
-    memcpy((void*)resCont_, (const void*)cont_ptr, sb_.reserved_region_length);
+    memcpy((void*)resCont_, (const void*)cont_ptr, reserved_region_length);
 
     return true;
 }
@@ -41,8 +44,6 @@ void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
     sb_.sst_region_offset       = sb.sst_region_offset;
     sb_.sst_region_length       = sb.sst_region_length;
     sb_.data_store_type         = sb.data_store_type;
-    sb_.reserved_region_offset  = sb.reserved_region_offset;
-    sb_.reserved_region_length  = sb.reserved_region_length;
     sb_.entry_count             = sb.entry_count;
     sb_.entry_theory_data_size  = sb.entry_theory_data_size;
     sb_.grace_close_flag        = sb.grace_close_flag;
@@ -50,9 +51,9 @@ void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
 
 SuperBlockManager::SuperBlockManager(Options &opt) :
     resCont_(NULL), options_(opt) {
-        uint32_t length = SuperBlockManager::ReservedRegionLength();
-        resCont_ = new char[length];
-        memset(resCont_, 0, length);
+        uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
+        resCont_ = new char[reserved_region_length];
+        memset(resCont_, 0, reserved_region_length);
 }
 
 SuperBlockManager::~SuperBlockManager() {
@@ -66,7 +67,7 @@ void SuperBlockManager::SetEntryCount(uint32_t num) {
 
 bool SuperBlockManager::SetReservedContent(char* content, uint64_t length) {
     std::lock_guard<std::mutex> l(mtx_);
-    if (length != sb_.reserved_region_length) {
+    if (length != SuperBlockManager::ReservedRegionLength()) {
         return false;
     }
     memcpy((void*)resCont_, (const void*)content, length);
@@ -75,7 +76,7 @@ bool SuperBlockManager::SetReservedContent(char* content, uint64_t length) {
 
 bool SuperBlockManager::GetReservedContent(char* content, uint64_t length) {
     std::lock_guard<std::mutex> l(mtx_);
-    if (length != sb_.reserved_region_length) {
+    if (length != SuperBlockManager::ReservedRegionLength()) {
         return false;
     }
     memcpy((void*)content,(const void*)resCont_, length);

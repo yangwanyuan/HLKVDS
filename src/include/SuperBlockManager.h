@@ -24,38 +24,20 @@ struct DBSuperBlock {
       uint64_t sst_region_length;
 
       uint32_t data_store_type;
-      uint64_t reserved_region_offset;
-      uint64_t reserved_region_length;
 
       uint32_t entry_count;
       uint64_t entry_theory_data_size;
 
       bool grace_close_flag;
 
-    /*
-     *struct SimpleDS_SB_RESERVED {
-     *public :
-     *  uint32_t segment_size;
-     *  uint32_t volume_num;
-     *}
-     *struct SimpleDS_SB_Volume {
-     *  char[20] device_path;
-     *  uint32_t segment_num;
-     *  uint32_t cur_seg_id;
-     *}
-     * */
-
     DBSuperBlock(uint32_t magic, uint32_t ht_size, uint64_t idx_offset,
                 uint64_t idx_len, uint32_t sst_total, uint64_t sst_offset,
-                uint64_t sst_len, uint32_t ds_type, uint64_t reserved_offset,
-                uint64_t reserved_len, uint32_t num_eles, uint64_t data_size,
-                bool grace_close) :
+                uint64_t sst_len, uint32_t ds_type, uint32_t num_eles,
+                uint64_t data_size, bool grace_close) :
         magic_number(magic), index_ht_size(ht_size),
         index_region_offset(idx_offset), index_region_length(idx_len),
         sst_total_num(sst_total), sst_region_offset(sst_offset),
         sst_region_length(sst_len), data_store_type(ds_type),
-        reserved_region_offset(reserved_offset),
-        reserved_region_length(reserved_len),
         entry_count(num_eles), entry_theory_data_size(data_size),
         grace_close_flag(grace_close) {
     }
@@ -63,9 +45,8 @@ struct DBSuperBlock {
     DBSuperBlock() :
         magic_number(0), index_ht_size(0), index_region_offset(0),
         index_region_length(0), sst_total_num(0), sst_region_offset(0),
-        sst_region_length(0), data_store_type(0), reserved_region_offset(0),
-        reserved_region_length(0), entry_count(0), entry_theory_data_size(0),
-        grace_close_flag(0) {
+        sst_region_length(0), data_store_type(0), entry_count(0),
+        entry_theory_data_size(0), grace_close_flag(0) {
     }
 
     ~DBSuperBlock() {
@@ -125,12 +106,6 @@ public:
     }
     uint32_t GetDataStoreType() const {
         return sb_.data_store_type;
-    }
-    uint64_t GetReservedRegionOffset() const {
-        return sb_.reserved_region_offset;
-    }
-    uint64_t GetReservedRegionLength() const {
-        return sb_.reserved_region_length;
     }
     uint32_t GetEntryCount() const {
         return sb_.entry_count;
