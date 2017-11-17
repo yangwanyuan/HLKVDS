@@ -48,6 +48,10 @@ public:
 
 class SegmentManager {
 public:
+    static uint64_t SizeOfSegmentStat() {
+        return sizeof(SegmentStat);
+    }
+
     uint32_t GetNowSegId() {
         return curSegId_;
     }

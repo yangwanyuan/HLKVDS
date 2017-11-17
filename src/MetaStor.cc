@@ -56,9 +56,8 @@ bool MetaStor::CreateMetaData() {
     uint64_t meta_device_capacity = metaDev_->GetDeviceCapacity();
 
     //Init Superblock region
-    uint64_t sb_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    uint64_t sb_region_length = SuperBlockManager::SuperBlockSizeOnDevice();
 
-    //device capacity should be larger than size of sb
     if (meta_device_capacity < sb_region_length) {
         __ERROR("The capacity of device is too small, can't store sb region");
         return false;
@@ -80,7 +79,6 @@ bool MetaStor::CreateMetaData() {
     index_region_length = IndexManager::ComputeIndexSizeOnDevice(index_ht_size);
     __DEBUG("index region size; %ld", index_region_length);
 
-    //device capacity should be larger than size of (sb+index)
     if (meta_device_capacity < (sb_region_length + index_region_length)) {
         __ERROR("The capacity of device is too small, can't store index region");
         return false;
@@ -94,7 +92,7 @@ bool MetaStor::CreateMetaData() {
     
     __DEBUG("Init index region success.");
 
-    //Init Segment region
+    //Init SST region
     sst_region_offset = sb_region_length + index_region_length;
     uint64_t meta_device_remain_capacity = meta_device_capacity - sst_region_offset;
 
@@ -103,20 +101,18 @@ bool MetaStor::CreateMetaData() {
         return false;
     }
 
-    //dataStor_->InitVolumesTopology();
-    sst_total_num = dataStor_->ComputeTotalSegNum(segment_size, sst_region_offset);
-
     sstOff_ = sst_region_offset;
-    //dataStor_->InitSBReservedContent(sstOff_, segment_size);
-    if (!createDataStor(segment_size, sst_total_num)) {
+    if (!createDataStor(segment_size)) {
         __ERROR("Segment region init failed.");
         return false;
     }
 
+    sst_total_num = dataStor_->GetTotalSegNum();
+
     __DEBUG("Init segment region success.");
 
     //Set zero to device.
-    sst_region_length = dataStor_->ComputeTotalSSTsSizeOnDisk(sst_total_num);
+    sst_region_length = dataStor_->GetSSTsLengthOnDisk();
     uint64_t db_meta_region_length = sb_region_length + index_region_length + sst_region_length;
 
     int r = metaDev_->SetNewDBZero(db_meta_region_length);
@@ -126,8 +122,8 @@ bool MetaStor::CreateMetaData() {
 
     //Init reserve region
     data_store_type = 0;
-    reserved_region_offset = SuperBlockManager::SizeOfDBSuperBlock();
-    reserved_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice() - SuperBlockManager::SizeOfDBSuperBlock();
+    reserved_region_offset = SuperBlockManager::ReservedRegionOffset();
+    reserved_region_length = SuperBlockManager::ReservedRegionLength();
 
     grace_close_flag = 0;
 
@@ -163,7 +159,7 @@ bool MetaStor::LoadMetaData() {
 
     //Load Index
     uint32_t index_ht_size = sbMgr_->GetHTSize();
-    uint64_t sb_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    uint64_t sb_region_length = SuperBlockManager::SuperBlockSizeOnDevice();
     uint64_t index_region_length = sbMgr_->GetIndexRegionLength();
 
     idxOff_ = sbOff_ + sb_region_length;
@@ -174,9 +170,7 @@ bool MetaStor::LoadMetaData() {
 
     //Load SST
     sstOff_ = idxOff_ + index_region_length;
-    uint32_t segment_size = sbMgr_->GetSegmentSize();
-    uint32_t number_segments = sbMgr_->GetSegmentNum();
-    if (!LoadSSTs(segment_size,number_segments)) {
+    if (!LoadSSTs()) {
         __ERROR("Load SSTs failed.");
         return false;
     }
@@ -204,7 +198,7 @@ bool MetaStor::PersistMetaData() {
 }
 
 bool MetaStor::createSuperBlock() {
-    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    uint64_t length = SuperBlockManager::SuperBlockSizeOnDevice();
     char *buff = new char[length];
     memset(buff, 0, length);
 
@@ -219,7 +213,7 @@ bool MetaStor::createSuperBlock() {
 }
 
 bool MetaStor::LoadSuperBlock(){
-    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    uint64_t length = SuperBlockManager::SuperBlockSizeOnDevice();
     char *buff = new char[length];
     memset(buff, 0, length);
 
@@ -242,7 +236,7 @@ bool MetaStor::LoadSuperBlock(){
 bool MetaStor::PersistSuperBlockToDevice(){
     int ret = false;
     char *align_buf;
-    uint64_t length = SuperBlockManager::GetSuperBlockSizeOnDevice();
+    uint64_t length = SuperBlockManager::SuperBlockSizeOnDevice();
     ret = posix_memalign((void **)&align_buf, 4096, length);
     if (ret < 0) {
         __ERROR("Can't allocate memory for SuperBlock, Persist Failed!");
@@ -337,7 +331,7 @@ bool MetaStor::PersistIndexToDevice() {
     return true;
 }
 
-bool MetaStor::createDataStor(uint32_t segment_size, uint32_t number_segments) {
+bool MetaStor::createDataStor(uint32_t segment_size) {
     uint32_t align_bit = log2(ALIGNED_SIZE);
     if (segment_size != (segment_size >> align_bit) << align_bit) {
         __ERROR("Segment Size is not page aligned!");
@@ -345,7 +339,8 @@ bool MetaStor::createDataStor(uint32_t segment_size, uint32_t number_segments) {
     }
     dataStor_->CreateAllVolumes(sstOff_, segment_size);
 
-    uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
+    uint64_t length = dataStor_->GetSSTsLengthOnDisk();
+
     char *buff = new char[length];
     memset(buff, 0 , length);
 
@@ -359,17 +354,17 @@ bool MetaStor::createDataStor(uint32_t segment_size, uint32_t number_segments) {
     return true;
 }
 
-bool MetaStor::LoadSSTs(uint32_t segment_size, uint32_t number_segments) {
-    uint64_t reserved_region_length = SuperBlockManager::GetSuperBlockSizeOnDevice()
-                                        - SuperBlockManager::SizeOfDBSuperBlock();
-    char * reserved_content = new char[reserved_region_length];
+bool MetaStor::LoadSSTs() {
+    uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
+
+    char *reserved_content = new char[reserved_region_length];
     sbMgr_->GetReservedContent(reserved_content, reserved_region_length);
     dataStor_->SetSBReservedContent(reserved_content, reserved_region_length);
     delete[] reserved_content;
 
     dataStor_->OpenAllVolumes();
 
-    uint64_t length = dataStor_->ComputeTotalSSTsSizeOnDisk(number_segments);
+    uint64_t length = dataStor_->GetSSTsLengthOnDisk();
     char *buff = new char[length];
     memset(buff, 0 , length);
     if ((uint64_t) metaDev_->pRead(buff, length, sstOff_) != length) {
@@ -415,6 +410,14 @@ bool MetaStor::PersistSSTsToDevice() {
     free(align_buf);
 
     dataStor_->UpdateMetaToSB();
+
+    uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
+
+    char *reserved_content = new char[reserved_region_length];
+    dataStor_->GetSBReservedContent(reserved_content, reserved_region_length);
+    sbMgr_->SetReservedContent(reserved_content, reserved_region_length);
+    delete[] reserved_content;
+
     return true;
 }
 

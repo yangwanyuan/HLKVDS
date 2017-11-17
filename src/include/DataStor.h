@@ -30,6 +30,8 @@ class SegForReq;
 
 class DataStor {
 public:
+    virtual void printDeviceTopology() = 0;
+
     virtual Status WriteData(KVSlice& slice) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
     virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
@@ -53,12 +55,12 @@ public:
         SimpleDS_SB_Reserved_Header(uint32_t seg_size, uint32_t vol_num)
             : segment_size(seg_size), volume_num(vol_num) {}
     };
+
     class SimpleDS_SB_Reserved_Volume {
     public:
         char dev_path[DEVICE_PATH_LEN_LIMT];
         uint32_t segment_num;
         uint32_t cur_seg_id;
-
     public:
         SimpleDS_SB_Reserved_Volume() : segment_num(0), cur_seg_id(0) {
             memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
@@ -73,6 +75,9 @@ public:
 public:
     SimpleDS_Impl(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
     ~SimpleDS_Impl();
+
+    void printDeviceTopology() override;
+
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
     Status ReadData(KVSlice &slice, std::string &data) override;
@@ -81,7 +86,6 @@ public:
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
-    bool InitSBReservedContent(uint64_t sst_offset, uint32_t segment_size);
     bool SetSBReservedContent(char* buf, uint64_t length);
     bool GetSBReservedContent(char* buf, uint64_t length);
 
@@ -109,12 +113,12 @@ public:
     void ModifyDeathEntry(HashEntry &entry);
 
     //use in MetaStor
-    uint32_t ComputeTotalSegNum(uint32_t seg_size, uint64_t meta_start_off);
-    uint64_t ComputeTotalSSTsSizeOnDisk(uint32_t seg_num);
+    uint32_t GetTotalSegNum() {
+        return segTotalNum_;
+    }
 
-    uint64_t GetDataRegionSize();
-    uint64_t GetTotalSSTsSizeOnDisk() {
-        return ComputeTotalSSTsSizeOnDisk(sstTotalNum_);
+    uint64_t GetSSTsLengthOnDisk() {
+        return SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(segTotalNum_);
     }
 
     //use in Kvdb_Impl
@@ -123,11 +127,13 @@ public:
         return maxValueLen_;
     }
 
+    static uint64_t ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num);
+
 private:
     Status updateMeta(Request *req);
     void deleteAllVolumes();
 
-    void initSBReservedContentForCreate(uint32_t segment_size);
+    void initSBReservedContentForCreate();
 
 //private:
 public:
@@ -140,10 +146,11 @@ public:
     SegForReq *seg_;
     std::mutex segMtx_;
 
+    uint32_t segSize_;
     uint32_t maxValueLen_;
 
     uint32_t volNum_;
-    uint32_t sstTotalNum_;
+    uint32_t segTotalNum_;
 
     SimpleDS_SB_Reserved_Header sbResHeader_;
     std::vector<SimpleDS_SB_Reserved_Volume> sbResVolVec_;

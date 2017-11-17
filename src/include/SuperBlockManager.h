@@ -86,8 +86,17 @@ public:
         return sizeof(DBSuperBlock);
     }
 
-    static uint64_t GetSuperBlockSizeOnDevice() {
+    static uint64_t SuperBlockSizeOnDevice() {
         return SB_SIZE_ONDISK;
+    }
+
+    static uint64_t ReservedRegionOffset() {
+        return sizeof(DBSuperBlock);
+    }
+
+    static uint64_t ReservedRegionLength() {
+        return SuperBlockManager::SuperBlockSizeOnDevice()
+                - SuperBlockManager::SizeOfDBSuperBlock();
     }
 
     bool Get(char* buff, uint64_t length);

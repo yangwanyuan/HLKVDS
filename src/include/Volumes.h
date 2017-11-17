@@ -41,7 +41,9 @@ public:
 
 class Volumes {
 public:
-    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts, uint64_t start_off, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id);
+    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts,
+            int vol_id, uint64_t start_off, uint32_t segment_size, uint32_t segment_num,
+            uint32_t cur_seg_id);
     ~Volumes();
 
     void StartThds();
@@ -72,14 +74,15 @@ public:
     void FullGC();
     void BackGC();
 
-    static uint32_t ComputeSegNum(uint64_t total_size, uint32_t seg_size);
-    static uint64_t ComputeSegTableSizeOnDisk(uint64_t seg_num);
+    static uint64_t ComputeSSTsLengthOnDiskBySegNum(uint64_t seg_num);
     static uint32_t ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
     static uint32_t ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
 
     uint32_t GetCurSegId();
 
     std::string GetDevicePath();
+
+    uint64_t GetSSTLength();
 
 //move from SegmentManager
 public:
@@ -90,10 +93,6 @@ public:
 
     uint32_t GetNumberOfSeg() {
         return segNum_;
-    }
-
-    uint64_t GetDataRegionSize() {
-        return dataRegionSize_;
     }
 
     uint32_t GetSegmentSize() {
@@ -131,11 +130,11 @@ private:
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
     Options& options_;
+    int volId_;
     uint64_t startOff_;
     uint32_t segSize_;
     uint32_t segNum_;
     uint32_t segSizeBit_;
-    uint64_t dataRegionSize_;
 
     std::thread gcT_;
     std::atomic<bool> gcT_stop_; 

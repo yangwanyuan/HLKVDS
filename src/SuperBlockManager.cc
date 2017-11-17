@@ -9,7 +9,7 @@
 namespace hlkvds {
 
 bool SuperBlockManager::Get(char* buff, uint64_t length) {
-    if (length != SuperBlockManager::GetSuperBlockSizeOnDevice()) {
+    if (length != SuperBlockManager::SuperBlockSizeOnDevice()) {
         return false;
     }
     memcpy((void *)buff, (const void*)&sb_, SuperBlockManager::SizeOfDBSuperBlock());
@@ -20,7 +20,7 @@ bool SuperBlockManager::Get(char* buff, uint64_t length) {
 }
 
 bool SuperBlockManager::Set(char* buff, uint64_t length) {
-    if (length != SuperBlockManager::GetSuperBlockSizeOnDevice()) {
+    if (length != SuperBlockManager::SuperBlockSizeOnDevice()) {
         return false;
     }
     memcpy((void*)&sb_, (const void*)buff, SuperBlockManager::SizeOfDBSuperBlock());
@@ -53,7 +53,7 @@ void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
 
 SuperBlockManager::SuperBlockManager(Options &opt) :
     resCont_(NULL), options_(opt) {
-        uint32_t length = SuperBlockManager::GetSuperBlockSizeOnDevice() - SuperBlockManager::SizeOfDBSuperBlock();
+        uint32_t length = SuperBlockManager::ReservedRegionLength();
         resCont_ = new char[length];
         memset(resCont_, 0, length);
 }

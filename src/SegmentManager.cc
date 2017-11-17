@@ -6,8 +6,8 @@
 namespace hlkvds {
 
 bool SegmentManager::Get(char* buf, uint64_t length) {
-    uint64_t stat_size = sizeof(SegmentStat);
-    uint64_t stat_table_size = Volumes::ComputeSegTableSizeOnDisk(segNum_);
+    uint64_t stat_size = SegmentManager::SizeOfSegmentStat();
+    uint64_t stat_table_size = stat_size * segNum_;
     if (length != stat_table_size) {
         return false;
     }
@@ -25,8 +25,8 @@ bool SegmentManager::Get(char* buf, uint64_t length) {
 }
 
 bool SegmentManager::Set(char* buf, uint64_t length) {
-    uint64_t stat_size = sizeof(SegmentStat);
-    uint64_t stat_table_size = Volumes::ComputeSegTableSizeOnDisk(segNum_);
+    uint64_t stat_size = SegmentManager::SizeOfSegmentStat();
+    uint64_t stat_table_size = stat_size * segNum_;
     if (length != stat_table_size) {
         return false;
     }

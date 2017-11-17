@@ -31,10 +31,10 @@ public:
 private:
     bool createSuperBlock();
     bool createIndex(uint32_t ht_size, uint64_t index_size);
-    bool createDataStor(uint32_t segment_size, uint32_t number_segments);
+    bool createDataStor(uint32_t segment_size);
     bool LoadSuperBlock();
     bool LoadIndex(uint32_t ht_size, uint64_t index_size);
-    bool LoadSSTs(uint32_t segment_size, uint32_t number_segments);
+    bool LoadSSTs();
 
     bool PersistSuperBlockToDevice();
 

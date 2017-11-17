@@ -89,7 +89,7 @@ void KVDS::printDbStates() {
             "\t reserved region length      : %ld Bytes\n"
             "\t Segment SIZE =              : %d\n"
             "\t Segment Num =               : %d\n"
-            "\t Current Seg Id =            : %d\n",
+            "\t Current Seg Id =            : %d",
             index_ht_size, index_region_offset,
             index_region_length, sst_total_num,
             sst_region_offset, sst_region_length,
@@ -107,6 +107,8 @@ void KVDS::printDbStates() {
             dataStor_->GetReqQueSize(),
             dataStor_->GetSegWriteQueSize(),
             idxMgr_->GetSegReaperQueSize());
+
+    dataStor_->printDeviceTopology();
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
