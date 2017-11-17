@@ -1,5 +1,4 @@
 #include "SegmentManager.h"
-#include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Volumes.h"
 
@@ -43,10 +42,6 @@ bool SegmentManager::Set(char* buf, uint64_t length) {
     }
 
     return true;
-}
-
-void SegmentManager::UpdateMetaToSB() {
-    sbMgr_->SetCurSegId(curSegId_);
 }
 
 bool SegmentManager::Alloc(uint32_t& seg_id) {
@@ -164,10 +159,10 @@ void SegmentManager::SortSegsByUtils(
     } __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
 }
 
-SegmentManager::SegmentManager(SuperBlockManager* sbm, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit)
+SegmentManager::SegmentManager(Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit)
     : segSize_(segment_size), segSizeBit_(seg_size_bit), segNum_(segment_num),
         curSegId_(cur_seg_id), usedCounter_(0), freedCounter_(segNum_),
-        reservedCounter_(0), sbMgr_(sbm), options_(opt) {
+        reservedCounter_(0), options_(opt) {
 }
 
 SegmentManager::~SegmentManager() {

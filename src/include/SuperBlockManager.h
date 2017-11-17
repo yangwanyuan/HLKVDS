@@ -32,11 +32,6 @@ struct DBSuperBlock {
 
       bool grace_close_flag;
 
-      //will remove
-      uint32_t segment_size;
-      uint32_t segment_num;
-      uint32_t cur_seg_id;
-
     /*
      *struct SimpleDS_SB_RESERVED {
      *public :
@@ -54,7 +49,7 @@ struct DBSuperBlock {
                 uint64_t idx_len, uint32_t sst_total, uint64_t sst_offset,
                 uint64_t sst_len, uint32_t ds_type, uint64_t reserved_offset,
                 uint64_t reserved_len, uint32_t num_eles, uint64_t data_size,
-                bool grace_close, uint32_t seg_size, uint32_t seg_num, uint32_t cur_id) :
+                bool grace_close) :
         magic_number(magic), index_ht_size(ht_size),
         index_region_offset(idx_offset), index_region_length(idx_len),
         sst_total_num(sst_total), sst_region_offset(sst_offset),
@@ -62,18 +57,15 @@ struct DBSuperBlock {
         reserved_region_offset(reserved_offset),
         reserved_region_length(reserved_len),
         entry_count(num_eles), entry_theory_data_size(data_size),
-        grace_close_flag(grace_close),
-        segment_size(seg_size), segment_num(seg_num), cur_seg_id(cur_id){
+        grace_close_flag(grace_close) {
     }
-
 
     DBSuperBlock() :
         magic_number(0), index_ht_size(0), index_region_offset(0),
         index_region_length(0), sst_total_num(0), sst_region_offset(0),
         sst_region_length(0), data_store_type(0), reserved_region_offset(0),
         reserved_region_length(0), entry_count(0), entry_theory_data_size(0),
-        grace_close_flag(0),
-        segment_size(0), segment_num(0), cur_seg_id(0){
+        grace_close_flag(0) {
     }
 
     ~DBSuperBlock() {
@@ -150,24 +142,10 @@ public:
         return sb_.grace_close_flag;
     }
 
-    //will remove
-    uint32_t GetSegmentSize() const {
-        return sb_.segment_size;
-    }
-    uint32_t GetSegmentNum() const {
-        return sb_.segment_num;
-    }
-    uint32_t GetCurrentSegId() const {
-        return sb_.cur_seg_id;
-    }
-
     bool GetReservedContent(char* content, uint64_t length);
     void SetEntryCount(uint32_t num);
     bool SetReservedContent(char* content, uint64_t length);
     void SetDataTheorySize(uint64_t size);
-
-    //will remove
-    void SetCurSegId(uint32_t id);
 
     SuperBlockManager(Options &opt);
     ~SuperBlockManager();

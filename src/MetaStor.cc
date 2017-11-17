@@ -44,13 +44,9 @@ bool MetaStor::CreateMetaData() {
     uint32_t entry_count            = 0;
     uint64_t entry_theory_data_size = 0;
     bool grace_close_flag           = false;
-    //will remove
-    uint32_t segment_size           = 0;
-    uint32_t segment_num            = 0;
-    uint32_t cur_seg_id             = 0;
 
     index_ht_size = options_.hashtable_size;
-    segment_size = options_.segment_size;
+    uint32_t segment_size = options_.segment_size;
 
     //Init Block Device
     uint64_t meta_device_capacity = metaDev_->GetDeviceCapacity();
@@ -107,8 +103,6 @@ bool MetaStor::CreateMetaData() {
         return false;
     }
 
-    sst_total_num = dataStor_->GetTotalSegNum();
-
     __DEBUG("Init segment region success.");
 
     //Set zero to device.
@@ -127,14 +121,11 @@ bool MetaStor::CreateMetaData() {
 
     grace_close_flag = 0;
 
-    segment_num = sst_total_num;
-
     //Set SuperBlock
     DBSuperBlock sb(MAGIC_NUMBER, index_ht_size, index_region_offset, index_region_length,
                     sst_total_num, sst_region_offset, sst_region_length, data_store_type,
                     reserved_region_offset, reserved_region_length, entry_count,
-                    entry_theory_data_size, grace_close_flag,
-                    segment_size, segment_num, cur_seg_id);
+                    entry_theory_data_size, grace_close_flag);
     sbMgr_->SetSuperBlock(sb);
 
     //Set SuperBlock reserved region
@@ -408,8 +399,6 @@ bool MetaStor::PersistSSTsToDevice() {
     }
 
     free(align_buf);
-
-    dataStor_->UpdateMetaToSB();
 
     uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
 

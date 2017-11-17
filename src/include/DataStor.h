@@ -91,7 +91,6 @@ public:
 
     void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size);
     void OpenAllVolumes();
-    void UpdateMetaToSB();
 
     void InitSegment();
     void StartThds();
@@ -134,6 +133,7 @@ private:
     void deleteAllVolumes();
 
     void initSBReservedContentForCreate();
+    void updateAllVolSBRes();
 
 //private:
 public:

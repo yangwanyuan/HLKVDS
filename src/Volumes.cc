@@ -4,8 +4,6 @@
 #include "BlockDevice.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
-
-#include "SuperBlockManager.h"
 #include "IndexManager.h"
 
 using namespace std;
@@ -41,17 +39,17 @@ void SegmentOnDisk::Update() {
     time_stamp = KVTime::GetNow();
 }
     
-Volumes::Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im,
+Volumes::Volumes(BlockDevice* dev, IndexManager* im,
                 Options& opts, int vol_id, uint64_t start_off,
                 uint32_t segment_size, uint32_t segment_num,
                 uint32_t cur_seg_id)
-    : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), sbMgr_(sbm), idxMgr_(im),
+    : bdev_(dev), segMgr_(NULL), gcMgr_(NULL), idxMgr_(im),
         options_(opts), volId_(vol_id), startOff_(start_off), segSize_(segment_size),
         segNum_(segment_num), segSizeBit_(0) {
 
     segSizeBit_ = log2(segSize_);
 
-    segMgr_ = new SegmentManager(sbMgr_, options_, segSize_, segNum_, cur_seg_id, segSizeBit_);
+    segMgr_ = new SegmentManager(options_, segSize_, segNum_, cur_seg_id, segSizeBit_);
     gcMgr_ = new GcManager(idxMgr_, this, options_);
 }
 
@@ -106,10 +104,6 @@ bool Volumes::Write(char* data, size_t count, off_t offset) {
         return false;
     }
     return true;
-}
-
-void Volumes::UpdateMetaToSB() {
-    return segMgr_->UpdateMetaToSB();
 }
 
 uint64_t Volumes::ComputeSSTsLengthOnDiskBySegNum(uint64_t seg_num) {

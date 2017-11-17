@@ -14,8 +14,6 @@ namespace hlkvds {
 class BlockDevice;
 class SegmentManager;
 class GcManager;
-
-class SuperBlockManager;
 class IndexManager;
 
 class KVSlice;
@@ -41,7 +39,7 @@ public:
 
 class Volumes {
 public:
-    Volumes(BlockDevice* dev, SuperBlockManager* sbm, IndexManager* im, Options& opts,
+    Volumes(BlockDevice* dev, IndexManager* im, Options& opts,
             int vol_id, uint64_t start_off, uint32_t segment_size, uint32_t segment_num,
             uint32_t cur_seg_id);
     ~Volumes();
@@ -55,8 +53,6 @@ public:
 
     bool Read(char* data, size_t count, off_t offset);
     bool Write(char* data, size_t count, off_t offset);
-    
-    void UpdateMetaToSB();
     
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
@@ -127,7 +123,6 @@ private:
     SegmentManager* segMgr_;
     GcManager* gcMgr_;
 
-    SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
     Options& options_;
     int volId_;

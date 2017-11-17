@@ -46,9 +46,6 @@ void SuperBlockManager::SetSuperBlock(DBSuperBlock& sb) {
     sb_.entry_count             = sb.entry_count;
     sb_.entry_theory_data_size  = sb.entry_theory_data_size;
     sb_.grace_close_flag        = sb.grace_close_flag;
-    sb_.segment_size            = sb.segment_size;
-    sb_.segment_num             = sb.segment_num;
-    sb_.cur_seg_id              = sb.cur_seg_id;
 }
 
 SuperBlockManager::SuperBlockManager(Options &opt) :
@@ -65,11 +62,6 @@ SuperBlockManager::~SuperBlockManager() {
 void SuperBlockManager::SetEntryCount(uint32_t num) {
     std::lock_guard<std::mutex> l(mtx_);
     sb_.entry_count = num;
-}
-
-void SuperBlockManager::SetCurSegId(uint32_t id) {
-    std::lock_guard<std::mutex> l(mtx_);
-    sb_.cur_seg_id = id;
 }
 
 bool SuperBlockManager::SetReservedContent(char* content, uint64_t length) {

@@ -13,7 +13,6 @@ namespace hlkvds {
 
 class DataHeader;
 class HashEntry;
-class SuperBlockManager;
 class IndexManager;
 
 enum struct SegUseStat {
@@ -58,7 +57,6 @@ public:
 
     bool Get(char *buf, uint64_t length);
     bool Set(char *buf, uint64_t length);
-    void UpdateMetaToSB();
 
     bool Alloc(uint32_t& seg_id);
     bool AllocForGC(uint32_t& seg_id);
@@ -73,7 +71,7 @@ public:
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
 
-    SegmentManager(SuperBlockManager* sbMgr_, Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit);
+    SegmentManager(Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit);
     ~SegmentManager();
 
 private:
@@ -86,7 +84,6 @@ private:
     uint32_t freedCounter_;
     uint32_t reservedCounter_;
 
-    SuperBlockManager* sbMgr_;
     Options &options_;
     mutable std::mutex mtx_;
 

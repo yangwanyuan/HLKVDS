@@ -73,10 +73,6 @@ void KVDS::printDbStates() {
     uint32_t entry_count            = sbMgr_->GetEntryCount();
     uint64_t entry_theory_data_size = sbMgr_->GetDataTheorySize();
 
-    uint32_t segment_size           = sbMgr_->GetSegmentSize();
-    uint32_t segment_num            = sbMgr_->GetSegmentNum();
-    uint32_t cur_seg_id             = sbMgr_->GetCurrentSegId();
-
     __INFO("\n DB Static information:\n"
             "\t index hashtable size        : %d\n"
             "\t index region offset         : %ld\n"
@@ -86,16 +82,12 @@ void KVDS::printDbStates() {
             "\t sst region length           : %ld Bytes\n"
             "\t data store type             : %d\n"
             "\t reserved region offset      : %ld\n"
-            "\t reserved region length      : %ld Bytes\n"
-            "\t Segment SIZE =              : %d\n"
-            "\t Segment Num =               : %d\n"
-            "\t Current Seg Id =            : %d",
+            "\t reserved region length      : %ld Bytes",
             index_ht_size, index_region_offset,
             index_region_length, sst_total_num,
             sst_region_offset, sst_region_length,
             data_store_type,reserved_region_offset,
-            reserved_region_length,
-            segment_size, segment_num, cur_seg_id);
+            reserved_region_length);
 
     __INFO("\n DB Dynamic information: \n"
             "\t number of entries           : %d\n"
