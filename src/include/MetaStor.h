@@ -42,6 +42,8 @@ private:
 
     void verifyMetaDevice();
 
+    bool zeroDeviceMetaRegion(uint64_t length);
+
 private:
     const char* paths_;
     std::vector<BlockDevice *> &bdVec_;

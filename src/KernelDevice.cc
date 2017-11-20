@@ -27,22 +27,8 @@ KernelDevice::~KernelDevice() {
     }
 }
 
-int KernelDevice::SetNewDBZero(off_t meta_size, bool clear_data_region) {
-    int r = set_metazone_zero(meta_size);
-    if (r < 0) {
-        __ERROR("couldn't set metazone zero");
-        return KD_ERR;
-    }
-
-    if (clear_data_region) {
-        r = set_device_zero();
-        if (r < 0) {
-            __ERROR("couldn't set device zero");
-            return KD_ERR;
-        }
-    }
-
-    return KD_OK;
+int KernelDevice::ZeroDevice() {
+    return set_device_zero();
 }
 
 int KernelDevice::set_device_zero() {
@@ -55,24 +41,6 @@ int KernelDevice::set_device_zero() {
         return KD_ERR;
     }
 
-    return KD_OK;
-}
-
-int KernelDevice::set_metazone_zero(uint64_t meta_size) {
-    size_t nbytes = meta_size;
-
-    static const size_t BLOCKSIZE = 8192;
-    char zeros[BLOCKSIZE];
-    memset(zeros, 0, BLOCKSIZE);
-    while (nbytes > 0) {
-        size_t bytes_to_write = min(nbytes, BLOCKSIZE);
-        ssize_t ret = write(bufFd_, zeros, bytes_to_write);
-        if (ret < 0) {
-            __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
-            return KD_ERR;
-        }
-        nbytes -= bytes_to_write;
-    }
     return KD_OK;
 }
 
@@ -170,7 +138,7 @@ int KernelDevice::Open(string path, bool dsync) {
     } else {
         capacity_ = statbuf.st_size;
         //TODO:() dynamic block size in file mode
-        blockSize_ = 4096;
+        blockSize_ = getpagesize();
     }
 
     isOpen_ = true;
@@ -204,7 +172,7 @@ ssize_t KernelDevice::pWrite(const void* buf, size_t count, off_t offset) {
         return DirectWriteAligned(buf, count, offset);
     }
     __INFO("Buffered FD Pwrite, write size = %ld, block_size = %d",
-            count, get_blocksize());
+            count, GetBlockSize());
     //return pwrite(bufFd_, buf, count, offset);
     ssize_t ret = pwrite(bufFd_, buf, count, offset);
     fsync(bufFd_);

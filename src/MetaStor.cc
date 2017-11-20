@@ -122,8 +122,7 @@ bool MetaStor::CreateMetaData() {
     sst_region_length = dataStor_->GetSSTsLengthOnDisk();
     uint64_t db_meta_region_length = sb_region_length + index_region_length + sst_region_length;
 
-    int r = metaDev_->SetNewDBZero(db_meta_region_length);
-    if (r < 0) {
+    if ( !zeroDeviceMetaRegion(db_meta_region_length) ) {
         return false;
     }
 
@@ -144,6 +143,36 @@ bool MetaStor::CreateMetaData() {
     sbMgr_->SetReservedContent(reserved_content, reserved_region_length);
     delete[] reserved_content;
 
+    return true;
+}
+
+bool MetaStor::zeroDeviceMetaRegion(uint64_t meta_size) {
+    if (meta_size % 4096 != 0) {
+        return false;
+    }
+
+    char *align_buf;
+    int block_size = metaDev_->GetBlockSize();
+    block_size = (block_size > 4096? block_size : 4096);
+
+    int ret = posix_memalign((void **)&align_buf, 4096, (size_t)block_size);
+    if (ret < 0) {
+        __ERROR("Can't allocate memory for SSTs, Persist Failed!");
+        return false;
+    }
+    memset(align_buf, 0, block_size);
+
+    uint64_t need_wte_bytes = meta_size;
+    uint64_t wte_offset = 0;
+    while (need_wte_bytes > 0) {
+        uint64_t bytes_to_write = min(need_wte_bytes, (uint64_t)block_size);
+        if ( !metaDev_->pWrite(align_buf, bytes_to_write, wte_offset) ) {
+            __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
+            return false;
+        }
+        need_wte_bytes -= bytes_to_write;
+        wte_offset += bytes_to_write;
+    }
     return true;
 }
 
@@ -234,7 +263,6 @@ bool MetaStor::persistSuperBlockToDevice() {
         __ERROR("Can't allocate memory for SuperBlock, Persist Failed!");
         return false;
     }
-
     memset(align_buf, 0, length);
 
     if (!sbMgr_->Get(align_buf, length)) {
@@ -298,7 +326,6 @@ bool MetaStor::PersistIndexToDevice() {
     char *align_buf;
     uint64_t length = sbMgr_->GetIndexRegionLength();
     ret = posix_memalign((void **)&align_buf, 4096, length);
-    memset(align_buf, 0, length);
     if (ret < 0) {
         __ERROR("Can't allocate memory for Index, Persist Failed!");
         return false;
@@ -389,7 +416,6 @@ bool MetaStor::PersistSSTsToDevice() {
     char *align_buf;
     uint64_t length = sbMgr_->GetSSTRegionLength();
     ret = posix_memalign((void **)&align_buf, 4096, length);
-    memset(align_buf, 0, length);
     if (ret < 0) {
         __ERROR("Can't allocate memory for SSTs, Persist Failed!");
         return false;

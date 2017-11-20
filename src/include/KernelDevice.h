@@ -17,13 +17,19 @@ public:
     KernelDevice();
     virtual ~KernelDevice();
 
-    int SetNewDBZero(off_t meta_size, bool clear_data_region);
+    int ZeroDevice();
     int Open(std::string path, bool dsync);
     void Close();
     void ClearReadCache();
 
     uint64_t GetDeviceCapacity() {
-        return get_capacity();
+        return capacity_;
+    }
+    int GetPageSize() {
+        return getpagesize();
+    }
+    int GetBlockSize() {
+        return blockSize_;
     }
 
     std::string GetDevicePath() { return path_; };
@@ -42,30 +48,18 @@ private:
     bool isOpen_;
 
     int set_device_zero();
-    int set_metazone_zero(uint64_t meta_size);
     int fill_file_with_zeros();
     uint64_t get_block_device_capacity();
-    int disable_readahead();
     int lock_device();
-
-    uint64_t get_capacity() {
-        return capacity_;
-    }
-    int get_pagesize() {
-        return getpagesize();
-    }
-    int get_blocksize() {
-        return blockSize_;
-    }
 
     ssize_t DirectWriteAligned(const void* buf, size_t count, off_t offset);
 
     bool IsSectorAligned(const size_t off) {
-        return off % (get_blocksize()) == 0;
+        return off % ( GetBlockSize() ) == 0;
     }
 
     bool IsPageAligned(const void* ptr) {
-        return (uint64_t)ptr % (get_pagesize()) == 0;
+        return (uint64_t)ptr % ( GetPageSize() ) == 0;
     }
 
 };
