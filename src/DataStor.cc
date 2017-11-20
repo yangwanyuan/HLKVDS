@@ -202,29 +202,55 @@ void SimpleDS_Impl::initSBReservedContentForCreate() {
 }
 
 bool SimpleDS_Impl::SetSBReservedContent(char* buf, uint64_t length) {
+    if (length != SuperBlockManager::ReservedRegionLength()) {
+        return false;
+    }
+
+    //Set sbResHeader_
     uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
     memcpy((void*)&sbResHeader_, (const void*)buf, header_size);
     __DEBUG("SB_RESERVED_HEADER: volume_num= %d, segment_size = %d", sbResHeader_.volume_num, sbResHeader_.segment_size);
 
-    SimpleDS_SB_Reserved_Volume sb_res_vol;
+    //Set sbResVolVec_
+    uint64_t sb_res_vol_size = sizeof(SimpleDS_SB_Reserved_Volume);
+    uint32_t vol_num = sbResHeader_.volume_num;
     char * sb_res_vol_ptr = buf + header_size;
-    memcpy((void*)&sb_res_vol, (const void*)sb_res_vol_ptr, sizeof(SimpleDS_SB_Reserved_Volume));
-    sbResVolVec_.push_back(sb_res_vol);
-    __DEBUG("Volume [0], device_path= %s, segment_num = %d, current_seg_id = %d", sbResVolVec_[0].dev_path, sbResVolVec_[0].segment_num, sbResVolVec_[0].cur_seg_id);
+
+    for (uint32_t i = 0; i < vol_num; i++) {
+        SimpleDS_SB_Reserved_Volume sb_res_vol;
+        memcpy((void*)&sb_res_vol, (const void*)sb_res_vol_ptr, sb_res_vol_size);
+        sbResVolVec_.push_back(sb_res_vol);
+        sb_res_vol_ptr += sb_res_vol_size;
+        __DEBUG("Volume [%d], device_path= %s, segment_num = %d, current_seg_id = %d", i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num, sbResVolVec_[i].cur_seg_id);
+    }
+
     return true;
 }
 
 bool SimpleDS_Impl::GetSBReservedContent(char* buf, uint64_t length) {
-    uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
+    if (length != SuperBlockManager::ReservedRegionLength()) {
+        return false;
+    }
     memset((void*)buf, 0, length);
 
+    //Get sbResHeader_
+    uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
     memcpy((void*)buf, (const void*)&sbResHeader_, header_size);
     __DEBUG("SB_RESERVED_HEADER: volume_num= %d, segment_size = %d", sbResHeader_.volume_num, sbResHeader_.segment_size);
 
+    //Get sbResVolVec_
+    uint64_t sb_res_vol_size = sizeof(SimpleDS_SB_Reserved_Volume);
+    uint32_t vol_num = sbResHeader_.volume_num;
+    char * sb_res_vol_ptr = buf + header_size;
+
     updateAllVolSBRes();
 
-    memcpy((void*)(buf+header_size), (const void*)&sbResVolVec_[0], sizeof(SimpleDS_SB_Reserved_Volume));
-    __DEBUG("Volume [0], device_path= %s, segment_num = %d, current_seg_id = %d", sbResVolVec_[0].dev_path, sbResVolVec_[0].segment_num, sbResVolVec_[0].cur_seg_id);
+    for (uint32_t i = 0; i < vol_num; i++) {
+        memcpy((void*)(sb_res_vol_ptr), (const void*)&sbResVolVec_[i], sb_res_vol_size);
+        sb_res_vol_ptr += sb_res_vol_size;
+        __DEBUG("Volume [i], device_path= %s, segment_num = %d, current_seg_id = %d", i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num, sbResVolVec_[i].cur_seg_id);
+    }
+
     return true;
 }
 
