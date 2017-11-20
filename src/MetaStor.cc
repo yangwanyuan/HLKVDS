@@ -24,16 +24,16 @@ void MetaStor::InitDataStor(SimpleDS_Impl* ds) {
     dataStor_ = ds;
 }
 
-void MetaStor::checkMetaDevice() {
+void MetaStor::verifyMetaDevice() {
     metaDev_ = bdVec_[0];
 }
 
 bool MetaStor::TryLoadSB(int &datastor_type) {
-    checkMetaDevice();
+    verifyMetaDevice();
 
     //Load SuperBlock
     sbOff_ = 0;
-    if (!LoadSuperBlock()) {
+    if (!loadSuperBlock()) {
         __ERROR("Load SuperBlock failed.");
         return false;
     }
@@ -44,7 +44,7 @@ bool MetaStor::TryLoadSB(int &datastor_type) {
 
 bool MetaStor::CreateMetaData() {
 
-    checkMetaDevice();
+    verifyMetaDevice();
 
     uint32_t index_ht_size          = 0;
     uint64_t index_region_offset    = 0;
@@ -155,14 +155,14 @@ bool MetaStor::LoadMetaData() {
     uint64_t index_region_length = sbMgr_->GetIndexRegionLength();
 
     idxOff_ = sbOff_ + sb_region_length;
-    if(!LoadIndex(index_ht_size, index_region_length)) {
+    if(!loadIndex(index_ht_size, index_region_length)) {
         __ERROR("Load Index failed.");
         return false;
     }
 
-    //Load SST
+    //Load DataStor
     sstOff_ = idxOff_ + index_region_length;
-    if (!LoadSSTs()) {
+    if (!loadDataStor()) {
         __ERROR("Load SSTs failed.");
         return false;
     }
@@ -181,7 +181,7 @@ bool MetaStor::PersistMetaData() {
         return false;
     }
 
-    if (!PersistSuperBlockToDevice()) {
+    if (!persistSuperBlockToDevice()) {
         __WARN("Persist SB failed.");
         return false;
     }
@@ -204,7 +204,7 @@ bool MetaStor::createSuperBlock() {
     return true;
 }
 
-bool MetaStor::LoadSuperBlock(){
+bool MetaStor::loadSuperBlock() {
     uint64_t length = SuperBlockManager::SuperBlockSizeOnDevice();
     char *buff = new char[length];
     memset(buff, 0, length);
@@ -225,7 +225,7 @@ bool MetaStor::LoadSuperBlock(){
     return true;
 }
 
-bool MetaStor::PersistSuperBlockToDevice(){
+bool MetaStor::persistSuperBlockToDevice() {
     int ret = false;
     char *align_buf;
     uint64_t length = SuperBlockManager::SuperBlockSizeOnDevice();
@@ -270,7 +270,7 @@ bool MetaStor::createIndex(uint32_t ht_size, uint64_t index_size) {
     return true;
 }
 
-bool MetaStor::LoadIndex(uint32_t ht_size, uint64_t index_size) {
+bool MetaStor::loadIndex(uint32_t ht_size, uint64_t index_size) {
     idxMgr_->InitMeta(ht_size, index_size, sbMgr_->GetDataTheorySize(), sbMgr_->GetEntryCount());
 
     uint64_t length = index_size;
@@ -346,7 +346,7 @@ bool MetaStor::createDataStor(uint32_t segment_size) {
     return true;
 }
 
-bool MetaStor::LoadSSTs() {
+bool MetaStor::loadDataStor() {
     uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
 
     char *reserved_content = new char[reserved_region_length];
@@ -354,7 +354,10 @@ bool MetaStor::LoadSSTs() {
     dataStor_->SetSBReservedContent(reserved_content, reserved_region_length);
     delete[] reserved_content;
 
-    dataStor_->OpenAllVolumes();
+    if (!dataStor_->OpenAllVolumes()) {
+        __ERROR("Could not Open All Volumes, Maybe device topology is inconsistent");
+        return false;
+    }
 
     uint64_t length = dataStor_->GetSSTsLengthOnDisk();
     char *buff = new char[length];

@@ -92,7 +92,7 @@ public:
     bool GetSBReservedContent(char* buf, uint64_t length);
 
     void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size);
-    void OpenAllVolumes();
+    bool OpenAllVolumes();
 
     void InitSegment();
     void StartThds();
@@ -136,6 +136,8 @@ private:
 
     void initSBReservedContentForCreate();
     void updateAllVolSBRes();
+
+    bool verifyTopology();
 
 //private:
 public:

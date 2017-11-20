@@ -34,13 +34,13 @@ private:
     bool createSuperBlock();
     bool createIndex(uint32_t ht_size, uint64_t index_size);
     bool createDataStor(uint32_t segment_size);
-    bool LoadSuperBlock();
-    bool LoadIndex(uint32_t ht_size, uint64_t index_size);
-    bool LoadSSTs();
+    bool loadSuperBlock();
+    bool loadIndex(uint32_t ht_size, uint64_t index_size);
+    bool loadDataStor();
 
-    bool PersistSuperBlockToDevice();
+    bool persistSuperBlockToDevice();
 
-    void checkMetaDevice();
+    void verifyMetaDevice();
 
 private:
     const char* paths_;

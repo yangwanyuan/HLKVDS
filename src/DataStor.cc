@@ -237,7 +237,7 @@ void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size)
     initSBReservedContentForCreate();
 }
 
-void SimpleDS_Impl::OpenAllVolumes() {
+bool SimpleDS_Impl::OpenAllVolumes() {
     volNum_ = sbResHeader_.volume_num;
     segSize_ = sbResHeader_.segment_size;
 
@@ -245,6 +245,12 @@ void SimpleDS_Impl::OpenAllVolumes() {
     uint32_t meta_seg_num = sbResVolVec_[0].segment_num;
     uint32_t meta_cur_seg_id = sbResVolVec_[0].cur_seg_id;
 
+    if (!verifyTopology()) {
+        __ERROR("The Device Topoloygy is inconsistent");
+        return false;
+    }
+
+    //Create Meta Volume
     uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sbMgr_->GetSSTRegionLength();
 
     Volumes *meta_vol = new Volumes(meta_bdev, idxMgr_, options_, 0, start_off, segSize_, meta_seg_num, meta_cur_seg_id);
@@ -252,7 +258,8 @@ void SimpleDS_Impl::OpenAllVolumes() {
 
     segTotalNum_ += meta_seg_num;
 
-    if (volNum_ > 1){
+    //Create Pure Volumes
+    if (volNum_ > 1) {
         for (uint32_t i = 1 ; i < volNum_; i++) {
             BlockDevice *bdev = bdVec_[i];
             uint32_t seg_num = sbResVolVec_[i].segment_num;
@@ -267,6 +274,20 @@ void SimpleDS_Impl::OpenAllVolumes() {
     maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 }
 
+bool SimpleDS_Impl::verifyTopology() {
+    if (volNum_ != bdVec_.size()) {
+        return false;
+    }
+    for (uint32_t i = 0; i < volNum_; i++) {
+        string record_path = string(sbResVolVec_[i].dev_path);
+        string device_path = bdVec_[i]->GetDevicePath();
+        if (record_path != device_path) {
+            __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
+            return false;
+        }
+    }
+    return true;
+}
 void SimpleDS_Impl::InitSegment() {
     seg_ = new SegForReq(volMap_[0], idxMgr_, options_.expired_time);
 }
