@@ -159,6 +159,9 @@ public:
     uint32_t volNum_;
     uint32_t segTotalNum_;
 
+    int pickVolId_;
+    std::mutex volIdMtx_;
+
     SimpleDS_SB_Reserved_Header sbResHeader_;
     std::vector<SimpleDS_SB_Reserved_Volume> sbResVolVec_;
 

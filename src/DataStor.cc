@@ -15,7 +15,7 @@ namespace hlkvds {
 
 SimpleDS_Impl::SimpleDS_Impl(Options& opts, vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL), segSize_(0), maxValueLen_(0),
-        volNum_(0), segTotalNum_(0), reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
+        volNum_(0), segTotalNum_(0), pickVolId_(-1), reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
 }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
@@ -346,8 +346,14 @@ bool SimpleDS_Impl::verifyTopology() {
 }
 
 int SimpleDS_Impl::pickVol() {
-    int vol_id = 0;
-    return vol_id;
+    std::lock_guard <std::mutex> l(volIdMtx_);
+    if ( pickVolId_ == (int)(volNum_ - 1) ){
+        pickVolId_ = 0;
+    }
+    else {
+        pickVolId_++;
+    }
+    return pickVolId_;
 }
 
 int SimpleDS_Impl::getVolIdFromEntry(HashEntry* entry) {
