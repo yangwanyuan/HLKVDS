@@ -139,10 +139,16 @@ bool MetaStor::CreateMetaData() {
     //Set SuperBlock reserved region
     uint64_t reserved_region_length = SuperBlockManager::ReservedRegionLength();
     char * reserved_content = new char[reserved_region_length];
-    dataStor_->GetSBReservedContent(reserved_content, reserved_region_length);
-    sbMgr_->SetReservedContent(reserved_content, reserved_region_length);
-    delete[] reserved_content;
+    if ( !dataStor_->GetSBReservedContent(reserved_content, reserved_region_length) ) {
+        delete[] reserved_content;
+        return false;
+    }
+    if ( !sbMgr_->SetReservedContent(reserved_content, reserved_region_length) ) {
+        delete[] reserved_content;
+        return false;
+    }
 
+    delete[] reserved_content;
     return true;
 }
 
