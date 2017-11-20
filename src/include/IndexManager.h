@@ -269,7 +269,7 @@ public:
         bool Get(char* buff, uint64_t length);
         bool Set(char* buff, uint64_t length);
 
-        void InitDataStor(SimpleDS_Impl *ds) { dataStor_ = ds; }
+        void InitDataStor(SimpleDS_Impl *ds);
 
         bool UpdateIndex(KVSlice* slice);
         void UpdateIndexes(std::list<KVSlice*> &slice_list);

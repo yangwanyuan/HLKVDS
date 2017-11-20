@@ -28,6 +28,20 @@ void MetaStor::checkMetaDevice() {
     metaDev_ = bdVec_[0];
 }
 
+bool MetaStor::TryLoadSB(int &datastor_type) {
+    checkMetaDevice();
+
+    //Load SuperBlock
+    sbOff_ = 0;
+    if (!LoadSuperBlock()) {
+        __ERROR("Load SuperBlock failed.");
+        return false;
+    }
+
+    datastor_type = sbMgr_->GetDataStoreType();
+    return true;
+}
+
 bool MetaStor::CreateMetaData() {
 
     checkMetaDevice();
@@ -104,6 +118,7 @@ bool MetaStor::CreateMetaData() {
     __DEBUG("Init segment region success.");
 
     //Set zero to device.
+    sst_total_num = dataStor_->GetTotalSegNum();
     sst_region_length = dataStor_->GetSSTsLengthOnDisk();
     uint64_t db_meta_region_length = sb_region_length + index_region_length + sst_region_length;
 
@@ -133,15 +148,6 @@ bool MetaStor::CreateMetaData() {
 }
 
 bool MetaStor::LoadMetaData() {
-
-    checkMetaDevice();
-
-    //Load SuperBlock
-    sbOff_ = 0;
-    if (!LoadSuperBlock()) {
-        __ERROR("Load SuperBlock failed.");
-        return false;
-    }
 
     //Load Index
     uint32_t index_ht_size = sbMgr_->GetHTSize();

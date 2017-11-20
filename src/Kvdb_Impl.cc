@@ -32,7 +32,25 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
 
     // TODO:Find DataStor Type;
     // ...
-    kvds->dataStor_ = new SimpleDS_Impl(kvds->options_, kvds->bdVec_, kvds->sbMgr_, kvds->idxMgr_);
+    int datastor_type = opts.datastor_type;
+    switch (datastor_type) {
+        case 0:
+            kvds->dataStor_ = new SimpleDS_Impl(kvds->options_, kvds->bdVec_, kvds->sbMgr_, kvds->idxMgr_);
+            break;
+        case 1:
+            __ERROR("Multi_Volume has not been implement yet!");
+            break;
+        case 2:
+            __ERROR("Multi_Tier has not been implement yet!");
+            break;
+        default:
+            __ERROR("UnKnow DataStor Type!");
+            break;
+    }
+    if (kvds->dataStor_ == NULL) {
+        delete kvds;
+        return NULL;
+    }
 
     kvds->idxMgr_->InitDataStor(kvds->dataStor_);
     kvds->metaStor_->InitDataStor(kvds->dataStor_);
@@ -117,7 +135,28 @@ Status KVDS::openDB() {
 
     // TODO:Find DataStor Type;
     // ...
-    dataStor_ = new SimpleDS_Impl(options_, bdVec_, sbMgr_, idxMgr_);
+    int datastor_type = -1;
+    if ( !metaStor_->TryLoadSB(datastor_type)) {
+        return  Status::IOError("Could not load SB");
+    }
+    switch (datastor_type) {
+        case 0:
+            dataStor_ = new SimpleDS_Impl(options_, bdVec_, sbMgr_, idxMgr_);
+            break;
+        case 1:
+            __ERROR("Multi_Volume has not been implement yet!");
+            break;
+        case 2:
+            __ERROR("Multi_Tier has not been implement yet!");
+            break;
+        default:
+            __ERROR("UnKnow DataStor Type!");
+            break;
+    }
+    if (dataStor_ == NULL) {
+        return Status::NotSupported("Could not support this data store");
+    }
+
     idxMgr_->InitDataStor(dataStor_);
     metaStor_->InitDataStor(dataStor_);
 

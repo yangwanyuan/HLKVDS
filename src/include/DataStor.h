@@ -31,6 +31,7 @@ class SegForReq;
 class DataStor {
 public:
     virtual void printDeviceTopology() = 0;
+    virtual int GetDataStorType() = 0;
 
     virtual Status WriteData(KVSlice& slice) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
@@ -77,6 +78,7 @@ public:
     ~SimpleDS_Impl();
 
     void printDeviceTopology() override;
+    int GetDataStorType() override { return 0; }
 
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;

@@ -10,9 +10,11 @@ struct Options {
     int cache_size;
     int cache_policy;
     int slru_partition;
+
     //use in Create DB
     int segment_size;
     int hashtable_size;
+    int datastor_type;
     //int data_aligned_size;
 
     //use in Open DB
@@ -21,6 +23,7 @@ struct Options {
     double seg_full_rate;
     double gc_upper_level;
     double gc_lower_level;
+
     Options();
 };
 } // namespace hlkvds

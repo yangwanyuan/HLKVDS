@@ -15,6 +15,8 @@ class SimpleDS_Impl;
 
 class MetaStor {
 public:
+    bool TryLoadSB(int &datastor_type);
+
     bool CreateMetaData();
     bool LoadMetaData();
     bool PersistMetaData();
