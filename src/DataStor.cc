@@ -70,19 +70,22 @@ Status SimpleDS_Impl::updateMeta(Request *req) {
 }
 
 Status SimpleDS_Impl::WriteBatchData(WriteBatch *batch) {
-
     uint32_t seg_id = 0;
     bool ret;
+
+    int vol_id = pickVol();
+    Volumes *vol = volMap_[vol_id];
+
     //TODO: use GcSegment first, need abstract segment.
-    while (!volMap_[0]->Alloc(seg_id)) {
-        ret = volMap_[0]->ForeGC();
+    while (!vol->Alloc(seg_id)) {
+        ret = vol->ForeGC();
         if (!ret) {
             __ERROR("Cann't get a new Empty Segment.\n");
             return Status::Aborted("Can't allocate a Empty Segment.");
         }
     }
 
-    SegForSlice *seg = new SegForSlice(volMap_[0], idxMgr_);
+    SegForSlice *seg = new SegForSlice(vol, idxMgr_);
     for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
             iter != batch->batch_.end(); iter++) {
         if (seg->TryPut(*iter)) {
@@ -99,13 +102,13 @@ Status SimpleDS_Impl::WriteBatchData(WriteBatch *batch) {
     ret = seg->WriteSegToDevice();
     if(!ret) {
         __ERROR("Write batch segment to device failed");
-        volMap_[0]->FreeForFailed(seg_id);
+        vol->FreeForFailed(seg_id);
         delete seg;
         return Status::IOError("could not write batch segment to device ");
     }
 
     uint32_t free_size = seg->GetFreeSize();
-    volMap_[0]->Use(seg_id, free_size);
+    vol->Use(seg_id, free_size);
     seg->UpdateToIndex();
     delete seg;
     return Status::OK();
@@ -115,8 +118,11 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     HashEntry *entry;
     entry = &slice.GetHashEntry();
 
+    int vol_id = getVolIdFromEntry(entry);
+    Volumes *vol = volMap_[vol_id];
+
     uint64_t data_offset = 0;
-    if (!volMap_[0]->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
+    if (!vol->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
         return Status::Aborted("Compute data offset failed.");
     }
 
@@ -128,7 +134,7 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     }
 
     char *mdata = new char[data_len];
-    if (!volMap_[0]->Read(mdata, data_len, data_offset)) {
+    if (!vol->Read(mdata, data_len, data_offset)) {
         __ERROR("Could not read data at position");
         delete[] mdata;
         return Status::IOError("Could not read data at position.");
@@ -146,13 +152,35 @@ bool SimpleDS_Impl::UpdateSST() {
 }
 
 bool SimpleDS_Impl::GetAllSSTs(char* buf, uint64_t length) {
-    uint64_t vol_sst_length = volMap_[0]->GetSSTLength();
-    return volMap_[0]->GetSST(buf, vol_sst_length);
+    uint64_t sst_total_length = GetSSTsLengthOnDisk();
+    if (length != sst_total_length) {
+        return false;
+    }
+    char *buf_ptr = buf;
+    for (uint32_t i = 0; i < volNum_; i++) {
+        uint64_t vol_sst_length = volMap_[i]->GetSSTLength();
+        if ( !volMap_[i]->GetSST(buf_ptr, vol_sst_length) ) {
+            return false;
+        }
+        buf_ptr += vol_sst_length;
+    }
+    return true;
 }
 
 bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
-    uint64_t vol_sst_length = volMap_[0]->GetSSTLength();
-    return volMap_[0]->SetSST(buf, vol_sst_length);
+    uint64_t sst_total_length = GetSSTsLengthOnDisk();
+    if (length != sst_total_length) {
+        return false;
+    }
+    char *buf_ptr = buf;
+    for (uint32_t i = 0; i < volNum_; i++) {
+        uint64_t vol_sst_length = volMap_[i]->GetSSTLength();
+        if ( !volMap_[i]->SetSST(buf_ptr, vol_sst_length) ) {
+            return false;
+        }
+        buf_ptr += vol_sst_length;
+    }
+    return true;
 }
 
 void SimpleDS_Impl::initSBReservedContentForCreate() {
@@ -163,11 +191,11 @@ void SimpleDS_Impl::initSBReservedContentForCreate() {
     {
         SimpleDS_SB_Reserved_Volume sb_res_vol;
 
-        string dev_path = volMap_[0]->GetDevicePath();
+        string dev_path = volMap_[i]->GetDevicePath();
         memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
 
-        sb_res_vol.segment_num = volMap_[0]->GetNumberOfSeg();
-        sb_res_vol.cur_seg_id = volMap_[0]->GetCurSegId();
+        sb_res_vol.segment_num = volMap_[i]->GetNumberOfSeg();
+        sb_res_vol.cur_seg_id = volMap_[i]->GetCurSegId();
 
         sbResVolVec_.push_back(sb_res_vol);
     }
@@ -272,6 +300,8 @@ bool SimpleDS_Impl::OpenAllVolumes() {
     }
 
     maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+
+    return true;
 }
 
 bool SimpleDS_Impl::verifyTopology() {
@@ -288,8 +318,21 @@ bool SimpleDS_Impl::verifyTopology() {
     }
     return true;
 }
+
+int SimpleDS_Impl::pickVol() {
+    int vol_id = 0;
+    return vol_id;
+}
+
+int SimpleDS_Impl::getVolIdFromEntry(HashEntry* entry) {
+    uint16_t pos = entry->GetHeaderLocation();
+    int vol_id = (int)pos;
+    return vol_id;
+}
+
 void SimpleDS_Impl::InitSegment() {
-    seg_ = new SegForReq(volMap_[0], idxMgr_, options_.expired_time);
+    int vol_id = pickVol();
+    seg_ = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
 }
 
 void SimpleDS_Impl::StartThds() {
@@ -302,11 +345,15 @@ void SimpleDS_Impl::StartThds() {
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&SimpleDS_Impl::SegTimeoutThdEntry, this);
 
-    volMap_[0]->StartThds();
+    for (uint32_t i = 0; i < volNum_; i++) {
+        volMap_[i]->StartThds();
+    }
 }
 
 void SimpleDS_Impl::StopThds() {
-    volMap_[0]->StopThds();
+    for (uint32_t i = 0; i < volNum_; i++) {
+        volMap_[i]->StopThds();
+    }
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
@@ -324,13 +371,17 @@ void SimpleDS_Impl::StopThds() {
 
 string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
     uint64_t key_offset = 0;
-    if (!volMap_[0]->ComputeKeyOffsetPhyFromEntry(entry, key_offset)) {
+
+    int vol_id = getVolIdFromEntry(entry);
+    Volumes *vol = volMap_[vol_id];
+
+    if (!vol->ComputeKeyOffsetPhyFromEntry(entry, key_offset)) {
         return "";
     }
     __DEBUG("key offset: %lu",key_offset);
     uint16_t key_len = entry->GetKeySize();
     char *mkey = new char[key_len+1];
-    if (!volMap_[0]->Read(mkey, key_len, key_offset)) {
+    if (!vol->Read(mkey, key_len, key_offset)) {
         __ERROR("Could not read data at position");
         delete[] mkey;
         return "";
@@ -345,7 +396,11 @@ string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
 
 string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
     uint64_t data_offset = 0;
-    if (!volMap_[0]->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
+
+    int vol_id = getVolIdFromEntry(entry);
+    Volumes *vol = volMap_[vol_id];
+
+    if (!vol->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
         return "";
     }
     __DEBUG("data offset: %lu",data_offset);
@@ -354,7 +409,7 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
         return "";
     }
     char *mdata = new char[data_len+1];
-    if (!volMap_[0]->Read(mdata, data_len, data_offset)) {
+    if (!vol->Read(mdata, data_len, data_offset)) {
         __ERROR("Could not read data at position");
         delete[] mdata;
         return "";
@@ -370,7 +425,8 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
 ////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
-    volMap_[0]->ModifyDeathEntry(entry);
+    int vol_id = getVolIdFromEntry(&entry);
+    volMap_[vol_id]->ModifyDeathEntry(entry);
 }
 
 uint64_t SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
@@ -378,7 +434,11 @@ uint64_t SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
 }
 
 uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
-    return volMap_[0]->GetTotalFreeSegs();
+    uint32_t free_num = 0;
+    for (uint32_t i = 0; i < volNum_; i++) {
+        free_num += volMap_[i]->GetTotalFreeSegs();
+    }
+    return free_num;
 }
 
 /////////////////////////////////////////////////////
@@ -390,16 +450,20 @@ void SimpleDS_Impl::ReqMerge(Request* req) {
     } else {
         seg_->Complete();
         segWteWQ_->Add_task(seg_);
-        seg_ = new SegForReq(volMap_[0], idxMgr_, options_.expired_time);
+
+        int vol_id = pickVol();
+        seg_ = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
         seg_->Put(req);
     }
 }
 
 void SimpleDS_Impl::SegWrite(SegForReq *seg) {
+    Volumes *vol =  seg->GetSelfVolume();
+
     uint32_t seg_id = 0;
     bool res;
-    while (!volMap_[0]->Alloc(seg_id)) {
-        res = volMap_[0]->ForeGC();
+    while (!vol->Alloc(seg_id)) {
+        res = vol->ForeGC();
         if (!res) {
             __ERROR("Cann't get a new Empty Segment.\n");
             seg->Notify(res);
@@ -409,9 +473,9 @@ void SimpleDS_Impl::SegWrite(SegForReq *seg) {
     seg->SetSegId(seg_id);
     res = seg->WriteSegToDevice();
     if (res) {
-        volMap_[0]->Use(seg_id, free_size);
+        vol->Use(seg_id, free_size);
     } else {
-        volMap_[0]->FreeForFailed(seg_id);
+        vol->FreeForFailed(seg_id);
     }
     seg->Notify(res);
 }
@@ -425,7 +489,8 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
             seg_->Complete();
 
             segWteWQ_->Add_task(seg_);
-            seg_ = new SegForReq(volMap_[0], idxMgr_, options_.expired_time);
+            int vol_id = pickVol();
+            seg_ = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
         }
         lck.unlock();
 
@@ -435,7 +500,9 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
 
 void SimpleDS_Impl::Do_GC() {
     __INFO("Application call GC!!!!!");
-    return volMap_[0]->FullGC();
+    for (uint32_t i = 0; i < volNum_; i++) {
+        volMap_[i]->FullGC();
+    }
 }
 
 } // namespace hlkvds

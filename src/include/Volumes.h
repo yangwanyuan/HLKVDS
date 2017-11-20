@@ -75,10 +75,10 @@ public:
     static uint32_t ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
 
     uint32_t GetCurSegId();
-
+    uint64_t GetSSTLength();
     std::string GetDevicePath();
 
-    uint64_t GetSSTLength();
+    int GetId() const { return volId_; }
 
 //move from SegmentManager
 public:

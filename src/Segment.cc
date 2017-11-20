@@ -232,6 +232,7 @@ bool SegBase::WriteSegToDevice() {
 void SegBase::fillEntryToSlice() {
     uint32_t head_pos = Volumes::SizeOfSegOnDisk();
     uint32_t tail_pos = segSize_;
+    int vol_id = vol_->GetId();
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
             != sliceList_.end(); iter++) {
 
@@ -247,7 +248,7 @@ void SegBase::fillEntryToSlice() {
             vol_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
-            DataHeaderAddress addrs(0, header_offset);
+            DataHeaderAddress addrs(vol_id, header_offset);
             HashEntry hash_entry(data_header, addrs, NULL);
             slice->SetHashEntry(&hash_entry);
 
@@ -265,7 +266,7 @@ void SegBase::fillEntryToSlice() {
             vol_->ComputeSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
-            DataHeaderAddress addrs(0, header_offset);
+            DataHeaderAddress addrs(vol_id, header_offset);
             HashEntry hash_entry(data_header, addrs, NULL);
             slice->SetHashEntry(&hash_entry);
 

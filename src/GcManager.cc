@@ -249,13 +249,14 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
 void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                           uint64_t phy_offset) {
     uint32_t head_offset = Volumes::SizeOfSegOnDisk();
+    int vol_id = vol_->GetId();
 
     for (uint32_t index = 0; index < num_keys; index++) {
         DataHeader header;
         memcpy(&header, &dataBuf_[head_offset],
                IndexManager::SizeOfDataHeader());
 
-        DataHeaderAddress addrs(0, phy_offset + (uint64_t)head_offset);
+        DataHeaderAddress addrs(vol_id, phy_offset + (uint64_t)head_offset);
         HashEntry hash_entry(header, addrs, NULL);
 
         __DEBUG("load hash_entry from seg_offset = %ld, header_offset = %d", phy_offset, head_offset );

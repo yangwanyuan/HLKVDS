@@ -164,6 +164,10 @@ public:
         return sliceList_;
     }
 
+    Volumes* GetSelfVolume() {
+        return vol_;
+    }
+
 private:
     void copyHelper(const SegBase& toBeCopied);
     void fillEntryToSlice();

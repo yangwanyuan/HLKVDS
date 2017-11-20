@@ -139,6 +139,9 @@ private:
 
     bool verifyTopology();
 
+    int pickVol();
+    int getVolIdFromEntry(HashEntry *entry);
+
 //private:
 public:
     Options &options_;
