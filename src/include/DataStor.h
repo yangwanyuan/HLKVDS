@@ -36,7 +36,7 @@ public:
     virtual Status WriteData(KVSlice& slice) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
     virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
-    virtual bool UpdateSST() = 0;
+
     virtual bool GetAllSSTs(char* buf, uint64_t length) = 0;
     virtual bool SetAllSSTs(char* buf, uint64_t length) = 0;
 
@@ -84,7 +84,6 @@ public:
     Status WriteBatchData(WriteBatch *batch) override;
     Status ReadData(KVSlice &slice, std::string &data) override;
 
-    bool UpdateSST() override;
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
@@ -101,12 +100,9 @@ public:
     std::string GetKeyByHashEntry(HashEntry *entry);
     std::string GetValueByHashEntry(HashEntry *entry);
 
-    uint32_t GetReqQueSize() {
-        return (!reqWQ_)? 0 : reqWQ_->Size();
-    }
-    uint32_t GetSegWriteQueSize() {
-        return (!segWteWQ_)? 0 : segWteWQ_->Size();
-    }
+    uint32_t GetReqQueSize();
+    uint32_t GetSegWriteQueSize();
+
     void Do_GC();
 
     // interface for SegmentManager
@@ -119,7 +115,7 @@ public:
     }
 
     uint64_t GetSSTsLengthOnDisk() {
-        return SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(segTotalNum_);
+        return sstLengthOnDisk_;
     }
 
     //use in Kvdb_Impl
@@ -129,6 +125,8 @@ public:
     }
 
     static uint64_t ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num);
+    static uint32_t ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
+    static uint32_t ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
 
 private:
     Status updateMeta(Request *req);
@@ -142,8 +140,7 @@ private:
     int pickVol();
     int getVolIdFromEntry(HashEntry *entry);
 
-//private:
-public:
+private:
     Options &options_;
     std::vector<BlockDevice *> &bdVec_;
     SuperBlockManager *sbMgr_;
@@ -158,6 +155,7 @@ public:
 
     uint32_t volNum_;
     uint32_t segTotalNum_;
+    uint64_t sstLengthOnDisk_;
 
     int pickVolId_;
     std::mutex volIdMtx_;

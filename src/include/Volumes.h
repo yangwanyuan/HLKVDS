@@ -49,7 +49,6 @@ public:
 
     bool GetSST(char* buf, uint64_t length);
     bool SetSST(char* buf, uint64_t length);
-    void InitMeta(uint32_t segment_size, uint32_t number_segments, uint32_t cur_seg_id);
 
     bool Read(char* data, size_t count, off_t offset);
     bool Write(char* data, size_t count, off_t offset);
@@ -69,10 +68,6 @@ public:
     bool ForeGC();
     void FullGC();
     void BackGC();
-
-    static uint64_t ComputeSSTsLengthOnDiskBySegNum(uint64_t seg_num);
-    static uint32_t ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
-    static uint32_t ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
 
     uint32_t GetCurSegId();
     uint64_t GetSSTLength();

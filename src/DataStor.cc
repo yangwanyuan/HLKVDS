@@ -1,9 +1,11 @@
+#include <math.h>
 #include "DataStor.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Volumes.h"
+#include "SegmentManager.h"
 
 using namespace std;
 
@@ -15,7 +17,8 @@ namespace hlkvds {
 
 SimpleDS_Impl::SimpleDS_Impl(Options& opts, vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL), segSize_(0), maxValueLen_(0),
-        volNum_(0), segTotalNum_(0), pickVolId_(-1), reqWQ_(NULL), segWteWQ_(NULL), segTimeoutT_stop_(false) {
+        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), reqWQ_(NULL), segWteWQ_(NULL),
+        segTimeoutT_stop_(false) {
 }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
@@ -147,10 +150,6 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     return Status::OK();
 }
 
-bool SimpleDS_Impl::UpdateSST() {
-    return true;
-}
-
 bool SimpleDS_Impl::GetAllSSTs(char* buf, uint64_t length) {
     uint64_t sst_total_length = GetSSTsLengthOnDisk();
     if (length != sst_total_length) {
@@ -262,6 +261,7 @@ void SimpleDS_Impl::updateAllVolSBRes() {
 }
 void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) {
     segSize_ = segment_size;
+    maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     volNum_ = bdVec_.size();
 
     //Create Pure Volumes
@@ -269,7 +269,7 @@ void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size)
         for (uint32_t i = 1; i < volNum_; i++ ) {
             BlockDevice * bdev = bdVec_[i];
             uint64_t device_capacity = bdev->GetDeviceCapacity();
-            uint32_t seg_num = Volumes::ComputeSegNumForPureVolume(device_capacity, segSize_);
+            uint32_t seg_num = SimpleDS_Impl::ComputeSegNumForPureVolume(device_capacity, segSize_);
             segTotalNum_ += seg_num;
             Volumes *vol = new Volumes(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, 0);
             volMap_.insert( pair<int, Volumes *>(i, vol) );
@@ -279,14 +279,12 @@ void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size)
     //Create Meta Volumes
     BlockDevice * bdev = bdVec_[0];
     uint64_t device_capacity = bdev->GetDeviceCapacity();
-    uint32_t seg_num = Volumes::ComputeSegNumForMetaVolume(device_capacity, sst_offset, segTotalNum_, segSize_);
+    uint32_t seg_num = SimpleDS_Impl::ComputeSegNumForMetaVolume(device_capacity, sst_offset, segTotalNum_, segSize_);
     segTotalNum_ += seg_num;
-    uint64_t start_off = sst_offset + Volumes::ComputeSSTsLengthOnDiskBySegNum(segTotalNum_);
+    sstLengthOnDisk_ = SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(segTotalNum_);
+    uint64_t start_off = sst_offset + sstLengthOnDisk_;
     Volumes *vol = new Volumes(bdev, idxMgr_, options_, 0, start_off, segSize_, seg_num, 0);
     volMap_.insert( make_pair(0, vol) );
-
-    //set Meta value
-    maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
     initSBReservedContentForCreate();
 }
@@ -294,6 +292,8 @@ void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size)
 bool SimpleDS_Impl::OpenAllVolumes() {
     volNum_ = sbResHeader_.volume_num;
     segSize_ = sbResHeader_.segment_size;
+    maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    sstLengthOnDisk_ = sbMgr_->GetSSTRegionLength();
 
     BlockDevice *meta_bdev = bdVec_[0];
     uint32_t meta_seg_num = sbResVolVec_[0].segment_num;
@@ -305,7 +305,7 @@ bool SimpleDS_Impl::OpenAllVolumes() {
     }
 
     //Create Meta Volume
-    uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sbMgr_->GetSSTRegionLength();
+    uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sstLengthOnDisk_;
 
     Volumes *meta_vol = new Volumes(meta_bdev, idxMgr_, options_, 0, start_off, segSize_, meta_seg_num, meta_cur_seg_id);
     volMap_.insert( pair<int, Volumes *>(0, meta_vol) );
@@ -324,8 +324,6 @@ bool SimpleDS_Impl::OpenAllVolumes() {
             segTotalNum_ += seg_num;
         }
     }
-
-    maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
     return true;
 }
@@ -454,6 +452,12 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
     return res;
 }
 
+uint32_t SimpleDS_Impl::GetReqQueSize() {
+    return (!reqWQ_)? 0 : reqWQ_->Size();
+}
+uint32_t SimpleDS_Impl::GetSegWriteQueSize() {
+    return (!segWteWQ_)? 0 : segWteWQ_->Size();
+}
 ////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
@@ -462,7 +466,32 @@ void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
 }
 
 uint64_t SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
-    return Volumes::ComputeSSTsLengthOnDiskBySegNum(seg_num);
+    uint64_t sst_pure_length = sizeof(SegmentStat) * seg_num;
+    uint64_t sst_length = sst_pure_length + sizeof(time_t);
+    uint64_t sst_pages = sst_length / getpagesize();
+    sst_length = (sst_pages + 1) * getpagesize();
+    return sst_length;
+}
+
+uint32_t SimpleDS_Impl::ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size) {
+    return capacity / seg_size;
+}
+
+uint32_t SimpleDS_Impl::ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size) {
+    uint64_t valid_capacity = capacity - sst_offset;
+    uint32_t seg_num_candidate = valid_capacity / seg_size;
+
+    uint32_t seg_num_total = seg_num_candidate + total_buddy_seg_num;
+    uint64_t sst_length = SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum( seg_num_total );
+
+    uint32_t seg_size_bit = log2(seg_size);
+
+    while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
+         seg_num_candidate--;
+         seg_num_total = seg_num_candidate + total_buddy_seg_num;
+         sst_length = SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum( seg_num_total );
+    }
+    return seg_num_candidate;
 }
 
 uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
