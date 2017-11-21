@@ -11,6 +11,7 @@
 #include "hlkvds/Options.h"
 #include "hlkvds/Status.h"
 #include "hlkvds/Write_batch.h"
+#include "Utils.h"
 #include "Segment.h"
 #include "WorkQueue.h"
 
@@ -149,6 +150,8 @@ private:
     std::map<int, Volumes *> volMap_;
     SegForReq *seg_;
     std::mutex segMtx_;
+
+    KVTime* lastTime_;
 
     uint32_t segSize_;
     uint32_t maxValueLen_;

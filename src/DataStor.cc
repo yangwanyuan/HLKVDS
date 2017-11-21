@@ -19,11 +19,13 @@ SimpleDS_Impl::SimpleDS_Impl(Options& opts, vector<BlockDevice*> &dev_vec, Super
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL), segSize_(0), maxValueLen_(0),
         volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), reqWQ_(NULL), segWteWQ_(NULL),
         segTimeoutT_stop_(false) {
+    lastTime_ = new KVTime();
 }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
     delete seg_;
     deleteAllVolumes();
+    delete lastTime_;
 }
 
 void SimpleDS_Impl::printDeviceTopology() {
@@ -156,6 +158,16 @@ bool SimpleDS_Impl::GetAllSSTs(char* buf, uint64_t length) {
         return false;
     }
     char *buf_ptr = buf;
+
+    //Copy TS
+    int64_t time_len = KVTime::SizeOf();
+    lastTime_->Update();
+    time_t t = lastTime_->GetTime();
+    memcpy((void *)buf_ptr, (const void *)&t, time_len);
+    buf_ptr += time_len;
+    __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buf));
+
+    //Copy SST
     for (uint32_t i = 0; i < volNum_; i++) {
         uint64_t vol_sst_length = volMap_[i]->GetSSTLength();
         if ( !volMap_[i]->GetSST(buf_ptr, vol_sst_length) ) {
@@ -172,6 +184,16 @@ bool SimpleDS_Impl::SetAllSSTs(char* buf, uint64_t length) {
         return false;
     }
     char *buf_ptr = buf;
+
+    //Set TS
+    int64_t time_len = KVTime::SizeOf();
+    time_t t;
+    memcpy((void *)&t, (const void *)buf_ptr, time_len);
+    lastTime_->SetTime(t);
+    buf_ptr += time_len;
+    __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buf));
+
+    //Set SST
     for (uint32_t i = 0; i < volNum_; i++) {
         uint64_t vol_sst_length = volMap_[i]->GetSSTLength();
         if ( !volMap_[i]->SetSST(buf_ptr, vol_sst_length) ) {
