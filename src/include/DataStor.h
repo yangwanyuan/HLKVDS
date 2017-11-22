@@ -94,7 +94,7 @@ public:
     void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size);
     bool OpenAllVolumes();
 
-    void InitSegment();
+    void CreateAllSegments();
     void StartThds();
     void StopThds();
 
@@ -132,6 +132,7 @@ public:
 private:
     Status updateMeta(Request *req);
     void deleteAllVolumes();
+    void deleteAllSegments();
 
     void initSBReservedContentForCreate();
     void updateAllVolSBRes();
@@ -141,6 +142,8 @@ private:
     int pickVol();
     int getVolIdFromEntry(HashEntry *entry);
 
+    int computeShardId(KVSlice& slice);
+
 private:
     Options &options_;
     std::vector<BlockDevice *> &bdVec_;
@@ -148,8 +151,11 @@ private:
     IndexManager *idxMgr_;
 
     std::map<int, Volumes *> volMap_;
-    SegForReq *seg_;
-    std::mutex segMtx_;
+
+    int shardsNum_;
+    std::mutex segMapMtx_;
+    std::map<int, SegForReq *> segMap_;
+    std::vector<std::mutex*> segMtxVec_;
 
     KVTime* lastTime_;
 
@@ -179,7 +185,7 @@ private:
     private:
         SimpleDS_Impl *ds_;
     };
-    ReqsMergeWQ * reqWQ_;
+    std::vector<ReqsMergeWQ *> reqWQVec_;
     void ReqMerge(Request* req);
 
     // Seg Write to device thread

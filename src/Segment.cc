@@ -112,7 +112,7 @@ void KVSlice::SetSegId(uint32_t seg_id) {
 }
 
 Request::Request() :
-    done_(false), stat_(ReqStat::INIT), slice_(NULL), segPtr_(NULL) {
+    done_(false), stat_(ReqStat::INIT), slice_(NULL), segPtr_(NULL), shardsWqId_(-1) {
 }
 
 Request::~Request() {

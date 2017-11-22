@@ -20,6 +20,7 @@ struct Options {
     //use in Open DB
     int expired_time;
     int seg_write_thread;
+    int shards_num;
     double seg_full_rate;
     double gc_upper_level;
     double gc_lower_level;

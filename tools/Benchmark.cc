@@ -43,6 +43,7 @@ struct benchmark_arg {
     int record_num;
     int thread_num;
     int segment_K;
+    int shards_num;
     Benchmark_Type bench_type;
 };
 
@@ -118,10 +119,10 @@ private:
 
 void usage() {
     cout << "Usage: ./Benchmark create|write|overwrite|read -f dbfile -s db_size \
--n num_records -t thread_num -seg segment_size(KB)" << endl;
+-n num_records -t thread_num -seg segment_size(KB) -shards shards_num" << endl;
 }
 
-int Create_DB(string filename, int db_size, int segment_K) {
+int Create_DB(string filename, int db_size, int segment_K, int shards_num) {
     cout << "Start CreateDB, Please wait ..." << endl;
     int ht_size = db_size ;
     int segment_size = SEG_UNIT_SIZE * segment_K;
@@ -129,6 +130,7 @@ int Create_DB(string filename, int db_size, int segment_K) {
     Options opts;
     opts.hashtable_size = ht_size;
     opts.segment_size = segment_size;
+    opts.shards_num = shards_num;
 
     KVTime tv_start;
     KVDS *db = KVDS::Create_KVDS(filename.c_str(), opts);
@@ -144,9 +146,10 @@ int Create_DB(string filename, int db_size, int segment_K) {
     return 0;
 }
 
-KVDS* Open_DB(string filename) {
+KVDS* Open_DB(string filename, int shards_num) {
     cout << "Start OpenDB, Please wait ..." << endl;
     Options opts;
+    opts.shards_num = shards_num;
     KVTime tv_start;
     KVDS *db = KVDS::Open_KVDS(filename.c_str(), opts);
     KVTime tv_end;
@@ -357,7 +360,7 @@ void Bench_Get_Seq(KVDS *db, int record_num, vector<string> &key_list,
 }
 
 int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
-    if (argc != 12) {
+    if (argc != 14) {
         cout << "Please Input all the parameters!" << endl;
         return -1;
     }
@@ -384,12 +387,14 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     string str_n = "-n";
     string str_t = "-t";
     string str_seg = "-seg";
+    string str_shards = "-shards";
 
     if (strcmp(argv[2], str_f.c_str()) !=0 || \
         strcmp(argv[4], str_s.c_str()) != 0 || \
         strcmp(argv[6], str_n.c_str()) != 0 || \
         strcmp(argv[8], str_t.c_str()) != 0 || \
-        strcmp(argv[10], str_seg.c_str()) != 0) {
+        strcmp(argv[10], str_seg.c_str()) != 0 || \
+        strcmp(argv[12], str_shards.c_str()) != 0) {
         cout << "Please Input Correct parameter!" << endl;
         return -1;
     }
@@ -399,9 +404,11 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     bm_arg.record_num = atoi(argv[7]);
     bm_arg.thread_num = atoi(argv[9]);
     bm_arg.segment_K = atoi(argv[11]);
+    bm_arg.shards_num = atoi(argv[13]);
     
     if (bm_arg.db_size < 0 ||  bm_arg.record_num < 0 || \
-        bm_arg.thread_num < 0 || bm_arg.segment_K < 0) {
+        bm_arg.thread_num < 0 || bm_arg.segment_K < 0 || \
+        bm_arg.shards_num < 1) {
         cout << "Parametes error, Please Input Positive Integer!" << endl;
         return -1;
     }
@@ -409,13 +416,14 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     return 0;
 }
 
-void Create_DB(benchmark_arg bm_arg) {
+void Bench_Create_DB(benchmark_arg bm_arg) {
     string file_path = bm_arg.file_path;
     int db_size = bm_arg.db_size;
     int segment_K = bm_arg.segment_K;
+    int shards_num = bm_arg.shards_num;
 
     vector<string> key_list;
-    if (Create_DB(file_path, db_size, segment_K) < 0) {
+    if (Create_DB(file_path, db_size, segment_K, shards_num) < 0) {
         cout << "Create DB Fail!!!" <<endl;
         return;
     }
@@ -425,15 +433,16 @@ void Bench_Write(benchmark_arg bm_arg) {
     string file_path = bm_arg.file_path;
     int record_num =bm_arg.record_num;
     int thread_num = bm_arg.thread_num;
+    int shards_num = bm_arg.shards_num;
 
     vector<string> key_list;
     Create_Keys(record_num, key_list);
-    //if (Create_DB(file_path, db_size, segment_K) < 0) {
+    //if (Create_DB(file_path, db_size, segment_K, shards_num) < 0) {
     //    cout << "Create DB Fail!!!" <<endl;
     //    return;
     //}
 
-    KVDS *db = Open_DB(file_path);
+    KVDS *db = Open_DB(file_path, shards_num);
 
     Bench_Insert(db, record_num, key_list, thread_num);
     delete db;
@@ -445,15 +454,16 @@ void Bench_Overwrite(benchmark_arg bm_arg) {
     int record_num =bm_arg.record_num;
     int thread_num = bm_arg.thread_num;
     int segment_K = bm_arg.segment_K;
+    int shards_num = bm_arg.shards_num;
 
     vector<string> key_list;
     Create_Keys(record_num, key_list);
-    if (Create_DB(file_path, db_size, segment_K) < 0) {
+    if (Create_DB(file_path, db_size, segment_K, shards_num) < 0) {
         cout << "Create DB Fail!!!" <<endl;
         return;
     }
 
-    KVDS *db = Open_DB(file_path);
+    KVDS *db = Open_DB(file_path, shards_num);
 
     double total_time;
     LatMgr *total_lat_mgr = new LatMgr;
@@ -503,11 +513,12 @@ void Bench_Read(benchmark_arg bm_arg)
     string file_path = bm_arg.file_path;
     int record_num =bm_arg.record_num;
     int thread_num = bm_arg.thread_num;
+    int shards_num = bm_arg.shards_num;
 
     vector<string> key_list;
     Create_Keys(record_num, key_list);
 
-    KVDS *db = Open_DB(file_path);
+    KVDS *db = Open_DB(file_path, shards_num);
     db->ClearReadCache();
     Bench_Get_Seq(db, record_num, key_list, thread_num);
     delete db;
@@ -524,7 +535,7 @@ int main(int argc, char** argv) {
 
     switch(bm_arg.bench_type) {
         case CREATE:
-            Create_DB(bm_arg);
+            Bench_Create_DB(bm_arg);
             break;
         case WRITE:
             Bench_Write(bm_arg);

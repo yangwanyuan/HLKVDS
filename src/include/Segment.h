@@ -121,6 +121,14 @@ public:
         return segPtr_;
     }
 
+    void SetShardsWQId(int shards_id) {
+        shardsWqId_ = shards_id;
+    }
+
+    int GetShardsWQId() {
+        return shardsWqId_;
+    }
+
     void Wait();
     void Signal();
 
@@ -132,6 +140,7 @@ private:
     std::condition_variable cv_;
 
     SegForReq *segPtr_;
+    int shardsWqId_;
 };
 
 class SegBase {

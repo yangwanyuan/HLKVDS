@@ -16,14 +16,15 @@ namespace hlkvds {
 //}
 
 SimpleDS_Impl::SimpleDS_Impl(Options& opts, vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx) :
-        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), seg_(NULL), segSize_(0), maxValueLen_(0),
-        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), reqWQ_(NULL), segWteWQ_(NULL),
+        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), segSize_(0), maxValueLen_(0),
+        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), segWteWQ_(NULL),
         segTimeoutT_stop_(false) {
+    shardsNum_ = options_.shards_num;
     lastTime_ = new KVTime();
 }
 
 SimpleDS_Impl::~SimpleDS_Impl() {
-    delete seg_;
+    deleteAllSegments();
     deleteAllVolumes();
     delete lastTime_;
 }
@@ -40,6 +41,19 @@ void SimpleDS_Impl::printDeviceTopology() {
                 sbResVolVec_[i].cur_seg_id);
     }
 }
+
+void SimpleDS_Impl::deleteAllSegments() {
+    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
+    for (int i = 0; i< shardsNum_; i++) {
+        SegForReq* seg = segMap_[i];
+        delete seg;
+        std::mutex *seg_mtx = segMtxVec_[i];
+        delete seg_mtx;
+    }
+    segMap_.clear();
+    segMtxVec_.clear();
+}
+
 void SimpleDS_Impl::deleteAllVolumes() {
     map<int, Volumes *>::iterator iter;
     for (iter = volMap_.begin(); iter != volMap_.end(); ) {
@@ -51,11 +65,20 @@ void SimpleDS_Impl::deleteAllVolumes() {
 
 Status SimpleDS_Impl::WriteData(KVSlice& slice) {
     Request *req = new Request(slice);
-    reqWQ_->Add_task(req);
+
+    int shards_id = computeShardId(slice);
+    req->SetShardsWQId(shards_id);
+    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
+    req_wq->Add_task(req);
+
     req->Wait();
     Status s = updateMeta(req);
     delete req;
     return s;
+}
+
+int SimpleDS_Impl::computeShardId(KVSlice& slice) {
+    return KeyDigestHandle::Hash(&slice.GetDigest()) % shardsNum_;
 }
 
 Status SimpleDS_Impl::updateMeta(Request *req) {
@@ -382,14 +405,24 @@ int SimpleDS_Impl::getVolIdFromEntry(HashEntry* entry) {
     return vol_id;
 }
 
-void SimpleDS_Impl::InitSegment() {
-    int vol_id = pickVol();
-    seg_ = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
+void SimpleDS_Impl::CreateAllSegments() {
+    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
+    for (int i = 0; i < shardsNum_; i++) {
+        int vol_id = pickVol();
+        SegForReq * seg = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
+        segMap_.insert(make_pair(i, seg));
+
+        std::mutex *seg_mtx = new mutex();
+        segMtxVec_.push_back(seg_mtx);
+    }
 }
 
 void SimpleDS_Impl::StartThds() {
-    reqWQ_ = new ReqsMergeWQ(this, 1);
-    reqWQ_->Start();
+    for (int i = 0; i < shardsNum_; i++) {
+        ReqsMergeWQ *req_wq = new ReqsMergeWQ(this, 1);
+        req_wq->Start();
+        reqWQVec_.push_back(req_wq);
+    }
 
     segWteWQ_ = new SegmentWriteWQ(this, options_.seg_write_thread);
     segWteWQ_->Start();
@@ -410,10 +443,12 @@ void SimpleDS_Impl::StopThds() {
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
 
-    if (reqWQ_) {
-        reqWQ_->Stop();
-        delete reqWQ_;
+    for (int i = 0; i < shardsNum_; i++) {
+        ReqsMergeWQ *req_wq = reqWQVec_[i];
+        req_wq->Stop();
+        delete req_wq;
     }
+    reqWQVec_.clear();
 
     if (segWteWQ_) {
         segWteWQ_->Stop();
@@ -475,11 +510,21 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
 }
 
 uint32_t SimpleDS_Impl::GetReqQueSize() {
-    return (!reqWQ_)? 0 : reqWQ_->Size();
+    if (reqWQVec_.empty()) {
+        return 0;
+    }
+    int reqs_num = 0;
+    for (int i = 0; i< shardsNum_; i++) {
+        ReqsMergeWQ *req_wq = reqWQVec_[i];
+        reqs_num += req_wq->Size();
+    }
+    return reqs_num;
 }
+
 uint32_t SimpleDS_Impl::GetSegWriteQueSize() {
     return (!segWteWQ_)? 0 : segWteWQ_->Size();
 }
+
 ////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
@@ -527,17 +572,35 @@ uint32_t SimpleDS_Impl::GetTotalFreeSegs() {
 /////////////////////////////////////////////////////
 
 void SimpleDS_Impl::ReqMerge(Request* req) {
-    std::unique_lock < std::mutex > lck_seg(segMtx_);
-    if (seg_->TryPut(req)) {
-        seg_->Put(req);
+    int shard_id = req->GetShardsWQId();
+
+    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_, std::defer_lock);
+
+    std::mutex *seg_mtx = segMtxVec_[shard_id];
+    std::unique_lock<std::mutex> lck_seg(*seg_mtx);
+
+    lck_seg_map.lock();
+    SegForReq *seg = segMap_[shard_id];
+    lck_seg_map.unlock();
+
+    if (seg->TryPut(req)) {
+        seg->Put(req);
     } else {
-        seg_->Complete();
-        segWteWQ_->Add_task(seg_);
+        seg->Complete();
+        segWteWQ_->Add_task(seg);
 
         int vol_id = pickVol();
-        seg_ = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
-        seg_->Put(req);
+        seg = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
+
+        lck_seg_map.lock();
+        std::map<int, SegForReq*>::iterator iter = segMap_.find(shard_id);
+        segMap_.erase(iter);
+        segMap_.insert( make_pair(shard_id, seg) );
+        lck_seg_map.unlock();
+
+        seg->Put(req);
     }
+
 }
 
 void SimpleDS_Impl::SegWrite(SegForReq *seg) {
@@ -565,17 +628,32 @@ void SimpleDS_Impl::SegWrite(SegForReq *seg) {
 
 void SimpleDS_Impl::SegTimeoutThdEntry() {
     __DEBUG("Segment Timeout thread start!!");
-    std::unique_lock < std::mutex > lck(segMtx_, std::defer_lock);
-    while (!segTimeoutT_stop_) {
-        lck.lock();
-        if (seg_->IsExpired()) {
-            seg_->Complete();
+    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_, std::defer_lock);
 
-            segWteWQ_->Add_task(seg_);
-            int vol_id = pickVol();
-            seg_ = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
+    while (!segTimeoutT_stop_) {
+        for ( int i = 0; i < shardsNum_; i++) {
+            std::mutex *mtx = segMtxVec_[i];
+            std::unique_lock<std::mutex> l(*mtx);
+
+            lck_seg_map.lock();
+            SegForReq *seg = segMap_[i];
+            lck_seg_map.unlock();
+
+            if (seg->IsExpired()) {
+                seg->Complete();
+
+                segWteWQ_->Add_task(seg);
+                int vol_id = pickVol();
+                seg = new SegForReq(volMap_[vol_id], idxMgr_, options_.expired_time);
+
+                lck_seg_map.lock();
+                std::map<int, SegForReq*>::iterator iter = segMap_.find(i);
+                segMap_.erase(iter);
+                segMap_.insert( make_pair(i, seg) );
+                lck_seg_map.unlock();
+            }
+
         }
-        lck.unlock();
 
         usleep(options_.expired_time);
     } __DEBUG("Segment Timeout thread stop!!");
