@@ -82,9 +82,9 @@ bool MetaStor::CreateMetaData() {
     if (index_ht_size == 0) {
         index_ht_size = (meta_device_capacity / ALIGNED_SIZE) * 2;
     }
-    index_ht_size = IndexManager::ComputeHashSizeForPower2(index_ht_size);
+    index_ht_size = IndexManager::CalcHashSizeForPower2(index_ht_size);
 
-    index_region_length = IndexManager::ComputeIndexSizeOnDevice(index_ht_size);
+    index_region_length = IndexManager::CalcIndexSizeOnDevice(index_ht_size);
     __DEBUG("index region size; %ld", index_region_length);
 
     if (meta_device_capacity < (sb_region_length + index_region_length)) {

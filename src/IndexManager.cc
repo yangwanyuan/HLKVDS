@@ -412,7 +412,7 @@ bool IndexManager::IsSameInMem(HashEntry entry)
     return false;
 }
 
-uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
+uint64_t IndexManager::CalcIndexSizeOnDevice(uint32_t ht_size) {
     uint64_t index_size = sizeof(time_t)
             + sizeof(int) * ht_size
             + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
@@ -437,7 +437,7 @@ IndexManager::~IndexManager() {
     }
 }
 
-uint32_t IndexManager::ComputeHashSizeForPower2(uint32_t number) {
+uint32_t IndexManager::CalcHashSizeForPower2(uint32_t number) {
     // Gets the next highest power of 2 larger than number
     number--;
     number = (number >> 1) | number;

@@ -84,7 +84,7 @@ private:
     bool deepCopy_;
 
     void copy_helper(const KVSlice& toBeCopied);
-    void computeDigest();
+    void calcDigest();
 
 };
 

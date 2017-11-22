@@ -56,7 +56,7 @@ public:
 
     static uint32_t Hash(const Kvdb_Key *key);
     static uint32_t Hash(const Kvdb_Digest *digest);
-    static void ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest);
+    static void CalcDigest(const Kvdb_Key *key, Kvdb_Digest &digest);
     static std::string Tostring(Kvdb_Digest *digest);
 
 private:

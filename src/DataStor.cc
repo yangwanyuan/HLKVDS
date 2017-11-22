@@ -66,7 +66,7 @@ void SimpleDS_Impl::deleteAllVolumes() {
 Status SimpleDS_Impl::WriteData(KVSlice& slice) {
     Request *req = new Request(slice);
 
-    int shards_id = computeShardId(slice);
+    int shards_id = calcShardId(slice);
     req->SetShardsWQId(shards_id);
     ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
     req_wq->Add_task(req);
@@ -77,7 +77,7 @@ Status SimpleDS_Impl::WriteData(KVSlice& slice) {
     return s;
 }
 
-int SimpleDS_Impl::computeShardId(KVSlice& slice) {
+int SimpleDS_Impl::calcShardId(KVSlice& slice) {
     return KeyDigestHandle::Hash(&slice.GetDigest()) % shardsNum_;
 }
 
@@ -150,8 +150,8 @@ Status SimpleDS_Impl::ReadData(KVSlice &slice, string &data) {
     Volumes *vol = volMap_[vol_id];
 
     uint64_t data_offset = 0;
-    if (!vol->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
-        return Status::Aborted("Compute data offset failed.");
+    if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
+        return Status::Aborted("Calculate data offset failed.");
     }
 
     uint16_t data_len = entry->GetDataSize();
@@ -314,7 +314,7 @@ void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size)
         for (uint32_t i = 1; i < volNum_; i++ ) {
             BlockDevice * bdev = bdVec_[i];
             uint64_t device_capacity = bdev->GetDeviceCapacity();
-            uint32_t seg_num = SimpleDS_Impl::ComputeSegNumForPureVolume(device_capacity, segSize_);
+            uint32_t seg_num = SimpleDS_Impl::CalcSegNumForPureVolume(device_capacity, segSize_);
             segTotalNum_ += seg_num;
             Volumes *vol = new Volumes(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, 0);
             volMap_.insert( pair<int, Volumes *>(i, vol) );
@@ -324,9 +324,9 @@ void SimpleDS_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size)
     //Create Meta Volumes
     BlockDevice * bdev = bdVec_[0];
     uint64_t device_capacity = bdev->GetDeviceCapacity();
-    uint32_t seg_num = SimpleDS_Impl::ComputeSegNumForMetaVolume(device_capacity, sst_offset, segTotalNum_, segSize_);
+    uint32_t seg_num = SimpleDS_Impl::CalcSegNumForMetaVolume(device_capacity, sst_offset, segTotalNum_, segSize_);
     segTotalNum_ += seg_num;
-    sstLengthOnDisk_ = SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(segTotalNum_);
+    sstLengthOnDisk_ = SimpleDS_Impl::CalcSSTsLengthOnDiskBySegNum(segTotalNum_);
     uint64_t start_off = sst_offset + sstLengthOnDisk_;
     Volumes *vol = new Volumes(bdev, idxMgr_, options_, 0, start_off, segSize_, seg_num, 0);
     volMap_.insert( make_pair(0, vol) );
@@ -462,7 +462,7 @@ string SimpleDS_Impl::GetKeyByHashEntry(HashEntry *entry) {
     int vol_id = getVolIdFromEntry(entry);
     Volumes *vol = volMap_[vol_id];
 
-    if (!vol->ComputeKeyOffsetPhyFromEntry(entry, key_offset)) {
+    if (!vol->CalcKeyOffsetPhyFromEntry(entry, key_offset)) {
         return "";
     }
     __DEBUG("key offset: %lu",key_offset);
@@ -487,7 +487,7 @@ string SimpleDS_Impl::GetValueByHashEntry(HashEntry *entry) {
     int vol_id = getVolIdFromEntry(entry);
     Volumes *vol = volMap_[vol_id];
 
-    if (!vol->ComputeDataOffsetPhyFromEntry(entry, data_offset)) {
+    if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
         return "";
     }
     __DEBUG("data offset: %lu",data_offset);
@@ -532,7 +532,7 @@ void SimpleDS_Impl::ModifyDeathEntry(HashEntry &entry) {
     volMap_[vol_id]->ModifyDeathEntry(entry);
 }
 
-uint64_t SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
+uint64_t SimpleDS_Impl::CalcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
     uint64_t sst_pure_length = sizeof(SegmentStat) * seg_num;
     uint64_t sst_length = sst_pure_length + sizeof(time_t);
     uint64_t sst_pages = sst_length / getpagesize();
@@ -540,23 +540,23 @@ uint64_t SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
     return sst_length;
 }
 
-uint32_t SimpleDS_Impl::ComputeSegNumForPureVolume(uint64_t capacity, uint32_t seg_size) {
+uint32_t SimpleDS_Impl::CalcSegNumForPureVolume(uint64_t capacity, uint32_t seg_size) {
     return capacity / seg_size;
 }
 
-uint32_t SimpleDS_Impl::ComputeSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size) {
+uint32_t SimpleDS_Impl::CalcSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size) {
     uint64_t valid_capacity = capacity - sst_offset;
     uint32_t seg_num_candidate = valid_capacity / seg_size;
 
     uint32_t seg_num_total = seg_num_candidate + total_buddy_seg_num;
-    uint64_t sst_length = SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum( seg_num_total );
+    uint64_t sst_length = SimpleDS_Impl::CalcSSTsLengthOnDiskBySegNum( seg_num_total );
 
     uint32_t seg_size_bit = log2(seg_size);
 
     while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
          seg_num_candidate--;
          seg_num_total = seg_num_candidate + total_buddy_seg_num;
-         sst_length = SimpleDS_Impl::ComputeSSTsLengthOnDiskBySegNum( seg_num_total );
+         sst_length = SimpleDS_Impl::CalcSSTsLengthOnDiskBySegNum( seg_num_total );
     }
     return seg_num_candidate;
 }

@@ -65,7 +65,7 @@ KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len, b
         key_ = key;
         data_ = data;
     }
-    computeDigest();
+    calcDigest();
 }
 
 KVSlice::KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
@@ -82,17 +82,17 @@ void KVSlice::SetKeyValue(const char* key, int key_len, const char* data,
     key_ = key;
     data_ = data;
 
-    computeDigest();
+    calcDigest();
 }
 
-void KVSlice::computeDigest() {
+void KVSlice::calcDigest() {
     if (digest_) {
         delete digest_;
         digest_=nullptr;
     }
     digest_ = new Kvdb_Digest();
     Kvdb_Key vkey(key_, keyLength_);
-    KeyDigestHandle::ComputeDigest(&vkey, *digest_);
+    KeyDigestHandle::CalcDigest(&vkey, *digest_);
 }
 
 string KVSlice::GetKeyStr() const {
@@ -245,7 +245,7 @@ void SegBase::fillEntryToSlice() {
                                    data_offset, next_offset);
 
             uint64_t seg_offset = 0;
-            vol_->ComputeSegOffsetFromId(segId_, seg_offset);
+            vol_->CalcSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
             DataHeaderAddress addrs(vol_id, header_offset);
@@ -263,7 +263,7 @@ void SegBase::fillEntryToSlice() {
             DataHeader data_header(slice->GetDigest(), slice->GetKeyLen(), slice->GetDataLen(),
                                    data_offset, next_offset);
             uint64_t seg_offset = 0;
-            vol_->ComputeSegOffsetFromId(segId_, seg_offset);
+            vol_->CalcSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
             DataHeaderAddress addrs(vol_id, header_offset);
@@ -289,7 +289,7 @@ bool SegBase::_writeDataToDevice() {
 
     copyToDataBuf();
     uint64_t offset = 0;
-    vol_->ComputeSegOffsetFromId(segId_, offset);
+    vol_->CalcSegOffsetFromId(segId_, offset);
 
     return vol_->Write(dataBuf_, segSize_, offset);
 }
@@ -302,7 +302,7 @@ bool SegBase::newDataBuffer() {
 
 void SegBase::copyToDataBuf() {
     uint64_t offset = 0;
-    vol_->ComputeSegOffsetFromId(segId_, offset);
+    vol_->CalcSegOffsetFromId(segId_, offset);
 
     uint32_t offset_begin = 0;
     uint32_t offset_end = segSize_;

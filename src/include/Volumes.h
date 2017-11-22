@@ -90,7 +90,7 @@ public:
         return segSize_;
     }
 
-    inline bool ComputeSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
+    inline bool CalcSegOffsetFromId(uint32_t seg_id, uint64_t& offset) {
         if (seg_id >= segNum_) {
             return false;
         }
@@ -98,7 +98,7 @@ public:
         return true;
     }
 
-    inline bool ComputeSegIdFromOffset(uint64_t offset, uint32_t& seg_id) {
+    inline bool CalcSegIdFromOffset(uint64_t offset, uint32_t& seg_id) {
         seg_id = offset >> segSizeBit_;
         if (seg_id >= segNum_) {
             return false;
@@ -107,9 +107,9 @@ public:
     }
 
 
-    bool ComputeSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
-    bool ComputeDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
-    bool ComputeKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
+    bool CalcSegOffsetFromOffset(uint64_t offset, uint64_t& seg_offset);
+    bool CalcDataOffsetPhyFromEntry(HashEntry* entry, uint64_t& data_offset);
+    bool CalcKeyOffsetPhyFromEntry(HashEntry* entry, uint64_t& key_offset);
 
     void ModifyDeathEntry(HashEntry &entry);
 

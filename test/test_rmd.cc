@@ -32,7 +32,7 @@ TEST_F(test_rmd, IntKeyTest)
 
         hlkvds::Kvdb_Key key(key_char, 4);
         hlkvds::Kvdb_Digest result;
-        KeyDigestHandle::ComputeDigest(&key, result);
+        KeyDigestHandle::CalcDigest(&key, result);
 
         string final_res = KeyDigestHandle::Tostring(&result);
 
@@ -50,7 +50,7 @@ TEST_F(test_rmd, IntKeyTest)
         key_char = NULL;
 
         if(i %1000000 == 0)
-        cout << "now compute i is : " << i << " , conflict is : " << conflict <<endl;
+        cout << "now calculate i is : " << i << " , conflict is : " << conflict <<endl;
     }
 
     cout << "conflict is :" << conflict << endl;
@@ -69,7 +69,7 @@ TEST_F(test_rmd, RegularTest)
 
     hlkvds::Kvdb_Key key(key_raw, key_len);
     hlkvds::Kvdb_Digest result;
-    KeyDigestHandle::ComputeDigest(&key, result);
+    KeyDigestHandle::CalcDigest(&key, result);
 
     string final_res = KeyDigestHandle::Tostring(&result);
     std::cout << final_res << std::endl;

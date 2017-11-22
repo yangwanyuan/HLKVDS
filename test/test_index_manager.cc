@@ -10,7 +10,7 @@ public:
     }
 };
 
-TEST_F(IndexManagerTest, ComputeIndexSizeOnDevice)
+TEST_F(IndexManagerTest, CalcIndexSizeOnDevice)
 {
 
 }

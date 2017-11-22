@@ -162,34 +162,34 @@ void Volumes::BackGC() {
 /////////////////////////////
 // move from SegmentManager
 
-bool Volumes::ComputeSegOffsetFromOffset(uint64_t offset,
+bool Volumes::CalcSegOffsetFromOffset(uint64_t offset,
                                          uint64_t& seg_offset) {
     uint32_t seg_id = 0;
-    if (!ComputeSegIdFromOffset(offset, seg_id)) {
+    if (!CalcSegIdFromOffset(offset, seg_id)) {
         return false;
     }
-    if (!ComputeSegOffsetFromId(seg_id, seg_offset)) {
+    if (!CalcSegOffsetFromId(seg_id, seg_offset)) {
         return false;
     }
     return true;
 }
 
-bool Volumes::ComputeDataOffsetPhyFromEntry(HashEntry* entry,
+bool Volumes::CalcDataOffsetPhyFromEntry(HashEntry* entry,
                                             uint64_t& data_offset) {
     uint64_t seg_offset = 0;
     uint64_t header_offset = entry->GetHeaderOffset();
-    if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
+    if (!CalcSegOffsetFromOffset(header_offset, seg_offset)) {
         return false;
     }
     data_offset = seg_offset + entry->GetDataOffsetInSeg();
     return true;
 }
 
-bool Volumes::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
+bool Volumes::CalcKeyOffsetPhyFromEntry(HashEntry* entry,
                                            uint64_t& key_offset) {
     uint64_t seg_offset = 0;
     uint64_t header_offset = entry->GetHeaderOffset();
-    if (!ComputeSegOffsetFromOffset(header_offset, seg_offset)) {
+    if (!CalcSegOffsetFromOffset(header_offset, seg_offset)) {
         return false;
     }
     uint32_t data_size = entry->GetDataSize();
@@ -204,8 +204,8 @@ bool Volumes::ComputeKeyOffsetPhyFromEntry(HashEntry* entry,
 void Volumes::ModifyDeathEntry(HashEntry &entry) {
     uint32_t seg_id;
     uint64_t offset = entry.GetHeaderOffset();
-    if (!ComputeSegIdFromOffset(offset, seg_id)) {
-        __ERROR("Compute Seg Id Wrong!!! offset = %ld", offset);
+    if (!CalcSegIdFromOffset(offset, seg_id)) {
+        __ERROR("Calculate Seg Id Wrong!!! offset = %ld", offset);
     }
 
     uint16_t data_size = entry.GetDataSize();
