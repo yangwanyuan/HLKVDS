@@ -66,6 +66,8 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     kvds->dataStor_->CreateAllSegments();
     kvds->startThds();
 
+    kvds->isOpen_ = true;
+
     return kvds;
 
 }
@@ -90,6 +92,8 @@ KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
         delete kvds;
         return NULL;
     }
+
+    kvds->isOpen_ = true;
     return kvds;
 
 }
@@ -158,7 +162,9 @@ void KVDS::stopThds() {
 }
 
 KVDS::~KVDS() {
-    closeDB();
+    if (isOpen_) {
+        closeDB();
+    }
     delete idxMgr_;
     delete sbMgr_;
     if(!options_.disable_cache){
@@ -169,15 +175,11 @@ KVDS::~KVDS() {
         delete dataStor_;
     }
     closeAllDevices();
-
 }
 
 bool KVDS::openAllDevices(string paths) {
 
     vector<string> fields;
-    //string buf(paths);
-    //boost::trim_if(buf, boost::is_any_of(FileDelim));
-    //boost::split(fields, buf, boost::is_any_of(FileDelim));
     boost::split(fields, paths, boost::is_any_of(FileDelim));
     vector<string>::iterator iter;
     for(iter = fields.begin(); iter != fields.end(); iter++){
@@ -202,7 +204,7 @@ void KVDS::closeAllDevices() {
 }
 
 KVDS::KVDS(const char* filename, Options opts) :
-    paths_(string(filename)), sbMgr_(NULL), idxMgr_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts) {
+    paths_(string(filename)), sbMgr_(NULL), idxMgr_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts), isOpen_(false) {
 
     sbMgr_ = new SuperBlockManager(options_);
     idxMgr_ = new IndexManager(sbMgr_, options_);

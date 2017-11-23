@@ -66,6 +66,7 @@ private:
 
     std::vector<BlockDevice *> bdVec_;
 
+    bool isOpen_;
 
 };
 
