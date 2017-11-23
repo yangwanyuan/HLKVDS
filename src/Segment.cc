@@ -349,7 +349,7 @@ void SegBase::copyToDataBuf() {
 
 SegForReq::SegForReq() :
     SegBase(), idxMgr_(NULL), timeout_(0), startTime_(KVTime()), persistTime_(KVTime()),
-        isCompleted_(false), hasReq_(false), reqCommited_(0) {
+        isCompletion_(false), hasReq_(false), reqCommited_(0) {
 }
 
 SegForReq::~SegForReq() {
@@ -368,7 +368,7 @@ SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
     timeout_ = toBeCopied.timeout_;
     startTime_ = toBeCopied.startTime_;
     persistTime_ = toBeCopied.persistTime_;
-    isCompleted_ = toBeCopied.isCompleted_;
+    isCompletion_ = toBeCopied.isCompletion_;
     hasReq_ = toBeCopied.hasReq_;
     reqCommited_.store(toBeCopied.reqCommited_.load());
     reqList_ = toBeCopied.reqList_;
@@ -378,11 +378,11 @@ SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
 
 SegForReq::SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout) :
     SegBase(vol), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
-    isCompleted_(false), hasReq_(false), reqCommited_(0) {
+    isCompletion_(false), hasReq_(false), reqCommited_(0) {
 }
 
 bool SegForReq::TryPut(Request* req) {
-    if (isCompleted_) {
+    if (isCompletion_) {
         return false;
     }
     KVSlice *slice= &req->GetSlice();
@@ -401,11 +401,11 @@ void SegForReq::Put(Request* req) {
     __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
 }
 
-void SegForReq::Complete() {
-    if (isCompleted_) {
+void SegForReq::Completion() {
+    if (isCompletion_) {
          return;
     }
-    isCompleted_ = true;
+    isCompletion_ = true;
 }
 
 void SegForReq::Notify(bool stat) {

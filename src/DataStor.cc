@@ -586,7 +586,7 @@ void SimpleDS_Impl::ReqMerge(Request* req) {
     if (seg->TryPut(req)) {
         seg->Put(req);
     } else {
-        seg->Complete();
+        seg->Completion();
         segWteWQ_->Add_task(seg);
 
         int vol_id = pickVol();
@@ -640,7 +640,7 @@ void SimpleDS_Impl::SegTimeoutThdEntry() {
             lck_seg_map.unlock();
 
             if (seg->IsExpired()) {
-                seg->Complete();
+                seg->Completion();
 
                 segWteWQ_->Add_task(seg);
                 int vol_id = pickVol();

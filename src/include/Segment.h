@@ -213,7 +213,7 @@ public:
 
     bool TryPut(Request* req);
     void Put(Request* req);
-    void Complete();
+    void Completion();
     void Notify(bool stat);
     bool IsExpired();
 
@@ -229,7 +229,7 @@ private:
     KVTime startTime_;
     KVTime persistTime_;
 
-    bool isCompleted_;
+    bool isCompletion_;
     bool hasReq_;
 
     std::atomic<int32_t> reqCommited_;
