@@ -144,11 +144,11 @@ public:
     std::string GetKeyByHashEntry(HashEntry *entry);
     std::string GetValueByHashEntry(HashEntry *entry);
 
-    static uint64_t CalcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
-    static uint32_t CalcSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
-    static uint32_t CalcSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
-
 private:
+    uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
+    uint32_t calcSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
+    uint32_t calcSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
+
     uint32_t getTotalFreeSegs();
     uint32_t getReqQueSize();
     uint32_t getSegWriteQueSize();

@@ -19,7 +19,7 @@ class BlockDevice;
 class SuperBlockManager;
 class IndexManager;
 class MetaStor;
-class SimpleDS_Impl;
+class DataStor;
 
 class KVDS {
 public:
@@ -60,7 +60,7 @@ private:
     dslab::ReadCache* rdCache_;// readcache, rmd160, slru/lru
 
     MetaStor *metaStor_;
-    SimpleDS_Impl *dataStor_;
+    DataStor *dataStor_;
 
     Options options_;
 

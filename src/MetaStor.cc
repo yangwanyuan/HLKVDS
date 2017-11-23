@@ -20,7 +20,7 @@ MetaStor::MetaStor(const char* paths, vector<BlockDevice*> &dev_vec,
 
 MetaStor::~MetaStor() {}
 
-void MetaStor::InitDataStor(SimpleDS_Impl* ds) {
+void MetaStor::InitDataStor(DataStor* ds) {
     dataStor_ = ds;
 }
 

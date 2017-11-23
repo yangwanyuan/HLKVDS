@@ -4,12 +4,11 @@
 #include <list>
 #include <string>
 
-
 namespace hlkvds {
 
+class KVSlice;
 class KVDS;
 class SimpleDS_Impl;
-class KVSlice;
 
 class WriteBatch {
 public:

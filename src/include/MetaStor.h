@@ -11,7 +11,7 @@ namespace hlkvds {
 class BlockDevice;
 class SuperBlockManager;
 class IndexManager;
-class SimpleDS_Impl;
+class DataStor;
 
 class MetaStor {
 public:
@@ -28,7 +28,7 @@ public:
     MetaStor(const char* paths, std::vector<BlockDevice*> &dev_vec, SuperBlockManager *sbm, IndexManager *im, Options &opt);
     ~MetaStor();
 
-    void InitDataStor(SimpleDS_Impl* ds);
+    void InitDataStor(DataStor* ds);
 
 private:
     bool createSuperBlock();
@@ -50,7 +50,7 @@ private:
     BlockDevice *metaDev_;
     SuperBlockManager *sbMgr_;
     IndexManager* idxMgr_;
-    SimpleDS_Impl* dataStor_;
+    DataStor* dataStor_;
     Options &options_;
 
     int64_t sbOff_;

@@ -121,7 +121,7 @@ void HashEntry::SetLogicStamp(KVTime seg_time, int32_t seg_key_no) {
     stampPtr_->Set(seg_time, seg_key_no);
 }
 
-void IndexManager::InitDataStor(SimpleDS_Impl *ds) {
+void IndexManager::InitDataStor(DataStor *ds) {
     dataStor_ = ds;
 }
 

@@ -7,7 +7,7 @@ using namespace std;
 
 namespace hlkvds {
 
-KvdbIter::KvdbIter(IndexManager* im, SimpleDS_Impl* ds) :
+KvdbIter::KvdbIter(IndexManager* im, DataStor* ds) :
     idxMgr_(im), dataStor_(ds), valid_(false), hashEntry_(NULL){
         htSize_ = idxMgr_->GetHashTableSize();
 }

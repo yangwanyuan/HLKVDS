@@ -18,7 +18,7 @@ namespace hlkvds {
 
 class SuperBlockManager;
 class KVSlice;
-class SimpleDS_Impl;
+class DataStor;
 
 class DataHeader {
 private:
@@ -269,7 +269,7 @@ public:
         bool Get(char* buff, uint64_t length);
         bool Set(char* buff, uint64_t length);
 
-        void InitDataStor(SimpleDS_Impl *ds);
+        void InitDataStor(DataStor *ds);
 
         bool UpdateIndex(KVSlice* slice);
         void UpdateIndexes(std::list<KVSlice*> &slice_list);
@@ -325,7 +325,7 @@ public:
         uint32_t keyCounter_;
         uint64_t dataTheorySize_;
         SuperBlockManager* sbMgr_;
-        SimpleDS_Impl* dataStor_;
+        DataStor* dataStor_;
         Options &options_;
 
         KVTime* lastTime_;
