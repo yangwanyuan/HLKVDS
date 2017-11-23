@@ -222,10 +222,6 @@ Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
         return Status::InvalidArgument("Key is null or empty.");
     }
 
-    if (length > dataStor_->GetMaxValueLength()) {
-        return Status::NotSupported("Data length cann't be longer than max segment size");
-    }
-
     KVSlice slice(key, key_len, data, length);
 
     Status s = dataStor_->WriteData(slice);
@@ -297,7 +293,7 @@ Status KVDS::InsertBatch(WriteBatch *batch) {
 }
 
 void KVDS::Do_GC() {
-    dataStor_->Do_GC();
+    dataStor_->ManualGC();
 }
 
 void KVDS::ClearReadCache() {

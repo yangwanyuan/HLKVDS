@@ -31,20 +31,45 @@ class SegForReq;
 
 class DataStor {
 public:
+    DataStor() {}
+    virtual ~DataStor() {}
+
+    // Called by Kvdb_Impl
+    static DataStor * Create(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
+
+    virtual int GetDataStorType() = 0;
+    virtual void CreateAllSegments() = 0;
+    virtual void StartThds() = 0;
+    virtual void StopThds() = 0;
+
     virtual void printDeviceTopologyInfo() = 0;
     virtual void printDynamicInfo() = 0;
-    virtual int GetDataStorType() = 0;
 
     virtual Status WriteData(KVSlice& slice) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
     virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
 
+    virtual void ManualGC() = 0;
+
+    // Called by MetaStor
+    virtual bool GetSBReservedContent(char* buf, uint64_t length) = 0;
+    virtual bool SetSBReservedContent(char* buf, uint64_t length) = 0;
+
     virtual bool GetAllSSTs(char* buf, uint64_t length) = 0;
     virtual bool SetAllSSTs(char* buf, uint64_t length) = 0;
 
-    DataStor() {}
-    virtual ~DataStor() {}
+    virtual void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) = 0;
+    virtual bool OpenAllVolumes() = 0;
 
+    virtual uint32_t GetTotalSegNum() = 0;
+    virtual uint64_t GetSSTsLengthOnDisk() = 0;
+
+    // Called by IndexManager
+    virtual void ModifyDeathEntry(HashEntry &entry) = 0;
+
+    // Called by Iterator
+    virtual std::string GetKeyByHashEntry(HashEntry *entry) = 0;
+    virtual std::string GetValueByHashEntry(HashEntry *entry) = 0;
 };
 
 class SimpleDS_Impl : public DataStor {
@@ -79,59 +104,55 @@ public:
     SimpleDS_Impl(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
     ~SimpleDS_Impl();
 
+    // Called by Kvdb_Impl
+    int GetDataStorType() override { return 0; }
+    void CreateAllSegments() override;
+    void StartThds() override;
+    void StopThds() override;
+
     void printDeviceTopologyInfo() override;
     void printDynamicInfo() override;
-    int GetDataStorType() override { return 0; }
 
     Status WriteData(KVSlice& slice) override;
     Status WriteBatchData(WriteBatch *batch) override;
     Status ReadData(KVSlice &slice, std::string &data) override;
 
+    void ManualGC() override;
+
+    // Called by MetaStor
+    bool GetSBReservedContent(char* buf, uint64_t length);
+    bool SetSBReservedContent(char* buf, uint64_t length);
+
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
-    bool SetSBReservedContent(char* buf, uint64_t length);
-    bool GetSBReservedContent(char* buf, uint64_t length);
+    void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) override;
+    bool OpenAllVolumes() override;
 
-    void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size);
-    bool OpenAllVolumes();
-
-    void CreateAllSegments();
-    void StartThds();
-    void StopThds();
-
-    std::string GetKeyByHashEntry(HashEntry *entry);
-    std::string GetValueByHashEntry(HashEntry *entry);
-
-    uint32_t GetReqQueSize();
-    uint32_t GetSegWriteQueSize();
-
-    void Do_GC();
-
-    // interface for SegmentManager
-    //use in IndexManager
-    void ModifyDeathEntry(HashEntry &entry);
-
-    //use in MetaStor
-    uint32_t GetTotalSegNum() {
+    uint32_t GetTotalSegNum() override {
         return segTotalNum_;
     }
 
-    uint64_t GetSSTsLengthOnDisk() {
+    uint64_t GetSSTsLengthOnDisk() override {
         return sstLengthOnDisk_;
     }
 
-    //use in Kvdb_Impl
-    uint32_t GetTotalFreeSegs();
-    uint32_t GetMaxValueLength() const {
-        return maxValueLen_;
-    }
+    // Called by IndexManager
+    void ModifyDeathEntry(HashEntry &entry) override;
+
+    // Called by Iterator
+    std::string GetKeyByHashEntry(HashEntry *entry);
+    std::string GetValueByHashEntry(HashEntry *entry);
 
     static uint64_t CalcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
     static uint32_t CalcSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
     static uint32_t CalcSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
 
 private:
+    uint32_t getTotalFreeSegs();
+    uint32_t getReqQueSize();
+    uint32_t getSegWriteQueSize();
+
     Status updateMeta(Request *req);
     void deleteAllVolumes();
     void deleteAllSegments();
