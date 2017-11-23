@@ -60,7 +60,7 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
         return NULL;
     }
 
-    __INFO("\nCreateKVDS Success!!!\n");
+    __INFO("\nCreate KVDS Success!!!");
     kvds->printDbStates();
 
     kvds->dataStor_->CreateAllSegments();
@@ -75,45 +75,11 @@ Iterator* KVDS::NewIterator() {
 }
 
 void KVDS::printDbStates() {
+    sbMgr_->printSBInfo();
+    dataStor_->printDeviceTopologyInfo();
 
-    uint32_t index_ht_size          = sbMgr_->GetHTSize();
-    uint64_t index_region_offset    = sbMgr_->GetIndexRegionOffset();
-    uint64_t index_region_length    = sbMgr_->GetIndexRegionLength();
-
-    uint32_t sst_total_num          = sbMgr_->GetSSTTotalNum();
-    uint64_t sst_region_offset      = sbMgr_->GetSSTRegionOffset();
-    uint64_t sst_region_length      = sbMgr_->GetSSTRegionLength();
-
-    uint32_t data_store_type        = sbMgr_->GetDataStoreType();
-
-    uint32_t entry_count            = sbMgr_->GetEntryCount();
-    uint64_t entry_theory_data_size = sbMgr_->GetDataTheorySize();
-
-    __INFO("\n DB Static information:\n"
-            "\t index hashtable size        : %d\n"
-            "\t index region offset         : %ld\n"
-            "\t index region length         : %ld Bytes\n"
-            "\t sst total segment num       : %d\n"
-            "\t sst region offset           : %ld\n"
-            "\t sst region length           : %ld Bytes\n"
-            "\t data store type             : %d",
-            index_ht_size, index_region_offset,
-            index_region_length, sst_total_num,
-            sst_region_offset, sst_region_length,
-            data_store_type);
-
-    __INFO("\n DB Dynamic information: \n"
-            "\t number of entries           : %d\n"
-            "\t Entry Theory Data Size      : %ld Bytes\n"
-            "\t Request Queue Size          : %d\n"
-            "\t Segment Write Queue Size    : %d\n"
-            "\t Segment Reaper Queue Size   : %d",
-            entry_count, entry_theory_data_size,
-            dataStor_->GetReqQueSize(),
-            dataStor_->GetSegWriteQueSize(),
-            idxMgr_->GetSegReaperQueSize());
-
-    dataStor_->printDeviceTopology();
+    idxMgr_->printDynamicInfo();
+    dataStor_->printDynamicInfo();
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
@@ -164,6 +130,7 @@ Status KVDS::openDB() {
         return Status::IOError("Could not read meta data");
     }
 
+    __INFO("\nOpen KVDS Success!!!");
     printDbStates();
 
     dataStor_->CreateAllSegments();

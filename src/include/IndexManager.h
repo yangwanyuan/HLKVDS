@@ -249,8 +249,6 @@ public:
 
     };
 
-    
-
     class IndexManager{
     public:
         static inline size_t SizeOfDataHeader() {
@@ -263,6 +261,8 @@ public:
 
         static uint64_t CalcIndexSizeOnDevice(uint32_t ht_size);
         static uint32_t CalcHashSizeForPower2(uint32_t number);
+
+        void printDynamicInfo();
 
         void InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num);
         void UpdateMetaToSB();

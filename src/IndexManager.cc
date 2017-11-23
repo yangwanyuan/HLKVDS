@@ -125,6 +125,15 @@ void IndexManager::InitDataStor(SimpleDS_Impl *ds) {
     dataStor_ = ds;
 }
 
+void IndexManager::printDynamicInfo() {
+    __INFO("\n DB Dynamic information: \n"
+            "\t number of entries           : %d\n"
+            "\t Entry Theory Data Size      : %ld Bytes\n"
+            "\t Segment Reaper Queue Size   : %d",
+            keyCounter_, dataTheorySize_,
+            GetSegReaperQueSize());
+}
+
 void IndexManager::InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num) {
     htSize_ = ht_size;
     sizeOndisk_ = ondisk_size;

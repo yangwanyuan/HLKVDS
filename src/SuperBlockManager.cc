@@ -8,6 +8,22 @@
 
 namespace hlkvds {
 
+void SuperBlockManager::printSBInfo() {
+    __INFO("\n DB Static information:\n"
+            "\t index hashtable size        : %d\n"
+            "\t index region offset         : %ld\n"
+            "\t index region length         : %ld Bytes\n"
+            "\t sst total segment num       : %d\n"
+            "\t sst region offset           : %ld\n"
+            "\t sst region length           : %ld Bytes\n"
+            "\t data store type             : %d",
+            sb_.index_ht_size, sb_.index_region_offset,
+            sb_.index_region_length,
+            sb_.sst_total_num, sb_.sst_region_offset,
+            sb_.sst_region_length,
+            sb_.data_store_type);
+}
+
 bool SuperBlockManager::Get(char* buff, uint64_t length) {
     if (length != SuperBlockManager::SuperBlockSizeOnDevice()) {
         return false;

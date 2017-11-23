@@ -31,7 +31,8 @@ class SegForReq;
 
 class DataStor {
 public:
-    virtual void printDeviceTopology() = 0;
+    virtual void printDeviceTopologyInfo() = 0;
+    virtual void printDynamicInfo() = 0;
     virtual int GetDataStorType() = 0;
 
     virtual Status WriteData(KVSlice& slice) = 0;
@@ -78,7 +79,8 @@ public:
     SimpleDS_Impl(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
     ~SimpleDS_Impl();
 
-    void printDeviceTopology() override;
+    void printDeviceTopologyInfo() override;
+    void printDynamicInfo() override;
     int GetDataStorType() override { return 0; }
 
     Status WriteData(KVSlice& slice) override;

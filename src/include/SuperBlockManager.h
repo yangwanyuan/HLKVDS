@@ -72,6 +72,8 @@ public:
                 - SuperBlockManager::SizeOfDBSuperBlock();
     }
 
+    void printSBInfo();
+
     bool Get(char* buff, uint64_t length);
     bool Set(char* buff, uint64_t length);
 

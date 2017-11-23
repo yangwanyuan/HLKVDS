@@ -29,7 +29,7 @@ SimpleDS_Impl::~SimpleDS_Impl() {
     delete lastTime_;
 }
 
-void SimpleDS_Impl::printDeviceTopology() {
+void SimpleDS_Impl::printDeviceTopologyInfo() {
     __INFO("\nDB Device Topology information:\n"
             "\t Segment size                : %d\n"
             "\t Volumes number              : %d",
@@ -40,6 +40,13 @@ void SimpleDS_Impl::printDeviceTopology() {
                 sbResVolVec_[i].segment_num,
                 sbResVolVec_[i].cur_seg_id);
     }
+}
+
+void SimpleDS_Impl::printDynamicInfo() {
+    __INFO("\n SimpleDS_Impl Dynamic information: \n"
+            "\t Request Queue Size          : %d\n"
+            "\t Segment Write Queue Size    : %d\n",
+            GetReqQueSize(), GetSegWriteQueSize());
 }
 
 void SimpleDS_Impl::deleteAllSegments() {
