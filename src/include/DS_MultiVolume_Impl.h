@@ -1,5 +1,5 @@
-#ifndef _HLKVDS_MULTIVOLUMEDS_H_
-#define _HLKVDS_MULTIVOLUMEDS_H_
+#ifndef _HLKVDS_DS_MULTIVOLUME_IMPL_H_
+#define _HLKVDS_DS_MULTIVOLUME_IMPL_H_
 
 #include <string>
 #include <mutex>
@@ -31,7 +31,7 @@ class BlockDevice;
 class Volumes;
 class SegForReq;
 
-class MultiVolumeDS : public DataStor {
+class DS_MultiVolume_Impl : public DataStor {
 public:
     class SimpleDS_SB_Reserved_Header {
     public :
@@ -60,8 +60,8 @@ public:
     };
 
 public:
-    MultiVolumeDS(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
-    ~MultiVolumeDS();
+    DS_MultiVolume_Impl(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx);
+    ~DS_MultiVolume_Impl();
 
     // Called by Kvdb_Impl
     int GetDataStorType() override { return 0; }
@@ -158,14 +158,14 @@ private:
 private:
     class ReqsMergeWQ : public dslab::WorkQueue<Request> {
     public:
-        explicit ReqsMergeWQ(MultiVolumeDS *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
+        explicit ReqsMergeWQ(DS_MultiVolume_Impl *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
 
     protected:
         void _process(Request* req) override {
             ds_->ReqMerge(req);
         }
     private:
-        MultiVolumeDS *ds_;
+        DS_MultiVolume_Impl *ds_;
     };
     std::vector<ReqsMergeWQ *> reqWQVec_;
     void ReqMerge(Request* req);
@@ -174,14 +174,14 @@ private:
 private:
     class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
     public:
-        explicit SegmentWriteWQ(MultiVolumeDS *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
+        explicit SegmentWriteWQ(DS_MultiVolume_Impl *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
 
     protected:
         void _process(SegForReq* seg) override {
             ds_->SegWrite(seg);
         }
     private:
-        MultiVolumeDS *ds_;
+        DS_MultiVolume_Impl *ds_;
     };
     SegmentWriteWQ * segWteWQ_;
     void SegWrite(SegForReq* seg);
@@ -196,4 +196,4 @@ private:
 
 }// namespace hlkvds
 
-#endif //#ifndef _HLKVDS_MULTIVOLUMEDS_H_
+#endif //#ifndef _HLKVDS_DS_MULTIVOLUME_IMPL_H_
