@@ -5,7 +5,9 @@ using namespace std;
 
 namespace hlkvds {
 
-DB* DB::instance_ = NULL;
+DB* DB::db_ = NULL;
+DB::DBReaper DB::reaper_ ;
+
 
 bool DB::CreateDB(string filename, Options opts) {
     KVDS* new_kvds;
@@ -20,30 +22,36 @@ bool DB::CreateDB(string filename, Options opts) {
 }
 
 bool DB::OpenDB(string filename, DB** db, Options opts) {
-    if (instance_ == NULL) {
-        instance_ = new DB();
+    std::unique_lock<std::mutex> l(db_->mtx_);
+    if ( db_->kvds_ == NULL ) {
+        db_->kvds_ = KVDS::Open_KVDS(filename.c_str(), opts);
+        if (!db_->kvds_) {
+            std::cout << "OpenDB failed" << std::endl;
+            return false;
+        }
     }
 
-    instance_->kvds_ = KVDS::Open_KVDS(filename.c_str(), opts);
-    if (!instance_->kvds_) {
-        std::cout << "OpenDB failed" << std::endl;
-        return false;
-    }
-
-    *db = instance_;
-    //std::cout << "OpenDB success" <<std::endl;
+    *db = db_;
     return true;
 }
 
-DB::DB() {
+DB::DB() : kvds_(NULL) {
 }
 
 DB::~DB() {
-    if (instance_) {
-        delete instance_->kvds_;
-        instance_->kvds_ = NULL;
+    if (kvds_) {
+        delete kvds_;
+        kvds_ = NULL;
     }
-    instance_ = NULL;
+}
+
+DB::DBReaper::DBReaper() {
+    db_ = new DB();
+}
+
+DB::DBReaper::~DBReaper() {
+    delete db_;
+    db_ = NULL;
 }
 
 Status DB::Insert(const char* key, uint32_t key_len, const char* data,
