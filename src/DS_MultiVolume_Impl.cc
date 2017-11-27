@@ -208,12 +208,12 @@ bool DS_MultiVolume_Impl::GetSBReservedContent(char* buf, uint64_t length) {
     memset((void*)buf, 0, length);
 
     //Get sbResHeader_
-    uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
+    uint64_t header_size = sizeof(MultiVolumeDS_SB_Reserved_Header);
     memcpy((void*)buf, (const void*)&sbResHeader_, header_size);
     __DEBUG("SB_RESERVED_HEADER: volume_num= %d, segment_size = %d", sbResHeader_.volume_num, sbResHeader_.segment_size);
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(SimpleDS_SB_Reserved_Volume);
+    uint64_t sb_res_vol_size = sizeof(MultiVolumeDS_SB_Reserved_Volume);
     uint32_t vol_num = sbResHeader_.volume_num;
     char * sb_res_vol_ptr = buf + header_size;
 
@@ -234,17 +234,17 @@ bool DS_MultiVolume_Impl::SetSBReservedContent(char* buf, uint64_t length) {
     }
 
     //Set sbResHeader_
-    uint64_t header_size = sizeof(SimpleDS_SB_Reserved_Header);
+    uint64_t header_size = sizeof(MultiVolumeDS_SB_Reserved_Header);
     memcpy((void*)&sbResHeader_, (const void*)buf, header_size);
     __DEBUG("SB_RESERVED_HEADER: volume_num= %d, segment_size = %d", sbResHeader_.volume_num, sbResHeader_.segment_size);
 
     //Set sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(SimpleDS_SB_Reserved_Volume);
+    uint64_t sb_res_vol_size = sizeof(MultiVolumeDS_SB_Reserved_Volume);
     uint32_t vol_num = sbResHeader_.volume_num;
     char * sb_res_vol_ptr = buf + header_size;
 
     for (uint32_t i = 0; i < vol_num; i++) {
-        SimpleDS_SB_Reserved_Volume sb_res_vol;
+        MultiVolumeDS_SB_Reserved_Volume sb_res_vol;
         memcpy((void*)&sb_res_vol, (const void*)sb_res_vol_ptr, sb_res_vol_size);
         sbResVolVec_.push_back(sb_res_vol);
         sb_res_vol_ptr += sb_res_vol_size;
@@ -529,7 +529,7 @@ void DS_MultiVolume_Impl::initSBReservedContentForCreate() {
 
     for(uint32_t i = 0; i < volNum_; i++)
     {
-        SimpleDS_SB_Reserved_Volume sb_res_vol;
+        MultiVolumeDS_SB_Reserved_Volume sb_res_vol;
 
         string dev_path = volMap_[i]->GetDevicePath();
         memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
