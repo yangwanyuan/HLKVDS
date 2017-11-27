@@ -6,10 +6,8 @@
 #include <inttypes.h>
 
 #include "Segment.h"
-#include "SegmentManager.h"
 #include "IndexManager.h"
-#include "DataStor.h"
-#include "BlockDevice.h"
+#include "Volumes.h"
 
 using namespace std;
 
@@ -67,7 +65,7 @@ KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len, b
         key_ = key;
         data_ = data;
     }
-    computeDigest();
+    calcDigest();
 }
 
 KVSlice::KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
@@ -84,17 +82,17 @@ void KVSlice::SetKeyValue(const char* key, int key_len, const char* data,
     key_ = key;
     data_ = data;
 
-    computeDigest();
+    calcDigest();
 }
 
-void KVSlice::computeDigest() {
+void KVSlice::calcDigest() {
     if (digest_) {
         delete digest_;
         digest_=nullptr;
     }
     digest_ = new Kvdb_Digest();
     Kvdb_Key vkey(key_, keyLength_);
-    KeyDigestHandle::ComputeDigest(&vkey, *digest_);
+    KeyDigestHandle::CalcDigest(&vkey, *digest_);
 }
 
 string KVSlice::GetKeyStr() const {
@@ -114,7 +112,7 @@ void KVSlice::SetSegId(uint32_t seg_id) {
 }
 
 Request::Request() :
-    done_(false), stat_(ReqStat::INIT), slice_(NULL), segPtr_(NULL) {
+    done_(false), stat_(ReqStat::INIT), slice_(NULL), segPtr_(NULL), shardsWqId_(-1) {
 }
 
 Request::~Request() {
@@ -155,7 +153,7 @@ void Request::Signal() {
 }
 
 SegBase::SegBase() :
-    segId_(-1), dataStor_(NULL), bdev_(NULL), segSize_(-1),
+    segId_(-1), vol_(NULL), segSize_(-1),
         headPos_(0), tailPos_(0), keyNum_(0),
         keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
@@ -166,8 +164,7 @@ SegBase::~SegBase() {
         delete segOndisk_;
     }
     if (dataBuf_) {
-	free(dataBuf_);
-        //delete[] dataBuf_;
+        free(dataBuf_);
     }
 }
 
@@ -183,8 +180,7 @@ SegBase& SegBase::operator=(const SegBase& toBeCopied) {
 
 void SegBase::copyHelper(const SegBase& toBeCopied) {
     segId_ = toBeCopied.segId_;
-    dataStor_ = toBeCopied.dataStor_;
-    bdev_ = toBeCopied.bdev_;
+    vol_ = toBeCopied.vol_;
     segSize_ = toBeCopied.segSize_;
     headPos_ = toBeCopied.headPos_;
     tailPos_ = toBeCopied.tailPos_;
@@ -195,10 +191,10 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
     sliceList_ = toBeCopied.sliceList_;
 }
 
-SegBase::SegBase(SimpleDS_Impl *ds, BlockDevice* bdev) :
-    segId_(-1), dataStor_(ds), bdev_(bdev),
-        segSize_(dataStor_->GetSegmentSize()),
-        headPos_(SegmentManager::SizeOfSegOnDisk()), tailPos_(segSize_),
+SegBase::SegBase(Volumes* vol) :
+    segId_(-1), vol_(vol),
+        segSize_(vol_->GetSegmentSize()),
+        headPos_(Volumes::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
 }
@@ -234,8 +230,9 @@ bool SegBase::WriteSegToDevice() {
 }
 
 void SegBase::fillEntryToSlice() {
-    uint32_t head_pos = SegmentManager::SizeOfSegOnDisk();
+    uint32_t head_pos = Volumes::SizeOfSegOnDisk();
     uint32_t tail_pos = segSize_;
+    int vol_id = vol_->GetId();
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
             != sliceList_.end(); iter++) {
 
@@ -248,10 +245,11 @@ void SegBase::fillEntryToSlice() {
                                    data_offset, next_offset);
 
             uint64_t seg_offset = 0;
-            dataStor_->ComputeSegOffsetFromId(segId_, seg_offset);
+            vol_->CalcSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
-            HashEntry hash_entry(data_header, header_offset, NULL);
+            DataHeaderAddress addrs(vol_id, header_offset);
+            HashEntry hash_entry(data_header, addrs, NULL);
             slice->SetHashEntry(&hash_entry);
 
             head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
@@ -265,10 +263,11 @@ void SegBase::fillEntryToSlice() {
             DataHeader data_header(slice->GetDigest(), slice->GetKeyLen(), slice->GetDataLen(),
                                    data_offset, next_offset);
             uint64_t seg_offset = 0;
-            dataStor_->ComputeSegOffsetFromId(segId_, seg_offset);
+            vol_->CalcSegOffsetFromId(segId_, seg_offset);
             uint64_t header_offset = seg_offset + head_pos;
 
-            HashEntry hash_entry(data_header, header_offset, NULL);
+            DataHeaderAddress addrs(vol_id, header_offset);
+            HashEntry hash_entry(data_header, addrs, NULL);
             slice->SetHashEntry(&hash_entry);
 
             head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();
@@ -290,13 +289,9 @@ bool SegBase::_writeDataToDevice() {
 
     copyToDataBuf();
     uint64_t offset = 0;
-    dataStor_->ComputeSegOffsetFromId(segId_, offset);
+    vol_->CalcSegOffsetFromId(segId_, offset);
 
-    if (bdev_->pWrite(dataBuf_, segSize_, offset) != segSize_) {
-        __ERROR("Write Segment front data error, seg_id:%u", segId_);
-        return false;
-    }
-    return true;
+    return vol_->Write(dataBuf_, segSize_, offset);
 }
 
 bool SegBase::newDataBuffer() {
@@ -307,12 +302,12 @@ bool SegBase::newDataBuffer() {
 
 void SegBase::copyToDataBuf() {
     uint64_t offset = 0;
-    dataStor_->ComputeSegOffsetFromId(segId_, offset);
+    vol_->CalcSegOffsetFromId(segId_, offset);
 
     uint32_t offset_begin = 0;
     uint32_t offset_end = segSize_;
 
-    offset_begin += SegmentManager::SizeOfSegOnDisk();
+    offset_begin += Volumes::SizeOfSegOnDisk();
 
     //aggregate iovec
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -346,7 +341,7 @@ void SegBase::copyToDataBuf() {
     //segOndisk_->SetTS(persistTime_);
     segOndisk_->SetKeyNum(keyNum_);
     //setOndisk_->SetCrc(crc_num);
-    memcpy(dataBuf_, segOndisk_, SegmentManager::SizeOfSegOnDisk());
+    memcpy(dataBuf_, segOndisk_, Volumes::SizeOfSegOnDisk());
 
     //set 0 to free data buffer
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
@@ -354,7 +349,7 @@ void SegBase::copyToDataBuf() {
 
 SegForReq::SegForReq() :
     SegBase(), idxMgr_(NULL), timeout_(0), startTime_(KVTime()), persistTime_(KVTime()),
-        isCompleted_(false), hasReq_(false), reqCommited_(0) {
+        isCompletion_(false), hasReq_(false), reqCommited_(0) {
 }
 
 SegForReq::~SegForReq() {
@@ -373,7 +368,7 @@ SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
     timeout_ = toBeCopied.timeout_;
     startTime_ = toBeCopied.startTime_;
     persistTime_ = toBeCopied.persistTime_;
-    isCompleted_ = toBeCopied.isCompleted_;
+    isCompletion_ = toBeCopied.isCompletion_;
     hasReq_ = toBeCopied.hasReq_;
     reqCommited_.store(toBeCopied.reqCommited_.load());
     reqList_ = toBeCopied.reqList_;
@@ -381,13 +376,13 @@ SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
     return *this;
 }
 
-SegForReq::SegForReq(SimpleDS_Impl *ds, IndexManager* im, BlockDevice* bdev, uint32_t timeout) :
-    SegBase(ds, bdev), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
-    isCompleted_(false), hasReq_(false), reqCommited_(0) {
+SegForReq::SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout) :
+    SegBase(vol), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
+    isCompletion_(false), hasReq_(false), reqCommited_(0) {
 }
 
 bool SegForReq::TryPut(Request* req) {
-    if (isCompleted_) {
+    if (isCompletion_) {
         return false;
     }
     KVSlice *slice= &req->GetSlice();
@@ -406,11 +401,11 @@ void SegForReq::Put(Request* req) {
     __DEBUG("Put request key = %s", req->GetSlice().GetKeyStr().c_str());
 }
 
-void SegForReq::Complete() {
-    if (isCompleted_) {
+void SegForReq::Completion() {
+    if (isCompletion_) {
          return;
     }
-    isCompleted_ = true;
+    isCompletion_ = true;
 }
 
 void SegForReq::Notify(bool stat) {
@@ -481,8 +476,8 @@ SegForSlice& SegForSlice::operator=(const SegForSlice& toBeCopied) {
     return *this;
 }
 
-SegForSlice::SegForSlice(SimpleDS_Impl *ds, IndexManager* im, BlockDevice* bdev) :
-    SegBase(ds, bdev), idxMgr_(im) {
+SegForSlice::SegForSlice(Volumes* vol, IndexManager* im) :
+    SegBase(vol), idxMgr_(im) {
 }
 
 void SegForSlice::UpdateToIndex() {

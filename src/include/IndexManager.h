@@ -18,7 +18,7 @@ namespace hlkvds {
 
 class SuperBlockManager;
 class KVSlice;
-class SimpleDS_Impl;
+class DataStor;
 
 class DataHeader {
 private:
@@ -67,21 +67,26 @@ public:
 
 }__attribute__((__packed__));
 
-class DataHeaderOffset {
+class DataHeaderAddress {
 private:
-    uint64_t physical_offset;
+    uint16_t location;
+    uint64_t offset;
 
 public:
-    DataHeaderOffset() :
-        physical_offset(0) {
+    DataHeaderAddress() :
+        location(0), offset(0) {
     }
-    DataHeaderOffset(uint64_t offset) :
-        physical_offset(offset) {
+    DataHeaderAddress(uint16_t lctn, uint64_t offset) :
+        location(lctn), offset(offset) {
     }
-    ~DataHeaderOffset();
+    ~DataHeaderAddress();
 
     uint64_t GetHeaderOffset() const {
-        return physical_offset;
+        return offset;
+    }
+
+    uint16_t GetLocation() const {
+        return location;
     }
 
 }__attribute__((__packed__));
@@ -89,18 +94,20 @@ public:
 class HashEntryOnDisk {
 private:
     DataHeader header;
-    DataHeaderOffset header_offset;
+    DataHeaderAddress address;
 
 public:
     HashEntryOnDisk();
-    HashEntryOnDisk(DataHeader& dataheader, DataHeaderOffset& offset);
-    HashEntryOnDisk(DataHeader& dataheader, uint64_t offset);
+    HashEntryOnDisk(DataHeader& dataheader, DataHeaderAddress& addrs);
     HashEntryOnDisk(const HashEntryOnDisk& toBeCopied);
     ~HashEntryOnDisk();
     HashEntryOnDisk& operator=(const HashEntryOnDisk& toBeCopied);
 
-    uint64_t GetHeaderOffsetPhy() const {
-        return header_offset.GetHeaderOffset();
+    uint16_t GetHeaderLocation() const {
+        return address.GetLocation();
+    }
+    uint64_t GetHeaderOffset() const {
+        return address.GetHeaderOffset();
     }
     uint16_t GetKeySize() const {
         return header.GetKeySize();
@@ -187,14 +194,17 @@ public:
 
         HashEntry();
         HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr);
-        HashEntry(DataHeader& data_header, uint64_t header_offset, void* read_ptr);
+        HashEntry(DataHeader& data_header, DataHeaderAddress& addrs, void* read_ptr);
         HashEntry(const HashEntry&);
         ~HashEntry();
         bool operator==(const HashEntry& toBeCompare) const;
         HashEntry& operator=(const HashEntry& toBeCopied);
 
-        uint64_t GetHeaderOffsetPhy() const {
-            return entryPtr_->GetHeaderOffsetPhy();
+        uint16_t GetHeaderLocation() const {
+            return entryPtr_->GetHeaderLocation();
+        }
+        uint64_t GetHeaderOffset() const {
+            return entryPtr_->GetHeaderOffset();
         }
 
         uint16_t GetKeySize() const {
@@ -239,8 +249,6 @@ public:
 
     };
 
-    
-
     class IndexManager{
     public:
         static inline size_t SizeOfDataHeader() {
@@ -251,15 +259,17 @@ public:
             return sizeof(HashEntryOnDisk);
         }
 
-        static uint64_t ComputeIndexSizeOnDevice(uint32_t ht_size);
-        static uint32_t ComputeHashSizeForPower2(uint32_t number);
+        static uint64_t CalcIndexSizeOnDevice(uint32_t ht_size);
+        static uint32_t CalcHashSizeForPower2(uint32_t number);
+
+        void printDynamicInfo();
 
         void InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num);
         void UpdateMetaToSB();
         bool Get(char* buff, uint64_t length);
         bool Set(char* buff, uint64_t length);
 
-        void InitDataStor(SimpleDS_Impl *ds) { dataStor_ = ds; }
+        void InitDataStor(DataStor *ds);
 
         bool UpdateIndex(KVSlice* slice);
         void UpdateIndexes(std::list<KVSlice*> &slice_list);
@@ -315,7 +325,7 @@ public:
         uint32_t keyCounter_;
         uint64_t dataTheorySize_;
         SuperBlockManager* sbMgr_;
-        SimpleDS_Impl* dataStor_;
+        DataStor* dataStor_;
         Options &options_;
 
         KVTime* lastTime_;

@@ -16,19 +16,19 @@ public:
     virtual ~BlockDevice() {
     }
 
-    virtual int
-            SetNewDBZero(off_t meta_size, bool clear_data_region = false) = 0;
+    virtual int ZeroDevice() = 0;
     virtual int Open(std::string path, bool dsync = true) = 0;
     virtual void Close() = 0;
 
+    virtual std::string GetDevicePath() = 0;
     virtual uint64_t GetDeviceCapacity() = 0;
+    virtual int GetPageSize() = 0;
+    virtual int GetBlockSize() = 0;
 
     virtual ssize_t pWrite(const void* buf, size_t count, off_t offset) = 0;
     virtual ssize_t pRead(void* buf, size_t count, off_t offset) = 0;
-    virtual ssize_t
-            pWritev(const struct iovec *iov, int iovcnt, off_t offset) = 0;
-    virtual ssize_t
-            pReadv(const struct iovec *iov, int iovcnt, off_t offset) = 0;
+    virtual ssize_t pWritev(const struct iovec *iov, int iovcnt, off_t offset) = 0;
+    virtual ssize_t pReadv(const struct iovec *iov, int iovcnt, off_t offset) = 0;
 
     virtual void ClearReadCache() = 0;
 };

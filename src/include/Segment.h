@@ -15,13 +15,12 @@
 
 namespace hlkvds {
 
-class BlockDevice;
 class SegmentOnDisk;
 class DataHeader;
 class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
-class SimpleDS_Impl;
+class Volumes;
 class SegForReq;
 
 class KVSlice {
@@ -85,7 +84,7 @@ private:
     bool deepCopy_;
 
     void copy_helper(const KVSlice& toBeCopied);
-    void computeDigest();
+    void calcDigest();
 
 };
 
@@ -122,6 +121,14 @@ public:
         return segPtr_;
     }
 
+    void SetShardsWQId(int shards_id) {
+        shardsWqId_ = shards_id;
+    }
+
+    int GetShardsWQId() {
+        return shardsWqId_;
+    }
+
     void Wait();
     void Signal();
 
@@ -133,6 +140,7 @@ private:
     std::condition_variable cv_;
 
     SegForReq *segPtr_;
+    int shardsWqId_;
 };
 
 class SegBase {
@@ -141,7 +149,7 @@ public:
     ~SegBase();
     SegBase(const SegBase& toBeCopied);
     SegBase& operator=(const SegBase& toBeCopied);
-    SegBase(SimpleDS_Impl *ds, BlockDevice* bdev);
+    SegBase(Volumes* vol);
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
@@ -165,6 +173,10 @@ public:
         return sliceList_;
     }
 
+    Volumes* GetSelfVolume() {
+        return vol_;
+    }
+
 private:
     void copyHelper(const SegBase& toBeCopied);
     void fillEntryToSlice();
@@ -174,8 +186,7 @@ private:
 
 private:
     int32_t segId_;
-    SimpleDS_Impl* dataStor_;
-    BlockDevice* bdev_;
+    Volumes* vol_;
     int32_t segSize_;
     KVTime persistTime_;
 
@@ -198,11 +209,11 @@ public:
     SegForReq(const SegForReq& toBeCopied);
     SegForReq& operator=(const SegForReq& toBeCopied);
 
-    SegForReq(SimpleDS_Impl* ds, IndexManager* im, BlockDevice* bdev, uint32_t timeout);
+    SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout);
 
     bool TryPut(Request* req);
     void Put(Request* req);
-    void Complete();
+    void Completion();
     void Notify(bool stat);
     bool IsExpired();
 
@@ -218,7 +229,7 @@ private:
     KVTime startTime_;
     KVTime persistTime_;
 
-    bool isCompleted_;
+    bool isCompletion_;
     bool hasReq_;
 
     std::atomic<int32_t> reqCommited_;
@@ -235,7 +246,7 @@ public:
     SegForSlice(const SegForSlice& toBeCopied);
     SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-    SegForSlice(SimpleDS_Impl* ds, IndexManager* im, BlockDevice* bdev);
+    SegForSlice(Volumes* vol, IndexManager* im);
 
     void UpdateToIndex();
 private:

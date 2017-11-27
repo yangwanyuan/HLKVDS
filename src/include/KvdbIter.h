@@ -7,13 +7,12 @@
 namespace hlkvds {
 
 class IndexManager;
-class SimpleDS_Impl;
-class BlockDevice;
+class DataStor;
 class HashEntry;
 
 class KvdbIter : public Iterator {
 public:
-    KvdbIter(IndexManager* im, SimpleDS_Impl* ds, BlockDevice* bdev);
+    KvdbIter(IndexManager* im, DataStor* ds);
     ~KvdbIter();
 
     virtual void SeekToFirst() override;
@@ -30,8 +29,7 @@ public:
 
 private:
     IndexManager *idxMgr_;
-    SimpleDS_Impl* dataStor_;
-    BlockDevice* bdev_;
+    DataStor* dataStor_;
     bool valid_;
     HashEntry *hashEntry_;
     Status status_;

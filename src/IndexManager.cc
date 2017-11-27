@@ -32,28 +32,21 @@ void DataHeader::SetDigest(const Kvdb_Digest& digest) {
     key_digest = digest;
 }
 
-DataHeaderOffset::~DataHeaderOffset() {
+DataHeaderAddress::~DataHeaderAddress() {
 }
 
 HashEntryOnDisk::HashEntryOnDisk() :
-    header(DataHeader()), header_offset(DataHeaderOffset()) {
+    header(DataHeader()), address(DataHeaderAddress()) {
 }
 
 HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader,
-                                 DataHeaderOffset& offset) :
-    header(dataheader), header_offset(offset) {
-}
-
-HashEntryOnDisk::HashEntryOnDisk(DataHeader& dataheader, uint64_t offset) {
-    header = dataheader;
-    DataHeaderOffset h_off(offset);
-    header_offset = h_off;
-    return;
+                                 DataHeaderAddress& addrs) :
+    header(dataheader), address(addrs) {
 }
 
 HashEntryOnDisk::HashEntryOnDisk(const HashEntryOnDisk& toBeCopied) {
     header = toBeCopied.header;
-    header_offset = toBeCopied.header_offset;
+    address = toBeCopied.address;
 }
 
 HashEntryOnDisk::~HashEntryOnDisk() {
@@ -61,7 +54,7 @@ HashEntryOnDisk::~HashEntryOnDisk() {
 
 HashEntryOnDisk& HashEntryOnDisk::operator=(const HashEntryOnDisk& toBeCopied) {
     header = toBeCopied.header;
-    header_offset = toBeCopied.header_offset;
+    address = toBeCopied.address;
     return *this;
 }
 
@@ -82,11 +75,11 @@ HashEntry::HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp,
     entryPtr_ = new HashEntryOnDisk(entry_ondisk);
 }
 
-HashEntry::HashEntry(DataHeader& data_header, uint64_t header_offset,
-                     void* read_ptr) {
+HashEntry::HashEntry(DataHeader& data_header, DataHeaderAddress &addrs,
+                     void* read_ptr) :
+    cachePtr_(read_ptr) {
     stampPtr_ = new LogicStamp;
-    entryPtr_ = new HashEntryOnDisk(data_header, header_offset);
-    cachePtr_ = read_ptr;
+    entryPtr_ = new HashEntryOnDisk(data_header, addrs);
 }
 
 HashEntry::HashEntry(const HashEntry& toBeCopied) {
@@ -128,6 +121,19 @@ void HashEntry::SetLogicStamp(KVTime seg_time, int32_t seg_key_no) {
     stampPtr_->Set(seg_time, seg_key_no);
 }
 
+void IndexManager::InitDataStor(DataStor *ds) {
+    dataStor_ = ds;
+}
+
+void IndexManager::printDynamicInfo() {
+    __INFO("\n DB Dynamic information: \n"
+            "\t number of entries           : %d\n"
+            "\t Entry Theory Data Size      : %ld Bytes\n"
+            "\t Segment Reaper Queue Size   : %d",
+            keyCounter_, dataTheorySize_,
+            GetSegReaperQueSize());
+}
+
 void IndexManager::InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num) {
     htSize_ = ht_size;
     sizeOndisk_ = ondisk_size;
@@ -141,7 +147,7 @@ void IndexManager::InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t dat
 void IndexManager::UpdateMetaToSB() {
     //Update data theory size to superblock
     sbMgr_->SetDataTheorySize(dataTheorySize_);
-    sbMgr_->SetElementNum(keyCounter_);
+    sbMgr_->SetEntryCount(keyCounter_);
 }
 
 bool IndexManager::Get(char* buff, uint64_t length) {
@@ -371,7 +377,7 @@ bool IndexManager::GetHashEntry(KVSlice *slice) {
                 entry = *iter;
                 slice->SetHashEntry(&entry);
                 __DEBUG("IndexManger: entry : header_offset = %lu, data_offset = %u, next_header=%u",
-                        entry.GetHeaderOffsetPhy(), entry.GetDataOffsetInSeg(),
+                        entry.GetHeaderOffset(), entry.GetDataOffsetInSeg(),
                         entry.GetNextHeadOffsetInSeg());
                 return true;
             }
@@ -404,8 +410,8 @@ bool IndexManager::IsSameInMem(HashEntry entry)
         return false;
     } else {
         HashEntry *entry_inMem = entry_list->getRef(entry);
-        __DEBUG("the entry header_offset = %ld, in memory entry header_offset=%ld", entry.GetHeaderOffsetPhy(), entry_inMem->GetHeaderOffsetPhy());
-        if (entry_inMem->GetHeaderOffsetPhy() == entry.GetHeaderOffsetPhy()) {
+        __DEBUG("the entry header_offset = %ld, in memory entry header_offset=%ld", entry.GetHeaderOffset(), entry_inMem->GetHeaderOffset());
+        if (entry_inMem->GetHeaderOffset() == entry.GetHeaderOffset()) {
             __DEBUG("Same, because entry is same with in memory!");
             return true;
         }
@@ -415,7 +421,7 @@ bool IndexManager::IsSameInMem(HashEntry entry)
     return false;
 }
 
-uint64_t IndexManager::ComputeIndexSizeOnDevice(uint32_t ht_size) {
+uint64_t IndexManager::CalcIndexSizeOnDevice(uint32_t ht_size) {
     uint64_t index_size = sizeof(time_t)
             + sizeof(int) * ht_size
             + IndexManager::SizeOfHashEntryOnDisk() * ht_size;
@@ -440,7 +446,7 @@ IndexManager::~IndexManager() {
     }
 }
 
-uint32_t IndexManager::ComputeHashSizeForPower2(uint32_t number) {
+uint32_t IndexManager::CalcHashSizeForPower2(uint32_t number) {
     // Gets the next highest power of 2 larger than number
     number--;
     number = (number >> 1) | number;

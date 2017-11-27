@@ -49,7 +49,7 @@ void Kvdb_Digest::SetDigest(unsigned char* data, int len) {
     memcpy(value, data, KeyDigestHandle::SizeOfDigest());
 }
 
-void KeyDigestHandle::ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
+void KeyDigestHandle::CalcDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
 /*
  * returns RMD(message)
  * message should be a string terminated by '\0'
@@ -93,7 +93,7 @@ void KeyDigestHandle::ComputeDigest(const Kvdb_Key *key, Kvdb_Digest &digest)
 
 uint32_t KeyDigestHandle::Hash(const Kvdb_Key *key) {
     Kvdb_Digest result;
-    ComputeDigest(key, result);
+    CalcDigest(key, result);
 
     uint32_t hash_value = Hash(&result);
 

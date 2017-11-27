@@ -4,12 +4,11 @@
 #include <list>
 #include <string>
 
-
 namespace hlkvds {
 
-class KVDS;
-class SimpleDS_Impl;
 class KVSlice;
+class KVDS;
+class DS_MultiVolume_Impl;
 
 class WriteBatch {
 public:
@@ -24,7 +23,7 @@ public:
 private:
     std::list<KVSlice *> batch_;
     friend class KVDS;
-    friend class SimpleDS_Impl;
+    friend class DS_MultiVolume_Impl;
 };
 
 } // namespace hlkvds

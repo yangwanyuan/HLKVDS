@@ -1,9 +1,12 @@
 #include <stdlib.h>
+#include <boost/algorithm/string.hpp>
+
 #include "Kvdb_Impl.h"
 #include "KvdbIter.h"
 #include "Db_Structure.h"
 
 #include "BlockDevice.h"
+#include "KernelDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "MetaStor.h"
@@ -19,94 +22,93 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
         return NULL;
     }
 
-    KVDS* ds = new KVDS(filename, opts);
+    KVDS* kvds = new KVDS(filename, opts);
 
-    if (!ds->metaStor_->CreateMetaData()) {
-        delete ds;
+    if (!kvds->openAllDevices(kvds->paths_)) {
+        delete kvds;
         return NULL;
     }
 
-    __INFO("\nCreateKVDS Success!!!\n");
-    ds->printDbStates();
+    int datastor_type = opts.datastor_type;
+    kvds->dataStor_ = DataStor::Create(kvds->options_, kvds->bdVec_, kvds->sbMgr_, kvds->idxMgr_, datastor_type);
 
-    ds->dataStor_->InitSegment();
-    ds->idxMgr_->InitDataStor(ds->dataStor_);
-    ds->startThds();
+    if (kvds->dataStor_ == NULL) {
+        delete kvds;
+        return NULL;
+    }
 
-    return ds;
+    kvds->idxMgr_->InitDataStor(kvds->dataStor_);
+    kvds->metaStor_->InitDataStor(kvds->dataStor_);
+
+    if (!kvds->metaStor_->CreateMetaData()) {
+        delete kvds;
+        return NULL;
+    }
+
+    __INFO("\nCreate KVDS Success!!!");
+    kvds->printDbStates();
+
+    kvds->dataStor_->CreateAllSegments();
+    kvds->startThds();
+
+    kvds->isOpen_ = true;
+
+    return kvds;
 
 }
 
 Iterator* KVDS::NewIterator() {
-    return new KvdbIter(idxMgr_, dataStor_, bdev_);
+    return new KvdbIter(idxMgr_, dataStor_);
 }
 
 void KVDS::printDbStates() {
+    sbMgr_->printSBInfo();
+    dataStor_->printDeviceTopologyInfo();
 
-    uint32_t hash_table_size = sbMgr_->GetHTSize();
-    uint32_t num_entries = idxMgr_->GetKeyCounter();
-    uint32_t segment_size = sbMgr_->GetSegmentSize();
-    uint32_t number_segments = sbMgr_->GetSegmentNum();
-    uint32_t free_segment = dataStor_->GetTotalFreeSegs();
-    uint64_t db_sb_size = sbMgr_->GetSbSize();
-    uint64_t db_index_size = sbMgr_->GetIndexSize();
-    uint64_t db_seg_table_size = sbMgr_->GetSegTableSize();
-    uint64_t db_meta_size = db_sb_size + db_index_size + db_seg_table_size;
-    uint64_t db_data_region_size = sbMgr_->GetDataRegionSize();
-    uint64_t db_size = db_meta_size + db_data_region_size;
-    uint64_t device_capacity = sbMgr_->GetDeviceCapacity();
-
-    __INFO("\n DB Static information:\n"
-            "\t hashtable_size            : %d\n"
-            "\t segment_size              : %d Bytes\n"
-            "\t number_segments           : %d\n"
-            "\t Database Superblock Size  : %ld Bytes\n"
-            "\t Database Index Size       : %ld Bytes\n"
-            "\t Database Seg Table Size   : %ld Bytes\n"
-            "\t Total DB Meta Region Size : %ld Bytes\n"
-            "\t Total DB Data Region Size : %ld Bytes\n"
-            "\t Total DB Total Size       : %ld Bytes\n"
-            "\t Total Device Size         : %ld Bytes",
-            hash_table_size, segment_size,
-            number_segments, db_sb_size,
-            db_index_size, db_seg_table_size, db_meta_size,
-            db_data_region_size, db_size, device_capacity);
-
-    __INFO("\n DB Dynamic information: \n"
-            "\t # of entries              : %d\n"
-            "\t # of free segments        : %d\n"
-            "\t Current Segment ID        : %d\n"
-            "\t DB Data Theory Size       : %ld Bytes\n"
-            "\t Request Queue Size        : %d\n"
-            "\t Segment Write Queue Size  : %d\n"
-            "\t Segment Reaper Queue Size : %d",
-            num_entries, free_segment,
-            sbMgr_->GetCurSegmentId(),
-            sbMgr_->GetDataTheorySize(), dataStor_->GetReqQueSize(),
-            dataStor_->GetSegWriteQueSize(), idxMgr_->GetSegReaperQueSize());
+    idxMgr_->printDynamicInfo();
+    dataStor_->printDynamicInfo();
 }
 
 KVDS* KVDS::Open_KVDS(const char* filename, Options opts) {
-    KVDS *instance_ = new KVDS(filename, opts);
+    KVDS *kvds = new KVDS(filename, opts);
 
-    Status s = instance_->openDB();
+    Status s = kvds->openDB();
     if (!s.ok()) {
-        delete instance_;
+        delete kvds;
         return NULL;
     }
-    return instance_;
+
+    kvds->isOpen_ = true;
+    return kvds;
 
 }
 
 Status KVDS::openDB() {
+    if (!openAllDevices(paths_)) {
+        return Status::IOError("Could not open all device");
+    }
+
+    int datastor_type = -1;
+    if ( !metaStor_->TryLoadSB(datastor_type)) {
+        return  Status::IOError("Could not load SB");
+    }
+    dataStor_ = DataStor::Create(options_, bdVec_, sbMgr_, idxMgr_, datastor_type);
+
+    if (dataStor_ == NULL) {
+        return Status::NotSupported("Could not support this data store");
+    }
+
+    idxMgr_->InitDataStor(dataStor_);
+    metaStor_->InitDataStor(dataStor_);
+
     if (!metaStor_->LoadMetaData()) {
         return Status::IOError("Could not read meta data");
     }
 
+    __INFO("\nOpen KVDS Success!!!");
     printDbStates();
 
-    dataStor_->InitSegment();
-    idxMgr_->InitDataStor(dataStor_);
+    dataStor_->CreateAllSegments();
     startThds();
     return Status::OK();
 }
@@ -131,22 +133,50 @@ void KVDS::stopThds() {
 }
 
 KVDS::~KVDS() {
-    closeDB();
+    if (isOpen_) {
+        closeDB();
+    }
     delete idxMgr_;
     delete sbMgr_;
-    delete bdev_;
     if(!options_.disable_cache){
         delete rdCache_;
     }
     delete metaStor_;
-    delete dataStor_;
+    if (dataStor_) {
+        delete dataStor_;
+    }
+    closeAllDevices();
+}
 
+bool KVDS::openAllDevices(string paths) {
+
+    vector<string> fields;
+    boost::split(fields, paths, boost::is_any_of(FileDelim));
+    vector<string>::iterator iter;
+    for(iter = fields.begin(); iter != fields.end(); iter++){
+        BlockDevice *bdev = new KernelDevice();
+
+        if (bdev->Open(*iter) < 0) {
+            return false;
+        }__DEBUG("Open Device %s Success!", (*iter).c_str());
+
+        bdVec_.push_back(bdev);
+    }
+    return true;
+}
+
+void KVDS::closeAllDevices() {
+    vector<BlockDevice *>::iterator iter;
+    for ( iter = bdVec_.begin() ; iter != bdVec_.end(); ) {
+        BlockDevice *bdev = *iter;
+        delete bdev;
+        iter = bdVec_.erase(iter);
+    }
 }
 
 KVDS::KVDS(const char* filename, Options opts) :
-    sbMgr_(NULL), idxMgr_(NULL), bdev_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts) {
+    paths_(string(filename)), sbMgr_(NULL), idxMgr_(NULL), rdCache_(NULL), metaStor_(NULL), dataStor_(NULL), options_(opts), isOpen_(false) {
 
-    bdev_ = BlockDevice::CreateDevice();
     sbMgr_ = new SuperBlockManager(options_);
     idxMgr_ = new IndexManager(sbMgr_, options_);
 
@@ -154,18 +184,13 @@ KVDS::KVDS(const char* filename, Options opts) :
         rdCache_ = new ReadCache(CachePolicy(options_.cache_policy), (size_t) options_.cache_size, options_.slru_partition);
     }
 
-    dataStor_ = new SimpleDS_Impl(options_, bdev_, sbMgr_, idxMgr_);
-    metaStor_ = new MetaStor(filename, bdev_, sbMgr_, idxMgr_, dataStor_, options_);
+    metaStor_ = new MetaStor(filename, bdVec_, sbMgr_, idxMgr_, options_);
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
                       uint16_t length) {
     if (key == NULL || key[0] == '\0') {
         return Status::InvalidArgument("Key is null or empty.");
-    }
-
-    if (length > dataStor_->GetMaxValueLength()) {
-        return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
     KVSlice slice(key, key_len, data, length);
@@ -239,11 +264,15 @@ Status KVDS::InsertBatch(WriteBatch *batch) {
 }
 
 void KVDS::Do_GC() {
-    dataStor_->Do_GC();
+    dataStor_->ManualGC();
 }
 
 void KVDS::ClearReadCache() {
-    bdev_->ClearReadCache();
+    vector<BlockDevice*>::iterator iter;
+    for (iter = bdVec_.begin(); iter != bdVec_.end(); iter++) {
+        BlockDevice *bdev = *iter;
+        bdev->ClearReadCache();
+    }
 }
 
 }

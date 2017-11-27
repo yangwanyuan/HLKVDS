@@ -18,7 +18,7 @@ void ReadCache::Put(string key, string value){
 	WriteLock w_lock(myLock);
 	hlkvds::Kvdb_Key input(value.c_str(),value.length());
 	hlkvds::Kvdb_Digest result;
-	em->ComputeDigest(&input,result);
+	em->CalcDigest(&input,result);
 	string footprint = em->Tostring(&result);
 	string tobeUpdate = "", lkey ="", lvalue = "";//useless key, useless value
 	map<string, string>::iterator it_dedup = dedup_map.find(key);//old_footprint

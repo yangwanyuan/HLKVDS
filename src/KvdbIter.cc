@@ -1,15 +1,14 @@
 #include "KvdbIter.h"
 #include "DataStor.h"
 #include "IndexManager.h"
-#include "BlockDevice.h"
 #include "Db_Structure.h"
 
 using namespace std;
 
 namespace hlkvds {
 
-KvdbIter::KvdbIter(IndexManager* im, SimpleDS_Impl* ds, BlockDevice* bdev) :
-    idxMgr_(im), dataStor_(ds), bdev_(bdev), valid_(false), hashEntry_(NULL){
+KvdbIter::KvdbIter(IndexManager* im, DataStor* ds) :
+    idxMgr_(im), dataStor_(ds), valid_(false), hashEntry_(NULL){
         htSize_ = idxMgr_->GetHashTableSize();
 }
 
@@ -72,7 +71,8 @@ void KvdbIter::Seek(const char* key) {
     KVSlice slice(key, key_len, NULL, 0);
     DataHeader data_header;
     data_header.SetDigest(slice.GetDigest());
-    HashEntry entry(data_header, 0, NULL);
+    DataHeaderAddress addrs;
+    HashEntry entry(data_header, addrs, NULL);
     
     LinkedList<HashEntry> *entry_list;
     hashEntry_ = NULL;
@@ -158,24 +158,7 @@ string KvdbIter::Key() {
         return "";
     }
 
-    uint64_t key_offset = 0;
-    if (!dataStor_->ComputeKeyOffsetPhyFromEntry(hashEntry_, key_offset)) {
-        return "";
-    }
-    __DEBUG("key offset: %lu",key_offset);
-    uint16_t key_len = hashEntry_->GetKeySize();
-    char *mkey = new char[key_len+1];
-    if (bdev_->pRead(mkey, key_len, key_offset) != (ssize_t) key_len) {
-        __ERROR("Could not read data at position");
-        delete[] mkey;
-        return "";
-    }
-    mkey[key_len] = '\0';
-    string res(mkey, key_len);
-    //__INFO("Iterator key is %s, key_offset = %lu, key_len = %u", mkey, key_offset, key_len);
-    delete[] mkey;
-   
-    return res;
+    return dataStor_->GetKeyByHashEntry(hashEntry_);
 }
 
 string KvdbIter::Value() {
@@ -183,28 +166,7 @@ string KvdbIter::Value() {
         return "";
     }
 
-    uint64_t data_offset = 0;
-    if (!dataStor_->ComputeDataOffsetPhyFromEntry(hashEntry_, data_offset)) {
-        return "";
-    }
-
-    __DEBUG("data offset: %lu",data_offset);
-    uint16_t data_len = hashEntry_->GetDataSize();
-    if ( data_len ==0 ) {
-        return "";
-    }
-    char *mdata = new char[data_len+1];
-    if (bdev_->pRead(mdata, data_len, data_offset) != (ssize_t) data_len) {
-        __ERROR("Could not read data at position");
-        delete[] mdata;
-        return "";
-    }
-    mdata[data_len]= '\0';
-    string res(mdata, data_len);
-    //__INFO("Iterator value is %s, data_offset = %lu, data_len = %u", mdata, data_offset, data_len);
-    delete[] mdata;
-   
-    return res;
+    return dataStor_->GetValueByHashEntry(hashEntry_);
 }
 
 bool KvdbIter::Valid() const {

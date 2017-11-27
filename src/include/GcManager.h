@@ -10,15 +10,14 @@
 
 namespace hlkvds {
 
-class BlockDevice;
 class IndexManager;
-class SimpleDS_Impl;
+class Volumes;
 class KVSlice;
 
 class GcManager {
 public:
     ~GcManager();
-    GcManager(BlockDevice* bdev, IndexManager* im, SimpleDS_Impl* ds, Options &opt);
+    GcManager(IndexManager* im, Volumes* vol, Options &opt);
 
     bool ForeGC();
     void BackGC();
@@ -27,7 +26,6 @@ public:
 private:
     uint32_t doMerge(std::multimap<uint32_t, uint32_t> &cands_map);
 
-    bool readSegment(uint64_t seg_offset);
     void loadSegKV(std::list<KVSlice*> &slice_list, uint32_t num_keys,
                    uint64_t phy_offset);
 
@@ -35,8 +33,7 @@ private:
     void cleanKvList(std::list<KVSlice*> &slice_list);
 
 private:
-    SimpleDS_Impl* dataStor_;
-    BlockDevice* bdev_;
+    Volumes* vol_;
     IndexManager* idxMgr_;
     Options &options_;
 
