@@ -1,3 +1,9 @@
+HLKVDS 1.1.0 (2017-11-27)
+1. Support multi-volumes management, build data store on multiple block
+device.
+2. Fix Kvdb Singleton bug.
+3. Fix UnitTest bug.
+
 HLKVDS 1.0.0 (2017-10-29)
 ----------------------
 1. First release version to 1.0.0 for open source
