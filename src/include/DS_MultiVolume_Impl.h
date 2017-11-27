@@ -15,8 +15,6 @@
 #include "Segment.h"
 #include "WorkQueue.h"
 
-#define DEVICE_PATH_LEN_LIMT 20
-
 namespace hlkvds {
 
 class DataStor;
@@ -45,16 +43,16 @@ public:
 
     class MultiVolumeDS_SB_Reserved_Volume {
     public:
-        char dev_path[DEVICE_PATH_LEN_LIMT];
+        char dev_path[hlkvds::DevPathLenLimt];
         uint32_t segment_num;
         uint32_t cur_seg_id;
     public:
         MultiVolumeDS_SB_Reserved_Volume() : segment_num(0), cur_seg_id(0) {
-            memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
+            memset(dev_path, 0, hlkvds::DevPathLenLimt);
         }
         MultiVolumeDS_SB_Reserved_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
             : segment_num(seg_num), cur_seg_id(cur_id) {
-            memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
+            memset(dev_path, 0, hlkvds::DevPathLenLimt);
             memcpy((void*)dev_path, (const void*)path.c_str(), path.size());
         }
     };

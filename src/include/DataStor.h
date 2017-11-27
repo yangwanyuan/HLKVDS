@@ -6,6 +6,8 @@
 
 namespace hlkvds {
 
+static const int DevPathLenLimt = 20;
+
 class BlockDevice;
 class SuperBlockManager;
 class IndexManager;
