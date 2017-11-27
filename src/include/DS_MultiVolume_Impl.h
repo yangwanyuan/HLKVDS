@@ -33,26 +33,26 @@ class SegForReq;
 
 class DS_MultiVolume_Impl : public DataStor {
 public:
-    class SimpleDS_SB_Reserved_Header {
+    class MultiVolumeDS_SB_Reserved_Header {
     public :
         uint32_t segment_size;
         uint32_t volume_num;
     public:
-        SimpleDS_SB_Reserved_Header() : segment_size(0), volume_num(0) {}
-        SimpleDS_SB_Reserved_Header(uint32_t seg_size, uint32_t vol_num)
+        MultiVolumeDS_SB_Reserved_Header() : segment_size(0), volume_num(0) {}
+        MultiVolumeDS_SB_Reserved_Header(uint32_t seg_size, uint32_t vol_num)
             : segment_size(seg_size), volume_num(vol_num) {}
     };
 
-    class SimpleDS_SB_Reserved_Volume {
+    class MultiVolumeDS_SB_Reserved_Volume {
     public:
         char dev_path[DEVICE_PATH_LEN_LIMT];
         uint32_t segment_num;
         uint32_t cur_seg_id;
     public:
-        SimpleDS_SB_Reserved_Volume() : segment_num(0), cur_seg_id(0) {
+        MultiVolumeDS_SB_Reserved_Volume() : segment_num(0), cur_seg_id(0) {
             memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
         }
-        SimpleDS_SB_Reserved_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
+        MultiVolumeDS_SB_Reserved_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
             : segment_num(seg_num), cur_seg_id(cur_id) {
             memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
             memcpy((void*)dev_path, (const void*)path.c_str(), path.size());
@@ -151,8 +151,8 @@ private:
     int pickVolId_;
     std::mutex volIdMtx_;
 
-    SimpleDS_SB_Reserved_Header sbResHeader_;
-    std::vector<SimpleDS_SB_Reserved_Volume> sbResVolVec_;
+    MultiVolumeDS_SB_Reserved_Header sbResHeader_;
+    std::vector<MultiVolumeDS_SB_Reserved_Volume> sbResVolVec_;
 
     // Request Merge thread
 private:
