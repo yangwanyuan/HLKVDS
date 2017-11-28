@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "WorkQueue.h"
+
 namespace hlkvds {
 
 static const int DevPathLenLimt = 20;
@@ -19,10 +21,13 @@ class WriteBatch;
 class KVSlice;
 class HashEntry;
 
+class Request;
+class SegForReq;
+
 class DataStor {
 public:
-    DataStor() {}
-    virtual ~DataStor() {}
+    DataStor();
+    virtual ~DataStor();
 
     // Called by Kvdb_Impl
     static DataStor* Create(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx, int datastor_type);
@@ -60,6 +65,43 @@ public:
     // Called by Iterator
     virtual std::string GetKeyByHashEntry(HashEntry *entry) = 0;
     virtual std::string GetValueByHashEntry(HashEntry *entry) = 0;
+
+    // Request Merge WorkQueue
+protected:
+    class ReqsMergeWQ : public dslab::WorkQueue<Request> {
+    public:
+        explicit ReqsMergeWQ(DataStor *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
+    protected:
+        void _process(Request* req) override {
+            ds_->ReqMerge(req);
+        }
+    private:
+        DataStor *ds_;
+    };
+    std::vector<ReqsMergeWQ *> reqWQVec_;
+    virtual void ReqMerge(Request* req) = 0;
+
+    // Seg Write to device WorkQueue
+protected:
+    class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
+    public:
+        explicit SegmentWriteWQ(DataStor *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(SegForReq* seg) override {
+            ds_->SegWrite(seg);
+        }
+    private:
+        DataStor *ds_;
+    };
+    SegmentWriteWQ * segWteWQ_;
+    virtual void SegWrite(SegForReq* req) = 0;
+
+    // Seg Timeout thread
+protected:
+    std::thread segTimeoutT_;
+    std::atomic<bool> segTimeoutT_stop_;
+    virtual void SegTimeoutThdEntry() = 0;
 };
 
 }// namespace hlkvds

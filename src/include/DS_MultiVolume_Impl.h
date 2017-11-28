@@ -153,41 +153,15 @@ private:
     std::vector<MultiVolumeDS_SB_Reserved_Volume> sbResVolVec_;
 
     // Request Merge thread
-private:
-    class ReqsMergeWQ : public dslab::WorkQueue<Request> {
-    public:
-        explicit ReqsMergeWQ(DS_MultiVolume_Impl *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
-
-    protected:
-        void _process(Request* req) override {
-            ds_->ReqMerge(req);
-        }
-    private:
-        DS_MultiVolume_Impl *ds_;
-    };
-    std::vector<ReqsMergeWQ *> reqWQVec_;
+protected:
     void ReqMerge(Request* req);
 
     // Seg Write to device thread
-private:
-    class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
-    public:
-        explicit SegmentWriteWQ(DS_MultiVolume_Impl *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
-
-    protected:
-        void _process(SegForReq* seg) override {
-            ds_->SegWrite(seg);
-        }
-    private:
-        DS_MultiVolume_Impl *ds_;
-    };
-    SegmentWriteWQ * segWteWQ_;
+protected:
     void SegWrite(SegForReq* seg);
 
     // Seg Timeout thread
-private:
-    std::thread segTimeoutT_;
-    std::atomic<bool> segTimeoutT_stop_;
+protected:
     void SegTimeoutThdEntry();
 
 };    
