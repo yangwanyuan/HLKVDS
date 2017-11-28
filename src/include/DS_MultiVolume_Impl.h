@@ -98,8 +98,8 @@ public:
     void ModifyDeathEntry(HashEntry &entry) override;
 
     // Called by Iterator
-    std::string GetKeyByHashEntry(HashEntry *entry);
-    std::string GetValueByHashEntry(HashEntry *entry);
+    std::string GetKeyByHashEntry(HashEntry *entry) override;
+    std::string GetValueByHashEntry(HashEntry *entry) override;
 
 private:
     uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
@@ -154,15 +154,15 @@ private:
 
     // Request Merge thread
 protected:
-    void ReqMerge(Request* req);
+    void ReqMerge(Request* req) override;
 
     // Seg Write to device thread
 protected:
-    void SegWrite(SegForReq* seg);
+    void SegWrite(SegForReq* seg) override;
 
     // Seg Timeout thread
 protected:
-    void SegTimeoutThdEntry();
+    void SegTimeoutThdEntry() override;
 
 };    
 
