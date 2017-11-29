@@ -100,7 +100,7 @@ public:
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
-    void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) override;
+    bool CreateAllVolumes(uint64_t sst_offset) override;
     bool OpenAllVolumes() override;
 
     uint32_t GetTotalSegNum() override {

@@ -53,7 +53,7 @@ public:
     virtual bool GetAllSSTs(char* buf, uint64_t length) = 0;
     virtual bool SetAllSSTs(char* buf, uint64_t length) = 0;
 
-    virtual void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) = 0;
+    virtual bool CreateAllVolumes(uint64_t sst_offset) = 0;
     virtual bool OpenAllVolumes() = 0;
 
     virtual uint32_t GetTotalSegNum() = 0;

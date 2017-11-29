@@ -69,7 +69,8 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
     return true;
 }
 
-void DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) {
+bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
+    return true;
 }
 
 bool DS_MultiTier_Impl::OpenAllVolumes() {

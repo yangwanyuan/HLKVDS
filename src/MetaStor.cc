@@ -1,5 +1,3 @@
-#include <math.h>
-
 #include "MetaStor.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -58,7 +56,6 @@ bool MetaStor::CreateMetaData() {
     bool grace_close_flag           = false;
 
     index_ht_size = options_.hashtable_size;
-    uint32_t segment_size = options_.segment_size;
 
     //Init Block Device
     uint64_t meta_device_capacity = metaDev_->GetDeviceCapacity();
@@ -102,15 +99,9 @@ bool MetaStor::CreateMetaData() {
 
     //Init SST region
     sst_region_offset = sb_region_length + index_region_length;
-    uint64_t meta_device_remain_capacity = meta_device_capacity - sst_region_offset;
-
-    if (segment_size <= 0 || segment_size > meta_device_remain_capacity) {
-        __ERROR("Improper segment size, %d",segment_size);
-        return false;
-    }
 
     sstOff_ = sst_region_offset;
-    if (!createDataStor(segment_size)) {
+    if (!createDataStor()) {
         __ERROR("Segment region init failed.");
         return false;
     }
@@ -356,13 +347,11 @@ bool MetaStor::PersistIndexToDevice() {
     return true;
 }
 
-bool MetaStor::createDataStor(uint32_t segment_size) {
-    uint32_t align_bit = log2(ALIGNED_SIZE);
-    if (segment_size != (segment_size >> align_bit) << align_bit) {
-        __ERROR("Segment Size is not page aligned!");
+bool MetaStor::createDataStor() {
+    if (!dataStor_->CreateAllVolumes(sstOff_)) {
+        __ERROR("Can't Create DataStore");
         return false;
     }
-    dataStor_->CreateAllVolumes(sstOff_, segment_size);
 
     uint64_t length = dataStor_->GetSSTsLengthOnDisk();
 

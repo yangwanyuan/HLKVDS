@@ -305,8 +305,15 @@ bool DS_MultiVolume_Impl::SetAllSSTs(char* buf, uint64_t length) {
     return true;
 }
 
-void DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) {
-    segSize_ = segment_size;
+bool DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset) {
+    segSize_ = options_.segment_size;
+
+    uint32_t align_bit = log2(ALIGNED_SIZE);
+    if (segSize_ != (segSize_ >> align_bit) << align_bit) {
+        __ERROR("Segment Size is not page aligned!");
+        return false;
+    }
+
     maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     volNum_ = bdVec_.size();
 
@@ -333,6 +340,8 @@ void DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment
     volMap_.insert( make_pair(0, vol) );
 
     initSBReservedContentForCreate();
+
+    return true;
 }
 
 bool DS_MultiVolume_Impl::OpenAllVolumes() {
