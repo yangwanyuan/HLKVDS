@@ -1,6 +1,6 @@
 #include "SegmentManager.h"
 #include "IndexManager.h"
-#include "Volumes.h"
+#include "Volume.h"
 
 namespace hlkvds {
 
@@ -151,7 +151,7 @@ void SegmentManager::SortSegsByUtils(
         if (segTable_[index].state == SegUseStat::USED) {
             used_size = segSize_ - (segTable_[index].free_size
                     + segTable_[index].death_size
-                    + (uint32_t) Volumes::SizeOfSegOnDisk());
+                    + (uint32_t) Volume::SizeOfSegOnDisk());
             if (used_size < thld) {
                 cand_map.insert(std::pair<uint32_t, uint32_t>(used_size, index));
             }

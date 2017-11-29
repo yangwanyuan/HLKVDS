@@ -26,7 +26,7 @@ class SuperBlockManager;
 class IndexManager;
 
 class BlockDevice;
-class Volumes;
+class Volume;
 class SegForReq;
 
 class DS_MultiVolume_Impl : public DataStor {
@@ -130,7 +130,7 @@ private:
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
-    std::map<int, Volumes *> volMap_;
+    std::map<int, Volume *> volMap_;
 
     int shardsNum_;
     std::mutex segMapMtx_;

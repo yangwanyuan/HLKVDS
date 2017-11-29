@@ -26,7 +26,7 @@ class SuperBlockManager;
 class IndexManager;
 
 class BlockDevice;
-class Volumes;
+class Volume;
 class SegForReq;
 
 class DS_MultiTier_Impl : public DataStor {

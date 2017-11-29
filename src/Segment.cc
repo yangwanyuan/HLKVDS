@@ -7,7 +7,7 @@
 
 #include "Segment.h"
 #include "IndexManager.h"
-#include "Volumes.h"
+#include "Volume.h"
 
 using namespace std;
 
@@ -191,10 +191,10 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
     sliceList_ = toBeCopied.sliceList_;
 }
 
-SegBase::SegBase(Volumes* vol) :
+SegBase::SegBase(Volume* vol) :
     segId_(-1), vol_(vol),
         segSize_(vol_->GetSegmentSize()),
-        headPos_(Volumes::SizeOfSegOnDisk()), tailPos_(segSize_),
+        headPos_(Volume::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
 }
@@ -230,7 +230,7 @@ bool SegBase::WriteSegToDevice() {
 }
 
 void SegBase::fillEntryToSlice() {
-    uint32_t head_pos = Volumes::SizeOfSegOnDisk();
+    uint32_t head_pos = Volume::SizeOfSegOnDisk();
     uint32_t tail_pos = segSize_;
     int vol_id = vol_->GetId();
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -307,7 +307,7 @@ void SegBase::copyToDataBuf() {
     uint32_t offset_begin = 0;
     uint32_t offset_end = segSize_;
 
-    offset_begin += Volumes::SizeOfSegOnDisk();
+    offset_begin += Volume::SizeOfSegOnDisk();
 
     //aggregate iovec
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -341,7 +341,7 @@ void SegBase::copyToDataBuf() {
     //segOndisk_->SetTS(persistTime_);
     segOndisk_->SetKeyNum(keyNum_);
     //setOndisk_->SetCrc(crc_num);
-    memcpy(dataBuf_, segOndisk_, Volumes::SizeOfSegOnDisk());
+    memcpy(dataBuf_, segOndisk_, Volume::SizeOfSegOnDisk());
 
     //set 0 to free data buffer
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
@@ -376,7 +376,7 @@ SegForReq& SegForReq::operator=(const SegForReq& toBeCopied) {
     return *this;
 }
 
-SegForReq::SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout) :
+SegForReq::SegForReq(Volume* vol, IndexManager* im, uint32_t timeout) :
     SegBase(vol), idxMgr_(im), timeout_(timeout), startTime_(KVTime()), persistTime_(KVTime()),
     isCompletion_(false), hasReq_(false), reqCommited_(0) {
 }
@@ -476,7 +476,7 @@ SegForSlice& SegForSlice::operator=(const SegForSlice& toBeCopied) {
     return *this;
 }
 
-SegForSlice::SegForSlice(Volumes* vol, IndexManager* im) :
+SegForSlice::SegForSlice(Volume* vol, IndexManager* im) :
     SegBase(vol), idxMgr_(im) {
 }
 

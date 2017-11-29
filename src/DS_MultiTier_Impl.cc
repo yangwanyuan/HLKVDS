@@ -5,7 +5,7 @@
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
-#include "Volumes.h"
+#include "Volume.h"
 #include "SegmentManager.h"
 
 using namespace std;

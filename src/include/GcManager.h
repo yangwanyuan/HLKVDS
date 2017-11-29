@@ -11,13 +11,13 @@
 namespace hlkvds {
 
 class IndexManager;
-class Volumes;
+class Volume;
 class KVSlice;
 
 class GcManager {
 public:
     ~GcManager();
-    GcManager(IndexManager* im, Volumes* vol, Options &opt);
+    GcManager(IndexManager* im, Volume* vol, Options &opt);
 
     bool ForeGC();
     void BackGC();
@@ -33,7 +33,7 @@ private:
     void cleanKvList(std::list<KVSlice*> &slice_list);
 
 private:
-    Volumes* vol_;
+    Volume* vol_;
     IndexManager* idxMgr_;
     Options &options_;
 

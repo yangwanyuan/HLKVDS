@@ -1,5 +1,5 @@
-#ifndef _HLKVDS_VOLUMES_H_
-#define _HLKVDS_VOLUMES_H_
+#ifndef _HLKVDS_VOLUME_H_
+#define _HLKVDS_VOLUME_H_
 
 #include <stdint.h>
 #include <thread>
@@ -37,12 +37,12 @@ public:
     }
 };
 
-class Volumes {
+class Volume {
 public:
-    Volumes(BlockDevice* dev, IndexManager* im, Options& opts,
+    Volume(BlockDevice* dev, IndexManager* im, Options& opts,
             int vol_id, uint64_t start_off, uint32_t segment_size, uint32_t segment_num,
             uint32_t cur_seg_id);
-    ~Volumes();
+    ~Volume();
 
     void StartThds();
     void StopThds();
@@ -134,4 +134,4 @@ private:
 
 } //namespace hlkvds
 
-#endif //#ifndef _HLKVDS_VOLUMES_H_
+#endif //#ifndef _HLKVDS_VOLUME_H_
