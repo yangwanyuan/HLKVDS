@@ -88,13 +88,4 @@ std::string DS_MultiTier_Impl::GetValueByHashEntry(HashEntry *entry) {
     return "";
 }
 
-void DS_MultiTier_Impl::ReqMerge(Request* req) {
-}
-
-void DS_MultiTier_Impl::SegWrite(SegForReq* seg) {
-}
-
-void DS_MultiTier_Impl::SegTimeoutThdEntry() {
-}
-
 } // namespace hlkvds

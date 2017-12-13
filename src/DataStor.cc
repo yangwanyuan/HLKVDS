@@ -4,12 +4,6 @@
 
 namespace hlkvds {
 
-DataStor::DataStor() : segWteWQ_(NULL), segTimeoutT_stop_(false) {
-}
-
-DataStor::~DataStor() {
-}
-
 DataStor* DataStor::Create(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx, int datastor_type) {
 
     switch (datastor_type) {

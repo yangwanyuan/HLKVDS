@@ -131,18 +131,6 @@ private:
     uint32_t segTotalNum_;
     uint64_t sstLengthOnDisk_;
 
-    // Request Merge thread
-protected:
-    void ReqMerge(Request* req) override;
-
-    // Seg Write to device thread
-protected:
-    void SegWrite(SegForReq* seg) override;
-
-    // Seg Timeout thread
-protected:
-    void SegTimeoutThdEntry() override;
-
 };    
 
 }// namespace hlkvds
