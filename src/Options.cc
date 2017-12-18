@@ -16,7 +16,8 @@ Options::Options() :
         gc_upper_level(GC_UPPER_LEVEL),
         gc_lower_level(GC_LOWER_LEVEL),
 
-        datastor_type(0),
+        datastor_type(1),
+        //datastor_type(0),
         segment_size(SEGMENT_SIZE),
         hashtable_size(0),
         secondary_seg_size(SEGMENT_SIZE) {

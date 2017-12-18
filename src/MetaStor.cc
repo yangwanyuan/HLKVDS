@@ -118,7 +118,7 @@ bool MetaStor::CreateMetaData() {
     }
 
     //Init reserve region
-    data_store_type = 0;
+    data_store_type = options_.datastor_type;
     grace_close_flag = 0;
 
     //Set SuperBlock
