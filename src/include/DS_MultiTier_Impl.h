@@ -156,6 +156,14 @@ private:
     std::mutex volIdMtx_;
 
 private:
+    uint32_t getTotalFreeSegs();
+    uint32_t getReqQueSize();
+    uint32_t getSegWriteQueSize();
+
+    Status updateMeta(Request *req);
+    void deleteAllVolumes();
+    void deleteAllSegments();
+
     void initSBReservedContentForCreate();
     void updateAllVolSBRes();
 
@@ -164,6 +172,45 @@ private:
     uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
     uint32_t calcSegNumForSecTierVolume(uint64_t capacity, uint32_t sec_tier_seg_size);
     uint32_t calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t sec_tier_seg_num);
+
+    int calcShardId(KVSlice& slice);
+
+    // Request Merge WorkQueue
+protected:
+    class ReqsMergeWQ : public dslab::WorkQueue<Request> {
+    public:
+        explicit ReqsMergeWQ(DS_MultiTier_Impl *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
+    protected:
+        void _process(Request* req) override {
+            ds_->ReqMerge(req);
+        }
+    private:
+        DS_MultiTier_Impl *ds_;
+    };
+    std::vector<ReqsMergeWQ *> reqWQVec_;
+    void ReqMerge(Request* req);
+
+    // Seg Write to device WorkQueue
+protected:
+    class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
+    public:
+        explicit SegmentWriteWQ(DS_MultiTier_Impl *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
+
+    protected:
+        void _process(SegForReq* seg) override {
+            ds_->SegWrite(seg);
+        }
+    private:
+        DS_MultiTier_Impl *ds_;
+    };
+    SegmentWriteWQ * segWteWQ_;
+    void SegWrite(SegForReq* req);
+
+    // Seg Timeout thread
+protected:
+    std::thread segTimeoutT_;
+    std::atomic<bool> segTimeoutT_stop_;
+    void SegTimeoutThdEntry();
 
 };    
 
