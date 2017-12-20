@@ -29,7 +29,7 @@ class BlockDevice;
 class Volume;
 class SegForReq;
 
-//class FastTier;
+class FastTier;
 //class WarmTier;
 
 class DS_MultiTier_Impl : public DataStor {
@@ -131,21 +131,14 @@ private:
     MultiTierDS_SB_Reserved_Header sbResHeader_;
     std::vector<MultiTierDS_SB_Reserved_Volume> sbResVolVec_;
 
+    FastTier *ft_;
+
     uint32_t segTotalNum_;
     uint64_t sstLengthOnDisk_;
-
-    int shardsNum_;
-    std::mutex segMapMtx_;
-    std::map<int, SegForReq *> segMap_;
-    std::vector<std::mutex *> segMtxVec_;
 
     KVTime* lastTime_;
 
     uint32_t maxValueLen_;
-
-    uint32_t fstSegSize_;
-    Volume* fstTier_;
-    uint32_t fstTierSegNum_;
 
     uint32_t secSegSize_;
     uint32_t secTierVolNum_;
@@ -160,9 +153,7 @@ private:
     uint32_t getReqQueSize();
     uint32_t getSegWriteQueSize();
 
-    Status updateMeta(Request *req);
     void deleteAllVolumes();
-    void deleteAllSegments();
 
     void initSBReservedContentForCreate();
     void updateAllVolSBRes();
@@ -173,47 +164,7 @@ private:
     uint32_t calcSegNumForSecTierVolume(uint64_t capacity, uint32_t sec_tier_seg_size);
     uint32_t calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t sec_tier_seg_num);
 
-    int calcShardId(KVSlice& slice);
-
-    // Request Merge WorkQueue
-protected:
-    class ReqsMergeWQ : public dslab::WorkQueue<Request> {
-    public:
-        explicit ReqsMergeWQ(DS_MultiTier_Impl *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
-    protected:
-        void _process(Request* req) override {
-            ds_->ReqMerge(req);
-        }
-    private:
-        DS_MultiTier_Impl *ds_;
-    };
-    std::vector<ReqsMergeWQ *> reqWQVec_;
-    void ReqMerge(Request* req);
-
-    // Seg Write to device WorkQueue
-protected:
-    class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
-    public:
-        explicit SegmentWriteWQ(DS_MultiTier_Impl *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
-
-    protected:
-        void _process(SegForReq* seg) override {
-            ds_->SegWrite(seg);
-        }
-    private:
-        DS_MultiTier_Impl *ds_;
-    };
-    SegmentWriteWQ * segWteWQ_;
-    void SegWrite(SegForReq* req);
-
-    // Seg Timeout thread
-protected:
-    std::thread segTimeoutT_;
-    std::atomic<bool> segTimeoutT_stop_;
-    void SegTimeoutThdEntry();
-
 };    
 
 }// namespace hlkvds
-
 #endif //#ifndef _HLKVDS_DS_MULTITIER_IMPL_H_

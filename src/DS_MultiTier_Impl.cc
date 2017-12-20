@@ -6,7 +6,7 @@
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
 #include "Volume.h"
-//#include "Tier.h"
+#include "Tier.h"
 #include "SegmentManager.h"
 
 using namespace std;
@@ -17,44 +17,23 @@ DS_MultiTier_Impl::DS_MultiTier_Impl(Options& opts, vector<BlockDevice*> &dev_ve
                             SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx),
         segTotalNum_(0), sstLengthOnDisk_(0), maxValueLen_(0),
-        fstSegSize_(0), fstTier_(NULL), fstTierSegNum_(0),
-        secSegSize_(0), secTierVolNum_(0), secTierSegTotalNum_(0),
-        pickVolId_(-1), segTimeoutT_stop_(false) {
-    shardsNum_ = options_.shards_num;
+        secSegSize_(0), secTierVolNum_(0), secTierSegTotalNum_(0) {
+    ft_ = new FastTier(options_, sbMgr_, idxMgr_);
     lastTime_ = new KVTime();
 }
 
 DS_MultiTier_Impl::~DS_MultiTier_Impl() {
-    deleteAllSegments();
     deleteAllVolumes();
     delete lastTime_;
 }
 
 void DS_MultiTier_Impl::CreateAllSegments() {
-    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
-    for (int i = 0; i < shardsNum_; i++) {
-        SegForReq * seg = new SegForReq(fstTier_, idxMgr_, options_.expired_time);
-        segMap_.insert(make_pair(i, seg));
-
-        std::mutex *seg_mtx = new mutex();
-        segMtxVec_.push_back(seg_mtx);
-    }
+    ft_->CreateAllSegments();
 }
 
 void DS_MultiTier_Impl::StartThds() {
-    for (int i = 0; i < shardsNum_; i++) {
-        ReqsMergeWQ *req_wq = new ReqsMergeWQ(this, 1);
-        req_wq->Start();
-        reqWQVec_.push_back(req_wq);
-    }
+    ft_->StartThds();
 
-    segWteWQ_ = new SegmentWriteWQ(this, options_.seg_write_thread);
-    segWteWQ_->Start();
-
-    segTimeoutT_stop_.store(false);
-    segTimeoutT_ = std::thread(&DS_MultiTier_Impl::SegTimeoutThdEntry, this);
-
-    fstTier_->StartThds();
     for (uint32_t i = 0; i < secTierVolNum_; i++) {
         secTierVolMap_[i]->StartThds();
     }
@@ -65,22 +44,7 @@ void DS_MultiTier_Impl::StopThds() {
         secTierVolMap_[i]->StopThds();
     }
 
-    fstTier_->StopThds();
-
-    segTimeoutT_stop_.store(true);
-    segTimeoutT_.join();
-
-    for (int i = 0; i < shardsNum_; i++) {
-        ReqsMergeWQ *req_wq = reqWQVec_[i];
-        req_wq->Stop();
-        delete req_wq;
-    }
-    reqWQVec_.clear();
-
-    if (segWteWQ_) {
-        segWteWQ_->Stop();
-        delete segWteWQ_;
-    }
+    ft_->StopThds();
 }
 
 void DS_MultiTier_Impl::printDeviceTopologyInfo() {
@@ -110,101 +74,19 @@ void DS_MultiTier_Impl::printDynamicInfo() {
 }
 
 Status DS_MultiTier_Impl::WriteData(KVSlice& slice) {
-    if (slice.GetDataLen() > maxValueLen_) {
-        return Status::NotSupported("Data length cann't be longer than max segment size");
-    }
-
-    Request *req = new Request(slice);
-
-    int shards_id = calcShardId(slice);
-    req->SetShardsWQId(shards_id);
-    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
-    req_wq->Add_task(req);
-
-    req->Wait();
-    Status s = updateMeta(req);
-    delete req;
-    return s;
+    return ft_->WriteData(slice);
 }
 
 Status DS_MultiTier_Impl::WriteBatchData(WriteBatch *batch) {
-    uint32_t seg_id = 0;
-    bool ret;
-
-    Volume *vol = fstTier_;
-
-    //TODO: use GcSegment first, need abstract segment.
-    while (!vol->Alloc(seg_id)) {
-        ret = vol->ForeGC();
-        if (!ret) {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            return Status::Aborted("Can't allocate a Empty Segment.");
-        }
-    }
-
-    SegForSlice *seg = new SegForSlice(vol, idxMgr_);
-    for (std::list<KVSlice *>::iterator iter = batch->batch_.begin();
-            iter != batch->batch_.end(); iter++) {
-        if (seg->TryPut(*iter)) {
-            seg->Put(*iter);
-        }
-        else {
-            __ERROR("The Batch is too large, can't put in one segment");
-            delete seg;
-            return Status::Aborted("Batch is too large.");
-        }
-    }
-
-    seg->SetSegId(seg_id);
-    ret = seg->WriteSegToDevice();
-    if(!ret) {
-        __ERROR("Write batch segment to device failed");
-        vol->FreeForFailed(seg_id);
-        delete seg;
-        return Status::IOError("could not write batch segment to device ");
-    }
-
-    uint32_t free_size = seg->GetFreeSize();
-    vol->Use(seg_id, free_size);
-    seg->UpdateToIndex();
-    delete seg;
-    return Status::OK();
+    return ft_->WriteBatchData(batch);
 }
 
 Status DS_MultiTier_Impl::ReadData(KVSlice &slice, std::string &data) {
-    HashEntry *entry;
-    entry = &slice.GetHashEntry();
-
-    Volume *vol = fstTier_;
-
-    uint64_t data_offset = 0;
-    if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
-        return Status::Aborted("Calculate data offset failed.");
-    }
-
-    uint16_t data_len = entry->GetDataSize();
-
-    if (data_len == 0) {
-        //The key is not exist
-        return Status::NotFound("Key is not found.");
-    }
-
-    char *mdata = new char[data_len];
-    if (!vol->Read(mdata, data_len, data_offset)) {
-        __ERROR("Could not read data at position");
-        delete[] mdata;
-        return Status::IOError("Could not read data at position.");
-    }
-    data.assign(mdata, data_len);
-    delete[] mdata;
-
-    __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffset());
-
-    return Status::OK();
+    return ft_->ReadData(slice, data);
 }
 
 void DS_MultiTier_Impl::ManualGC() {
-    fstTier_->FullGC();
+    ft_->ManualGC();
 }
 
 bool DS_MultiTier_Impl::GetSBReservedContent(char* buf, uint64_t length) {
@@ -286,8 +168,8 @@ bool DS_MultiTier_Impl::GetAllSSTs(char* buf, uint64_t length) {
     __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buf));
 
     //Copy First Tier SST
-    uint64_t fst_tier_sst_length = fstTier_->GetSSTLength();
-    if ( !fstTier_->GetSST(buf_ptr, fst_tier_sst_length) ) {
+    uint64_t fst_tier_sst_length = ft_->GetSSTLength();
+    if ( !ft_->GetSST(buf_ptr, fst_tier_sst_length) ) {
         return false;
     }
     buf_ptr += fst_tier_sst_length;
@@ -320,8 +202,8 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
     __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buf));
 
     //Set First Tier SST
-    uint64_t fst_tier_sst_length = fstTier_->GetSSTLength();
-    if (!fstTier_->SetSST(buf_ptr, fst_tier_sst_length) ) {
+    uint64_t fst_tier_sst_length = ft_->GetSSTLength();
+    if (!ft_->SetSST(buf_ptr, fst_tier_sst_length) ) {
         return false;
     }
     buf_ptr += fst_tier_sst_length;
@@ -338,7 +220,7 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
 }
 
 bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
-    fstSegSize_ = options_.segment_size;
+    uint32_t fstSegSize_ = options_.segment_size;
     secSegSize_ = options_.secondary_seg_size;
 
     maxValueLen_ = fstSegSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
@@ -358,14 +240,13 @@ bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
     BlockDevice *bdev = bdVec_[0];
     uint64_t device_capacity = bdev->GetDeviceCapacity();
     uint32_t seg_num = calcSegNumForFstTierVolume(device_capacity, sst_offset, secTierSegTotalNum_, secSegSize_);
-    fstTierSegNum_ = seg_num;
+    uint32_t fstTierSegNum_ = seg_num;
 
     segTotalNum_ = fstTierSegNum_ + secTierSegTotalNum_;
     sstLengthOnDisk_ = calcSSTsLengthOnDiskBySegNum(segTotalNum_);
 
     uint64_t start_off = sst_offset + sstLengthOnDisk_;
-    Volume *vol = new Volume(bdev, idxMgr_, options_, 0, start_off, fstSegSize_, fstTierSegNum_, 0);
-    fstTier_ = vol;
+    ft_->CreateVolume(bdev, start_off, fstSegSize_, fstTierSegNum_, 0);
 
     initSBReservedContentForCreate();
 
@@ -373,8 +254,8 @@ bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
 }
 
 bool DS_MultiTier_Impl::OpenAllVolumes() {
-    fstSegSize_ = sbResHeader_.fst_tier_seg_size;
-    fstTierSegNum_ = sbResHeader_.fst_tier_seg_num;
+    uint32_t fstSegSize_ = sbResHeader_.fst_tier_seg_size;
+    uint32_t fstTierSegNum_ = sbResHeader_.fst_tier_seg_num;
     uint32_t fst_tier_cur_seg_id = sbResHeader_.fst_tier_cur_seg_id;
 
     secSegSize_ = sbResHeader_.sec_tier_seg_size;
@@ -392,7 +273,7 @@ bool DS_MultiTier_Impl::OpenAllVolumes() {
     BlockDevice *fst_tier_bdev = bdVec_[0];
     uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sstLengthOnDisk_;
 
-    fstTier_ = new Volume(fst_tier_bdev, idxMgr_, options_, 100, start_off, fstSegSize_, fstTierSegNum_, fst_tier_cur_seg_id);
+    ft_->OpenVolume(fst_tier_bdev, start_off, fstSegSize_, fstTierSegNum_, fst_tier_cur_seg_id);
 
     //Create Second Tier
     for (uint32_t i = 0; i < secTierVolNum_; i++) {
@@ -408,62 +289,19 @@ bool DS_MultiTier_Impl::OpenAllVolumes() {
 }
 
 void DS_MultiTier_Impl::ModifyDeathEntry(HashEntry &entry) {
-    fstTier_->ModifyDeathEntry(entry);
+    return ft_->ModifyDeathEntry(entry);
 }
 
 std::string DS_MultiTier_Impl::GetKeyByHashEntry(HashEntry *entry) {
-    uint64_t key_offset = 0;
-
-    Volume *vol = fstTier_;
-
-    if (!vol->CalcKeyOffsetPhyFromEntry(entry, key_offset)) {
-        return "";
-    }
-    __DEBUG("key offset: %lu",key_offset);
-    uint16_t key_len = entry->GetKeySize();
-    char *mkey = new char[key_len+1];
-    if (!vol->Read(mkey, key_len, key_offset)) {
-        __ERROR("Could not read data at position");
-        delete[] mkey;
-        return "";
-    }
-    mkey[key_len] = '\0';
-    string res(mkey, key_len);
-    //__INFO("Iterator key is %s, key_offset = %lu, key_len = %u", mkey, key_offset, key_len);
-    delete[] mkey;
-
-    return res;
+    return ft_->GetKeyByHashEntry(entry);
 }
 
 std::string DS_MultiTier_Impl::GetValueByHashEntry(HashEntry *entry) {
-    uint64_t data_offset = 0;
-
-    Volume *vol = fstTier_;
-
-    if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
-        return "";
-    }
-    __DEBUG("data offset: %lu",data_offset);
-    uint16_t data_len = entry->GetDataSize();
-    if ( data_len ==0 ) {
-        return "";
-    }
-    char *mdata = new char[data_len+1];
-    if (!vol->Read(mdata, data_len, data_offset)) {
-        __ERROR("Could not read data at position");
-        delete[] mdata;
-        return "";
-    }
-    mdata[data_len]= '\0';
-    string res(mdata, data_len);
-    //__INFO("Iterator value is %s, data_offset = %lu, data_len = %u", mdata, data_offset, data_len);
-    delete[] mdata;
-
-    return res;
+    return ft_->GetValueByHashEntry(entry);
 }
 
 void DS_MultiTier_Impl::deleteAllVolumes() {
-    delete fstTier_;
+    delete ft_;
 
     map<int, Volume *>::iterator iter;
     for (iter = secTierVolMap_.begin(); iter != secTierVolMap_.end(); ) {
@@ -473,25 +311,14 @@ void DS_MultiTier_Impl::deleteAllVolumes() {
     }
 }
 
-void DS_MultiTier_Impl::deleteAllSegments() {
-    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
-    for (int i = 0; i< shardsNum_; i++) {
-        SegForReq* seg = segMap_[i];
-        delete seg;
-        std::mutex *seg_mtx = segMtxVec_[i];
-        delete seg_mtx;
-    }
-    segMap_.clear();
-    segMtxVec_.clear();
-}
-
-
 void DS_MultiTier_Impl::initSBReservedContentForCreate() {
-    sbResHeader_.fst_tier_seg_size = fstSegSize_;
-    string ft_dev_path = fstTier_->GetDevicePath();
+    //sbResHeader_.fst_tier_seg_size = fstSegSize_;
+    sbResHeader_.fst_tier_seg_size = ft_->GetSegSize();
+    string ft_dev_path = ft_->GetDevicePath();
+
     memcpy((void*)&sbResHeader_.fst_tier_dev_path, (const void*)ft_dev_path.c_str(), ft_dev_path.size());
-    sbResHeader_.fst_tier_seg_num = fstTierSegNum_;
-    sbResHeader_.fst_tier_cur_seg_id = fstTier_->GetCurSegId();
+    sbResHeader_.fst_tier_seg_num = ft_->GetSegNum();
+    sbResHeader_.fst_tier_cur_seg_id = ft_->GetCurSegId();
 
     sbResHeader_.sec_tier_seg_size = secSegSize_;
     sbResHeader_.sec_tier_vol_num = secTierVolNum_;
@@ -508,7 +335,7 @@ void DS_MultiTier_Impl::initSBReservedContentForCreate() {
 }
 
 void DS_MultiTier_Impl::updateAllVolSBRes() {
-    uint32_t fst_tier_cur_id = fstTier_->GetCurSegId();
+    uint32_t fst_tier_cur_id = ft_->GetCurSegId();
     sbResHeader_.fst_tier_cur_seg_id = fst_tier_cur_id;
 
     for (uint32_t i = 0; i< sbResHeader_.sec_tier_vol_num; i++) {
@@ -572,7 +399,8 @@ uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64
 }
 
 uint32_t DS_MultiTier_Impl::getTotalFreeSegs() {
-    uint32_t free_num = fstTier_->GetTotalFreeSegs();
+    uint32_t free_num = ft_->GetTotalFreeSegs();
+
     for (uint32_t i = 0; i < secTierVolNum_; i++) {
         free_num += secTierVolMap_[i]->GetTotalFreeSegs();
     }
@@ -580,124 +408,11 @@ uint32_t DS_MultiTier_Impl::getTotalFreeSegs() {
 }
 
 uint32_t DS_MultiTier_Impl::getReqQueSize() {
-    if (reqWQVec_.empty()) {
-        return 0;
-    }
-    int reqs_num = 0;
-    for (int i = 0; i< shardsNum_; i++) {
-        ReqsMergeWQ *req_wq = reqWQVec_[i];
-        reqs_num += req_wq->Size();
-    }
-    return reqs_num;
+    return ft_->getReqQueSize();
 }
 
 uint32_t DS_MultiTier_Impl::getSegWriteQueSize() {
-    return (!segWteWQ_)? 0 : segWteWQ_->Size();
-}
-
-Status DS_MultiTier_Impl::updateMeta(Request *req) {
-    bool res = req->GetWriteStat();
-    // update index
-    if (!res) {
-        return Status::Aborted("Write failed");
-    }
-    KVSlice *slice = &req->GetSlice();
-    res = idxMgr_->UpdateIndex(slice);
-    // minus the segment delete counter
-    SegForReq *seg = req->GetSeg();
-    if (!seg->CommitedAndGetNum()) {
-        idxMgr_->AddToReaper(seg);
-    }
-    return Status::OK();
-}
-
-int DS_MultiTier_Impl::calcShardId(KVSlice& slice) {
-    return KeyDigestHandle::Hash(&slice.GetDigest()) % shardsNum_;
-}
-
-void DS_MultiTier_Impl::ReqMerge(Request* req) {
-    int shard_id = req->GetShardsWQId();
-
-    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_, std::defer_lock);
-
-    std::mutex *seg_mtx = segMtxVec_[shard_id];
-    std::unique_lock<std::mutex> lck_seg(*seg_mtx);
-
-    lck_seg_map.lock();
-    SegForReq *seg = segMap_[shard_id];
-    lck_seg_map.unlock();
-
-    if (seg->TryPut(req)) {
-        seg->Put(req);
-    } else {
-        seg->Completion();
-        segWteWQ_->Add_task(seg);
-
-        seg = new SegForReq(fstTier_, idxMgr_, options_.expired_time);
-
-        lck_seg_map.lock();
-        std::map<int, SegForReq*>::iterator iter = segMap_.find(shard_id);
-        segMap_.erase(iter);
-        segMap_.insert( make_pair(shard_id, seg) );
-        lck_seg_map.unlock();
-
-        seg->Put(req);
-    }
-
-}
-
-void DS_MultiTier_Impl::SegWrite(SegForReq *seg) {
-    Volume *vol =  seg->GetSelfVolume();
-
-    uint32_t seg_id = 0;
-    bool res;
-    while (!vol->Alloc(seg_id)) {
-        res = vol->ForeGC();
-        if (!res) {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            seg->Notify(res);
-        }
-    }
-    uint32_t free_size = seg->GetFreeSize();
-    seg->SetSegId(seg_id);
-    res = seg->WriteSegToDevice();
-    if (res) {
-        vol->Use(seg_id, free_size);
-    } else {
-        vol->FreeForFailed(seg_id);
-    }
-    seg->Notify(res);
-}
-
-void DS_MultiTier_Impl::SegTimeoutThdEntry() {
-    __DEBUG("Segment Timeout thread start!!");
-    std::unique_lock<std::mutex> lck_seg_map(segMapMtx_, std::defer_lock);
-
-    while (!segTimeoutT_stop_) {
-        for ( int i = 0; i < shardsNum_; i++) {
-            std::mutex *mtx = segMtxVec_[i];
-            std::unique_lock<std::mutex> l(*mtx);
-
-            lck_seg_map.lock();
-            SegForReq *seg = segMap_[i];
-            lck_seg_map.unlock();
-
-            if (seg->IsExpired()) {
-                seg->Completion();
-
-                segWteWQ_->Add_task(seg);
-                seg = new SegForReq(fstTier_, idxMgr_, options_.expired_time);
-
-                lck_seg_map.lock();
-                std::map<int, SegForReq*>::iterator iter = segMap_.find(i);
-                segMap_.erase(iter);
-                segMap_.insert( make_pair(i, seg) );
-                lck_seg_map.unlock();
-            }
-        }
-
-        usleep(options_.expired_time);
-    } __DEBUG("Segment Timeout thread stop!!");
+    return ft_->getSegWriteQueSize();
 }
 
 } // namespace hlkvds

@@ -10,6 +10,7 @@ class KVSlice;
 class KVDS;
 class DS_MultiVolume_Impl;
 class DS_MultiTier_Impl;
+class FastTier;
 
 class WriteBatch {
 public:
@@ -26,6 +27,7 @@ private:
     friend class KVDS;
     friend class DS_MultiVolume_Impl;
     friend class DS_MultiTier_Impl;
+    friend class FastTier;
 };
 
 } // namespace hlkvds
