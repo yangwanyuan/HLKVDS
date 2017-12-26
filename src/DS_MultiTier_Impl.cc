@@ -16,9 +16,9 @@ namespace hlkvds {
 DS_MultiTier_Impl::DS_MultiTier_Impl(Options& opts, vector<BlockDevice*> &dev_vec,
                             SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx),
-        segTotalNum_(0), sstLengthOnDisk_(0), maxValueLen_(0),
-        secSegSize_(0), secTierVolNum_(0), secTierSegTotalNum_(0) {
+        segTotalNum_(0), sstLengthOnDisk_(0), maxValueLen_(0) {
     ft_ = new FastTier(options_, sbMgr_, idxMgr_);
+    wt_ = new WarmTier(options_, sbMgr_, idxMgr_);
     lastTime_ = new KVTime();
 }
 
@@ -33,41 +33,22 @@ void DS_MultiTier_Impl::CreateAllSegments() {
 
 void DS_MultiTier_Impl::StartThds() {
     ft_->StartThds();
-
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        secTierVolMap_[i]->StartThds();
-    }
+    wt_->StartThds();
 }
 
 void DS_MultiTier_Impl::StopThds() {
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        secTierVolMap_[i]->StopThds();
-    }
-
+    wt_->StopThds();
     ft_->StopThds();
 }
 
 void DS_MultiTier_Impl::printDeviceTopologyInfo() {
-    __INFO("\nDB Device Topology information:\n"
-            "\t First Tier Seg Size         : %d\n"
-            "\t First Tier Dev Path         : %s\n"
-            "\t First Tier Seg Number       : %d\n"
-            "\t First Tier Cur Seg ID       : %d\n"
-            "\t Sec Tier Seg Size           : %d\n"
-            "\t Sec Tier Volume Number      : %d",
-            sbResHeader_.fst_tier_seg_size, sbResHeader_.fst_tier_dev_path,
-            sbResHeader_.fst_tier_seg_num, sbResHeader_.fst_tier_cur_seg_id,
-            sbResHeader_.sec_tier_seg_size, sbResHeader_.sec_tier_vol_num);
-    for (uint32_t i = 0 ; i < sbResHeader_.sec_tier_vol_num; i++) {
-        __INFO("\nVolume[%d] : dev_path = %s, segment_num = %d, cur_seg_id = %d",
-                i, sbResVolVec_[i].dev_path,
-                sbResVolVec_[i].segment_num,
-                sbResVolVec_[i].cur_seg_id);
-    }
+    __INFO("\nDB Device Topology Information:");
+    ft_->printDeviceTopologyInfo();
+    wt_->printDeviceTopologyInfo();
 }
 
 void DS_MultiTier_Impl::printDynamicInfo() {
-    __INFO("\n DS_MultiTier_Impl Dynamic information: \n"
+    __INFO("\n\t DS_MultiTier_Impl Dynamic information: \n"
             "\t Request Queue Size          : %d\n"
             "\t Segment Write Queue Size    : %d\n",
             getReqQueSize(), getSegWriteQueSize());
@@ -95,27 +76,23 @@ bool DS_MultiTier_Impl::GetSBReservedContent(char* buf, uint64_t length) {
     }
     memset((void*)buf, 0, length);
 
-    updateAllVolSBRes();
-
+    char* buf_ptr = buf;
     //Get sbResHeader_
     uint64_t header_size = sizeof(MultiTierDS_SB_Reserved_Header);
-    memcpy((void*)buf, (const void*)&sbResHeader_, header_size);
-    __DEBUG("SB_RESERVED_HEADER: fst_tier_seg_size = %d, fst_tier_dev_path = %s, fst_tier_seg_num = %d, fst_tier_cur_seg_id = %d, sec_tier_seg_size = %d, sec_tier_vol_num = %d ",
-            sbResHeader_.fst_tier_seg_size, sbResHeader_.fst_tier_dev_path,
-            sbResHeader_.fst_tier_seg_num, sbResHeader_.fst_tier_cur_seg_id,
-            sbResHeader_.sec_tier_seg_size, sbResHeader_.sec_tier_vol_num);
+    memcpy((void*)buf_ptr, (const void*)&sbResHeader_, header_size);
+    buf_ptr += header_size;
+    __DEBUG("SB_RESERVED_HEADER: sb_reserved_fast_tier_size = %d, sb_reserved_warm_tier_size = %d ",
+            sbResHeader_.sb_reserved_fast_tier_size, sbResHeader_.sb_reserved_warm_tier_size);
 
-    //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_Volume);
-    uint32_t vol_num = sbResHeader_.sec_tier_vol_num;
-    char * sb_res_vol_ptr = buf + header_size;
+    //Get FastTier
+    if (!ft_->GetSBReservedContent(buf_ptr, sbResHeader_.sb_reserved_fast_tier_size)) {
+        return false;
+    }
+    buf_ptr += sbResHeader_.sb_reserved_fast_tier_size;
 
-    for (uint32_t i = 0; i < vol_num; i++) {
-        memcpy((void*)(sb_res_vol_ptr), (const void*)&sbResVolVec_[i], sb_res_vol_size);
-        sb_res_vol_ptr += sb_res_vol_size;
-        __DEBUG("Volume [i], device_path= %s, segment_num = %d, current_seg_id = %d",
-                i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num,
-                sbResVolVec_[i].cur_seg_id);
+    //Get WarmTier
+    if (!wt_->GetSBReservedContent(buf_ptr, sbResHeader_.sb_reserved_warm_tier_size)) {
+        return false;
     }
 
     return true;
@@ -126,27 +103,23 @@ bool DS_MultiTier_Impl::SetSBReservedContent(char* buf, uint64_t length) {
         return false;
     }
 
+    char* buf_ptr = buf;
     //Set sbResHeader_
     uint64_t header_size = sizeof(MultiTierDS_SB_Reserved_Header);
-    memcpy((void*)&sbResHeader_, (const void*)buf, header_size);
-    __DEBUG("SB_RESERVED_HEADER: fst_tier_seg_size = %d, fst_tier_dev_path = %s, fst_tier_seg_num = %d, fst_tier_cur_seg_id = %d, sec_tier_seg_size = %d, sec_tier_vol_num = %d ",
-            sbResHeader_.fst_tier_seg_size, sbResHeader_.fst_tier_dev_path,
-            sbResHeader_.fst_tier_seg_num, sbResHeader_.fst_tier_cur_seg_id,
-            sbResHeader_.sec_tier_seg_size, sbResHeader_.sec_tier_vol_num);
+    memcpy((void*)&sbResHeader_, (const void*)buf_ptr, header_size);
+    buf_ptr += header_size;
+    __DEBUG("SB_RESERVED_HEADER: sb_reserved_fast_tier_size = %d, sb_reserved_warm_tier_size = %d ",
+            sbResHeader_.sb_reserved_fast_tier_size, sbResHeader_.sb_reserved_warm_tier_size);
 
-    //Set sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_Volume);
-    uint32_t vol_num = sbResHeader_.sec_tier_vol_num;
-    char *sb_res_vol_ptr = buf + header_size;
+    //Set FastTier
+    if (!ft_->SetSBReservedContent(buf_ptr, sbResHeader_.sb_reserved_fast_tier_size)) {
+        return false;
+    }
+    buf_ptr += sbResHeader_.sb_reserved_fast_tier_size;
 
-    for (uint32_t i = 0; i < vol_num; i++) {
-        MultiTierDS_SB_Reserved_Volume sb_res_vol;
-        memcpy((void*)&sb_res_vol, (const void*)sb_res_vol_ptr, sb_res_vol_size);
-        sbResVolVec_.push_back(sb_res_vol);
-        sb_res_vol_ptr += sb_res_vol_size;
-        __DEBUG("Volume [%d], device_path= %s, segment_num = %d, current_seg_id = %d",
-                i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num,
-                sbResVolVec_[i].cur_seg_id);
+    //Set WarmTier
+    if (!wt_->SetSBReservedContent(buf_ptr, sbResHeader_.sb_reserved_warm_tier_size)) {
+        return false;
     }
 
     return true;
@@ -175,12 +148,9 @@ bool DS_MultiTier_Impl::GetAllSSTs(char* buf, uint64_t length) {
     buf_ptr += fst_tier_sst_length;
 
     //Copy Second Tier SST
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        uint64_t vol_sst_length = secTierVolMap_[i]->GetSSTLength();
-        if ( !secTierVolMap_[i]->GetSST(buf_ptr, vol_sst_length) ) {
-            return false;
-        }
-        buf_ptr += vol_sst_length;
+    uint64_t sec_tier_sst_length = wt_->GetSSTLength();
+    if ( !wt_->GetSST(buf_ptr, sec_tier_sst_length) ) {
+        return false;
     }
 
     return true;
@@ -209,81 +179,53 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
     buf_ptr += fst_tier_sst_length;
 
     //Set Second Tier SST
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        uint64_t vol_sst_length = secTierVolMap_[i]->GetSSTLength();
-        if ( !secTierVolMap_[i]->SetSST(buf_ptr, vol_sst_length) ) {
-            return false;
-        }
-        buf_ptr += vol_sst_length;
+    uint64_t sec_tier_sst_length = wt_->GetSSTLength();
+    if ( !wt_->SetSST(buf_ptr, sec_tier_sst_length) ) {
+        return false;
     }
+
     return true;
 }
 
 bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
-    uint32_t fstSegSize_ = options_.segment_size;
-    secSegSize_ = options_.secondary_seg_size;
+    bool ret;
+    ret = wt_->CreateVolume(bdVec_, 1);
+    if (!ret) {
+        return false;
+    }
+    uint32_t secTierSegTotalNum_ = wt_->GetSegTotalNum();
 
-    maxValueLen_ = fstSegSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
-    secTierVolNum_ = bdVec_.size() - 1;
-
-    //Create WarmTier Volumes
-    for (uint32_t i = 0; i < secTierVolNum_; i++ ) {
-        BlockDevice *bdev = bdVec_[i+1];
-        uint64_t device_capacity = bdev->GetDeviceCapacity();
-        uint32_t seg_num = calcSegNumForSecTierVolume(device_capacity, secSegSize_);
-        secTierSegTotalNum_ += seg_num;
-        Volume *vol = new Volume(bdev, idxMgr_, options_, i, 0, secSegSize_, seg_num, 0);
-        secTierVolMap_.insert( pair<int, Volume*>(i, vol) );
+    ret = ft_->CreateVolume(bdVec_, 1, sst_offset, secTierSegTotalNum_);
+    if (!ret) {
+        return false;
     }
 
-    //Create FastTier Volumes
-    BlockDevice *bdev = bdVec_[0];
-    uint64_t device_capacity = bdev->GetDeviceCapacity();
-    uint32_t seg_num = calcSegNumForFstTierVolume(device_capacity, sst_offset, secTierSegTotalNum_, secSegSize_);
-    uint32_t fstTierSegNum_ = seg_num;
-
-    segTotalNum_ = fstTierSegNum_ + secTierSegTotalNum_;
-    sstLengthOnDisk_ = calcSSTsLengthOnDiskBySegNum(segTotalNum_);
-
-    uint64_t start_off = sst_offset + sstLengthOnDisk_;
-    ft_->CreateVolume(bdev, start_off, fstSegSize_, fstTierSegNum_, 0);
-
     initSBReservedContentForCreate();
+
+    segTotalNum_ = secTierSegTotalNum_ + ft_->GetSegNum();
+    sstLengthOnDisk_ = ft_->GetSSTLengthOnDisk();
+    maxValueLen_ = ft_->GetMaxValueLen();
 
     return true;
 }
 
 bool DS_MultiTier_Impl::OpenAllVolumes() {
-    uint32_t fstSegSize_ = sbResHeader_.fst_tier_seg_size;
-    uint32_t fstTierSegNum_ = sbResHeader_.fst_tier_seg_num;
-    uint32_t fst_tier_cur_seg_id = sbResHeader_.fst_tier_cur_seg_id;
+    bool ret;
 
-    secSegSize_ = sbResHeader_.sec_tier_seg_size;
-    secTierVolNum_ = sbResHeader_.sec_tier_vol_num;
+    ret = ft_->OpenVolume(bdVec_, 1);
 
-    maxValueLen_ = fstSegSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
-    sstLengthOnDisk_ = sbMgr_->GetSSTRegionLength();
-
-    if (!verifyTopology()) {
-        __ERROR("TheDevice Topology is inconsistent");
+    if (!ret) {
         return false;
     }
 
-    //Create First Tier
-    BlockDevice *fst_tier_bdev = bdVec_[0];
-    uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sstLengthOnDisk_;
-
-    ft_->OpenVolume(fst_tier_bdev, start_off, fstSegSize_, fstTierSegNum_, fst_tier_cur_seg_id);
-
-    //Create Second Tier
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        BlockDevice *bdev = bdVec_[i+1];
-        uint32_t seg_num = sbResVolVec_[i].segment_num;
-        uint32_t cur_seg_id = sbResVolVec_[i].cur_seg_id;
-        Volume *vol = new Volume(bdev, idxMgr_, options_, i, 0, secSegSize_, seg_num, cur_seg_id);
-        secTierVolMap_.insert( pair<int, Volume*>(i, vol) );
-        secTierSegTotalNum_ += seg_num;
+    ret = wt_->OpenVolume(bdVec_, 1);
+    if (!ret) {
+        return false;
     }
+
+    segTotalNum_ = wt_->GetSegTotalNum() + ft_->GetSegNum();
+    sstLengthOnDisk_ = ft_->GetSSTLengthOnDisk();
+    maxValueLen_ = ft_->GetMaxValueLen();
 
     return true;
 }
@@ -302,71 +244,12 @@ std::string DS_MultiTier_Impl::GetValueByHashEntry(HashEntry *entry) {
 
 void DS_MultiTier_Impl::deleteAllVolumes() {
     delete ft_;
-
-    map<int, Volume *>::iterator iter;
-    for (iter = secTierVolMap_.begin(); iter != secTierVolMap_.end(); ) {
-        Volume *vol = iter->second;
-        delete vol;
-        secTierVolMap_.erase(iter++);
-    }
+    delete wt_;
 }
 
 void DS_MultiTier_Impl::initSBReservedContentForCreate() {
-    //sbResHeader_.fst_tier_seg_size = fstSegSize_;
-    sbResHeader_.fst_tier_seg_size = ft_->GetSegSize();
-    string ft_dev_path = ft_->GetDevicePath();
-
-    memcpy((void*)&sbResHeader_.fst_tier_dev_path, (const void*)ft_dev_path.c_str(), ft_dev_path.size());
-    sbResHeader_.fst_tier_seg_num = ft_->GetSegNum();
-    sbResHeader_.fst_tier_cur_seg_id = ft_->GetCurSegId();
-
-    sbResHeader_.sec_tier_seg_size = secSegSize_;
-    sbResHeader_.sec_tier_vol_num = secTierVolNum_;
-
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        MultiTierDS_SB_Reserved_Volume sb_res_vol;
-        string dev_path = secTierVolMap_[i]->GetDevicePath();
-        memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
-        sb_res_vol.segment_num = secTierVolMap_[i]->GetNumberOfSeg();
-        sb_res_vol.cur_seg_id = secTierVolMap_[i]->GetCurSegId();
-        sbResVolVec_.push_back(sb_res_vol);
-    }
-
-}
-
-void DS_MultiTier_Impl::updateAllVolSBRes() {
-    uint32_t fst_tier_cur_id = ft_->GetCurSegId();
-    sbResHeader_.fst_tier_cur_seg_id = fst_tier_cur_id;
-
-    for (uint32_t i = 0; i< sbResHeader_.sec_tier_vol_num; i++) {
-        uint32_t cur_id = secTierVolMap_[i]->GetCurSegId();
-        sbResVolVec_[i].cur_seg_id = cur_id;
-    }
-}
-
-bool DS_MultiTier_Impl::verifyTopology() {
-    if (secTierVolNum_ != bdVec_.size() - 1) {
-        __ERROR("record secTierVolNum_ = %d, total block device number: %d", secTierVolNum_, (int)bdVec_.size() );
-        return false;
-    }
-    //Verify First Tier
-    string fst_tier_record_path = string(sbResHeader_.fst_tier_dev_path);
-    string fst_tier_device_path = bdVec_[0]->GetDevicePath();
-    if (fst_tier_record_path != fst_tier_device_path) {
-        __ERROR("fst_tier_record_path: %s, fst_tier_device_path:%s ", fst_tier_record_path.c_str(), fst_tier_device_path.c_str());
-        return false;
-    }
-
-    //Verify Second Tier
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        string record_path = string(sbResVolVec_[i].dev_path);
-        string device_path = bdVec_[i+1]->GetDevicePath();
-        if (record_path != device_path) {
-            __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
-            return false;
-        }
-    }
-    return true;
+    sbResHeader_.sb_reserved_fast_tier_size = ft_->GetSbReservedSize();
+    sbResHeader_.sb_reserved_warm_tier_size = wt_->GetSbReservedSize();
 }
 
 uint64_t DS_MultiTier_Impl::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
@@ -381,7 +264,7 @@ uint32_t DS_MultiTier_Impl::calcSegNumForSecTierVolume(uint64_t capacity, uint32
     return capacity / sec_tier_seg_size;
 }
 
-uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t sec_tier_seg_num, uint32_t fst_tier_seg_size) {
+uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t sec_tier_seg_num) {
     uint64_t valid_capacity = capacity - sst_offset;
     uint32_t seg_num_candidate = valid_capacity / fst_tier_seg_size;
 
@@ -399,11 +282,7 @@ uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64
 }
 
 uint32_t DS_MultiTier_Impl::getTotalFreeSegs() {
-    uint32_t free_num = ft_->GetTotalFreeSegs();
-
-    for (uint32_t i = 0; i < secTierVolNum_; i++) {
-        free_num += secTierVolMap_[i]->GetTotalFreeSegs();
-    }
+    uint32_t free_num = ft_->GetTotalFreeSegs() + wt_->GetTotalFreeSegs();
     return free_num;
 }
 

@@ -165,11 +165,13 @@ bool MetaStor::zeroDeviceMetaRegion(uint64_t meta_size) {
         uint64_t bytes_to_write = min(need_wte_bytes, (uint64_t)block_size);
         if ( !metaDev_->pWrite(align_buf, bytes_to_write, wte_offset) ) {
             __ERROR("error in fill_file_with_zeros write: %s\n", strerror(errno));
+            free(align_buf);
             return false;
         }
         need_wte_bytes -= bytes_to_write;
         wte_offset += bytes_to_write;
     }
+    free(align_buf);
     return true;
 }
 

@@ -30,50 +30,22 @@ class Volume;
 class SegForReq;
 
 class FastTier;
-//class WarmTier;
+class WarmTier;
 
 class DS_MultiTier_Impl : public DataStor {
 public:
     class MultiTierDS_SB_Reserved_Header {
-    public :
-        uint32_t fst_tier_seg_size;
-        char fst_tier_dev_path[hlkvds::DevPathLenLimt];
-        uint32_t fst_tier_seg_num;
-        uint32_t fst_tier_cur_seg_id;
-
-        uint32_t sec_tier_seg_size;
-        uint32_t sec_tier_vol_num;
+    public:
+        uint32_t sb_reserved_fast_tier_size;
+        uint32_t sb_reserved_warm_tier_size;
     public:
         MultiTierDS_SB_Reserved_Header()
-                : fst_tier_seg_size(0), fst_tier_seg_num(0),
-                fst_tier_cur_seg_id(0), sec_tier_seg_size(0),
-                sec_tier_vol_num(0) {
-            memset(fst_tier_dev_path, 0, hlkvds::DevPathLenLimt);
+                : sb_reserved_fast_tier_size(0),
+                  sb_reserved_warm_tier_size(0) {
         }
-        MultiTierDS_SB_Reserved_Header(uint32_t ft_seg_size, std::string ft_path,
-                                    uint32_t ft_seg_num, uint32_t ft_cur_id,
-                                    uint32_t st_seg_size, uint32_t st_vol_num)
-                : fst_tier_seg_size(ft_seg_size), fst_tier_seg_num(ft_seg_num),
-                fst_tier_cur_seg_id(ft_cur_id), sec_tier_seg_size(st_seg_size),
-                sec_tier_vol_num(st_vol_num) {
-            memset(fst_tier_dev_path, 0, hlkvds::DevPathLenLimt);
-            memcpy((void*)fst_tier_dev_path, (const void*)ft_path.c_str(), ft_path.size());
-        }
-    };
-
-    class MultiTierDS_SB_Reserved_Volume {
-    public:
-        char dev_path[hlkvds::DevPathLenLimt];
-        uint32_t segment_num;
-        uint32_t cur_seg_id;
-    public:
-        MultiTierDS_SB_Reserved_Volume() : segment_num(0), cur_seg_id(0) {
-            memset(dev_path, 0, hlkvds::DevPathLenLimt);
-        }
-        MultiTierDS_SB_Reserved_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
-            : segment_num(seg_num), cur_seg_id(cur_id) {
-            memset(dev_path, 0, hlkvds::DevPathLenLimt);
-            memcpy((void*)dev_path, (const void*)path.c_str(), path.size());
+        MultiTierDS_SB_Reserved_Header(uint32_t ft_size, uint32_t wt_size)
+                : sb_reserved_fast_tier_size(ft_size),
+                  sb_reserved_warm_tier_size(wt_size) {
         }
     };
 
@@ -129,9 +101,11 @@ private:
     IndexManager *idxMgr_;
 
     MultiTierDS_SB_Reserved_Header sbResHeader_;
-    std::vector<MultiTierDS_SB_Reserved_Volume> sbResVolVec_;
+    //MultiTierDS_SB_Reserved_Header sbResHeader_;
+    //std::vector<MultiTierDS_SB_Reserved_Volume> sbResVolVec_;
 
     FastTier *ft_;
+    WarmTier *wt_;
 
     uint32_t segTotalNum_;
     uint64_t sstLengthOnDisk_;
@@ -139,14 +113,6 @@ private:
     KVTime* lastTime_;
 
     uint32_t maxValueLen_;
-
-    uint32_t secSegSize_;
-    uint32_t secTierVolNum_;
-    std::map<int, Volume *> secTierVolMap_;
-    uint32_t secTierSegTotalNum_;
-
-    int pickVolId_;
-    std::mutex volIdMtx_;
 
 private:
     uint32_t getTotalFreeSegs();
