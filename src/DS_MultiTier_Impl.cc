@@ -148,8 +148,8 @@ bool DS_MultiTier_Impl::GetAllSSTs(char* buf, uint64_t length) {
     buf_ptr += fst_tier_sst_length;
 
     //Copy Second Tier SST
-    uint64_t sec_tier_sst_length = mt_->GetSSTLength();
-    if ( !mt_->GetSST(buf_ptr, sec_tier_sst_length) ) {
+    uint64_t med_tier_sst_length = mt_->GetSSTLength();
+    if ( !mt_->GetSST(buf_ptr, med_tier_sst_length) ) {
         return false;
     }
 
@@ -179,8 +179,8 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
     buf_ptr += fst_tier_sst_length;
 
     //Set Second Tier SST
-    uint64_t sec_tier_sst_length = mt_->GetSSTLength();
-    if ( !mt_->SetSST(buf_ptr, sec_tier_sst_length) ) {
+    uint64_t med_tier_sst_length = mt_->GetSSTLength();
+    if ( !mt_->SetSST(buf_ptr, med_tier_sst_length) ) {
         return false;
     }
 
@@ -193,16 +193,16 @@ bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
     if (!ret) {
         return false;
     }
-    uint32_t secTierSegTotalNum_ = mt_->GetSegTotalNum();
+    uint32_t medTierSegTotalNum_ = mt_->GetSegTotalNum();
 
-    ret = ft_->CreateVolume(bdVec_, 1, sst_offset, secTierSegTotalNum_);
+    ret = ft_->CreateVolume(bdVec_, 1, sst_offset, medTierSegTotalNum_);
     if (!ret) {
         return false;
     }
 
     initSBReservedContentForCreate();
 
-    segTotalNum_ = secTierSegTotalNum_ + ft_->GetSegNum();
+    segTotalNum_ = medTierSegTotalNum_ + ft_->GetSegNum();
     sstLengthOnDisk_ = ft_->GetSSTLengthOnDisk();
     maxValueLen_ = ft_->GetMaxValueLen();
 
@@ -260,22 +260,22 @@ uint64_t DS_MultiTier_Impl::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
     return sst_length;
 }
 
-uint32_t DS_MultiTier_Impl::calcSegNumForSecTierVolume(uint64_t capacity, uint32_t sec_tier_seg_size) {
-    return capacity / sec_tier_seg_size;
+uint32_t DS_MultiTier_Impl::calcSegNumForSecTierVolume(uint64_t capacity, uint32_t med_tier_seg_size) {
+    return capacity / med_tier_seg_size;
 }
 
-uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t sec_tier_seg_num) {
+uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t med_tier_seg_num) {
     uint64_t valid_capacity = capacity - sst_offset;
     uint32_t seg_num_candidate = valid_capacity / fst_tier_seg_size;
 
-    uint32_t seg_num_total = seg_num_candidate + sec_tier_seg_num;
+    uint32_t seg_num_total = seg_num_candidate + med_tier_seg_num;
     uint64_t sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
 
     uint32_t seg_size_bit = log2(fst_tier_seg_size);
 
     while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
          seg_num_candidate--;
-         seg_num_total = seg_num_candidate + sec_tier_seg_num;
+         seg_num_total = seg_num_candidate + med_tier_seg_num;
          sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
     }
     return seg_num_candidate;

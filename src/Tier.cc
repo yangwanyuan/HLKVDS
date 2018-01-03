@@ -408,18 +408,18 @@ uint64_t FastTier::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
     return sst_length;
 }
 
-uint32_t FastTier::calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t sec_tier_seg_num) {
+uint32_t FastTier::calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t med_tier_seg_num) {
     uint64_t valid_capacity = capacity - sst_offset;
     uint32_t seg_num_candidate = valid_capacity / fst_tier_seg_size;
 
-    uint32_t seg_num_total = seg_num_candidate + sec_tier_seg_num;
+    uint32_t seg_num_total = seg_num_candidate + med_tier_seg_num;
     uint64_t sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
 
     uint32_t seg_size_bit = log2(fst_tier_seg_size);
 
     while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
          seg_num_candidate--;
-         seg_num_total = seg_num_candidate + sec_tier_seg_num;
+         seg_num_total = seg_num_candidate + med_tier_seg_num;
          sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
     }
     return seg_num_candidate;
