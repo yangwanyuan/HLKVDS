@@ -141,11 +141,11 @@ bool DS_MultiTier_Impl::GetAllSSTs(char* buf, uint64_t length) {
     __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buf));
 
     //Copy First Tier SST
-    uint64_t fst_tier_sst_length = ft_->GetSSTLength();
-    if ( !ft_->GetSST(buf_ptr, fst_tier_sst_length) ) {
+    uint64_t fast_tier_sst_length = ft_->GetSSTLength();
+    if ( !ft_->GetSST(buf_ptr, fast_tier_sst_length) ) {
         return false;
     }
-    buf_ptr += fst_tier_sst_length;
+    buf_ptr += fast_tier_sst_length;
 
     //Copy Second Tier SST
     uint64_t med_tier_sst_length = mt_->GetSSTLength();
@@ -172,11 +172,11 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
     __DEBUG("memcpy timestamp: %s at %p, at %ld", KVTime::ToChar(*lastTime_), (void *)buf_ptr, (int64_t)(buf_ptr-buf));
 
     //Set First Tier SST
-    uint64_t fst_tier_sst_length = ft_->GetSSTLength();
-    if (!ft_->SetSST(buf_ptr, fst_tier_sst_length) ) {
+    uint64_t fast_tier_sst_length = ft_->GetSSTLength();
+    if (!ft_->SetSST(buf_ptr, fast_tier_sst_length) ) {
         return false;
     }
-    buf_ptr += fst_tier_sst_length;
+    buf_ptr += fast_tier_sst_length;
 
     //Set Second Tier SST
     uint64_t med_tier_sst_length = mt_->GetSSTLength();
@@ -189,13 +189,13 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
 
 bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
     bool ret;
-    ret = mt_->CreateVolume(bdVec_, 1);
+    ret = mt_->CreateVolume(bdVec_);
     if (!ret) {
         return false;
     }
     uint32_t medTierSegTotalNum_ = mt_->GetSegTotalNum();
 
-    ret = ft_->CreateVolume(bdVec_, 1, sst_offset, medTierSegTotalNum_);
+    ret = ft_->CreateVolume(bdVec_, sst_offset, medTierSegTotalNum_);
     if (!ret) {
         return false;
     }
@@ -212,13 +212,13 @@ bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
 bool DS_MultiTier_Impl::OpenAllVolumes() {
     bool ret;
 
-    ret = ft_->OpenVolume(bdVec_, 1);
+    ret = ft_->OpenVolume(bdVec_);
 
     if (!ret) {
         return false;
     }
 
-    ret = mt_->OpenVolume(bdVec_, 1);
+    ret = mt_->OpenVolume(bdVec_);
     if (!ret) {
         return false;
     }
@@ -250,35 +250,6 @@ void DS_MultiTier_Impl::deleteAllVolumes() {
 void DS_MultiTier_Impl::initSBReservedContentForCreate() {
     sbResHeader_.sb_reserved_fast_tier_size = ft_->GetSbReservedSize();
     sbResHeader_.sb_reserved_medium_tier_size = mt_->GetSbReservedSize();
-}
-
-uint64_t DS_MultiTier_Impl::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
-    uint64_t sst_pure_length = sizeof(SegmentStat) * seg_num;
-    uint64_t sst_length = sst_pure_length + sizeof(time_t);
-    uint64_t sst_pages = sst_length / getpagesize();
-    sst_length = (sst_pages + 1) * getpagesize();
-    return sst_length;
-}
-
-uint32_t DS_MultiTier_Impl::calcSegNumForSecTierVolume(uint64_t capacity, uint32_t med_tier_seg_size) {
-    return capacity / med_tier_seg_size;
-}
-
-uint32_t DS_MultiTier_Impl::calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t med_tier_seg_num) {
-    uint64_t valid_capacity = capacity - sst_offset;
-    uint32_t seg_num_candidate = valid_capacity / fst_tier_seg_size;
-
-    uint32_t seg_num_total = seg_num_candidate + med_tier_seg_num;
-    uint64_t sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
-
-    uint32_t seg_size_bit = log2(fst_tier_seg_size);
-
-    while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
-         seg_num_candidate--;
-         seg_num_total = seg_num_candidate + med_tier_seg_num;
-         sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
-    }
-    return seg_num_candidate;
 }
 
 uint32_t DS_MultiTier_Impl::getTotalFreeSegs() {

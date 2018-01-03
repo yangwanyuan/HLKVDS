@@ -101,8 +101,6 @@ private:
     IndexManager *idxMgr_;
 
     MultiTierDS_SB_Reserved_Header sbResHeader_;
-    //MultiTierDS_SB_Reserved_Header sbResHeader_;
-    //std::vector<MultiTierDS_SB_Reserved_Volume> sbResVolVec_;
 
     FastTier *ft_;
     MediumTier *mt_;
@@ -122,13 +120,6 @@ private:
     void deleteAllVolumes();
 
     void initSBReservedContentForCreate();
-    void updateAllVolSBRes();
-
-    bool verifyTopology();
-
-    uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
-    uint32_t calcSegNumForSecTierVolume(uint64_t capacity, uint32_t med_tier_seg_size);
-    uint32_t calcSegNumForFstTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t med_tier_seg_num);
 
 };    
 

@@ -226,16 +226,7 @@ bool FastTier::SetSST(char* buff, uint64_t length) {
     return vol_->SetSST(buff, length);
 }
 
-//bool FastTier::CreateVolume(BlockDevice *bdev, uint64_t start_offset, uint32_t seg_size, uint32_t seg_num, uint32_t cur_id) {
-bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num,uint64_t sst_offset, uint32_t medium_tier_total_seg_num) {
-    //bdev_ = bdev;
-    //segSize_ = options_.segment_size;
-    //segNum_ = seg_num;
-    //maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
-
-    //vol_ = new Volume(bdev_, idxMgr_, options_, 100, start_offset, segSize_, segNum_, cur_id);
-    //return true;
-    //
+bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offset, uint32_t medium_tier_total_seg_num) {
     bdev_ = bd_vec[0];
     segSize_ = options_.segment_size;
     uint64_t device_capacity = bdev_->GetDeviceCapacity();
@@ -253,14 +244,14 @@ bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_dev
     return true;
 }
 
-bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
     bdev_ = bd_vec[0];
     segSize_ = sbResFastTier_.segment_size;
     segNum_ = sbResFastTier_.segment_num;
     maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     sstLengthOnDisk_ = sbMgr_->GetSSTRegionLength();
 
-    if (!verifyTopology(bd_vec, fast_tier_device_num)) {
+    if (!verifyTopology(bd_vec)) {
         __ERROR("TheDevice Topology is inconsistent");
         return false;
     }
@@ -271,7 +262,7 @@ bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_devic
     return true;
 }
 
-bool FastTier::verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+bool FastTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
     string record_path = string(sbResFastTier_.dev_path);
     string device_path = bd_vec[0]->GetDevicePath();
     if (record_path != device_path) {
@@ -408,14 +399,14 @@ uint64_t FastTier::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
     return sst_length;
 }
 
-uint32_t FastTier::calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t med_tier_seg_num) {
+uint32_t FastTier::calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fast_tier_seg_size, uint32_t med_tier_seg_num) {
     uint64_t valid_capacity = capacity - sst_offset;
-    uint32_t seg_num_candidate = valid_capacity / fst_tier_seg_size;
+    uint32_t seg_num_candidate = valid_capacity / fast_tier_seg_size;
 
     uint32_t seg_num_total = seg_num_candidate + med_tier_seg_num;
     uint64_t sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
 
-    uint32_t seg_size_bit = log2(fst_tier_seg_size);
+    uint32_t seg_size_bit = log2(fast_tier_seg_size);
 
     while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
          seg_num_candidate--;
@@ -538,7 +529,7 @@ void MediumTier::printDeviceTopologyInfo() {
     __INFO( "\n\t Medium Tier Infomation:\n"
             "\t Medium Tier Seg Size          : %d\n"
             "\t Medium Tier Vol Num           : %d",
-            sbResMediumTier_.segment_size, sbResMediumTier_.volume_num);
+            sbResMediumTierHeader_.segment_size, sbResMediumTierHeader_.volume_num);
 
     for (uint32_t i = 0 ; i < volNum_; i++) {
         __INFO("\n\t Medium Tier Volume[%d] : dev_path = %s, segment_num = %d, cur_seg_id = %d",
@@ -553,7 +544,7 @@ void MediumTier::printDynamicInfo() {
 
 bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
     uint32_t except_length = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) +
-                            volNum_ * sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
+                            volNum_ * sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
     if (length != except_length) {
         return false;
     }
@@ -562,17 +553,17 @@ bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
 
     char* buf_ptr = buf;
     uint64_t medium_tier_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
-    memcpy((void*)buf, (const void *)&sbResMediumTier_, medium_tier_size);
+    memcpy((void*)buf, (const void *)&sbResMediumTierHeader_, medium_tier_size);
     __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Header: segment_size = %d, volume_num = %d",
-            sbResMediumTier_.segment_size, sbResMediumTier_.volume_num);
+            sbResMediumTierHeader_.segment_size, sbResMediumTierHeader_.volume_num);
     buf_ptr += medium_tier_size;
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
+    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
     for (uint32_t i = 0; i < volNum_; i++) {
         memcpy((void*)buf_ptr, (const void*)&sbResMediumTierVolVec_[i], sb_res_vol_size);
         buf_ptr += sb_res_vol_size;
-        __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Volume[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
+        __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Content[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
             i, sbResMediumTierVolVec_[i].dev_path, sbResMediumTierVolVec_[i].segment_num,
             sbResMediumTierVolVec_[i].cur_seg_id);
 
@@ -583,26 +574,26 @@ bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
 bool MediumTier::SetSBReservedContent(char* buf, uint64_t length) {
     char* buf_ptr = buf;
     uint64_t medium_tier_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
-    memcpy((void*)&sbResMediumTier_, (const void *)buf_ptr, medium_tier_size);
+    memcpy((void*)&sbResMediumTierHeader_, (const void *)buf_ptr, medium_tier_size);
     __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Header: segment_size = %d, volume_num = %d",
-            sbResMediumTier_.segment_size, sbResMediumTier_.volume_num);
+            sbResMediumTierHeader_.segment_size, sbResMediumTierHeader_.volume_num);
     buf_ptr += medium_tier_size;
 
     uint64_t except_length = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) +
-                            sbResMediumTier_.volume_num * sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
+                            sbResMediumTierHeader_.volume_num * sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
     if (length != except_length) {
         __INFO("!!!!!length = %ld, except_length = %ld, volNum_ = %d", length, except_length, volNum_);
         return false;
     }
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
-    for (uint32_t i = 0; i < sbResMediumTier_.volume_num; i++) {
-        MultiTierDS_SB_Reserved_MediumTier_Volume sb_res_vol;
+    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
+    for (uint32_t i = 0; i < sbResMediumTierHeader_.volume_num; i++) {
+        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_vol;
         memcpy((void*)&sb_res_vol, (const void*)buf_ptr, sb_res_vol_size);
         sbResMediumTierVolVec_.push_back(sb_res_vol);
         buf_ptr += sb_res_vol_size;
-        __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Volume[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
+        __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Content[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
             i, sbResMediumTierVolVec_[i].dev_path, sbResMediumTierVolVec_[i].segment_num,
             sbResMediumTierVolVec_[i].cur_seg_id);
     }
@@ -610,10 +601,10 @@ bool MediumTier::SetSBReservedContent(char* buf, uint64_t length) {
 }
 
 void MediumTier::initSBReservedContentForCreate() {
-    sbResMediumTier_.segment_size = segSize_;
-    sbResMediumTier_.volume_num = volNum_;
+    sbResMediumTierHeader_.segment_size = segSize_;
+    sbResMediumTierHeader_.volume_num = volNum_;
     for (uint32_t i = 0; i < volNum_; i++) {
-        MultiTierDS_SB_Reserved_MediumTier_Volume sb_res_vol;
+        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_vol;
         string dev_path = volMap_[i]->GetDevicePath();
         memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
         sb_res_vol.segment_num = volMap_[i]->GetNumberOfSeg();
@@ -655,7 +646,9 @@ bool MediumTier::SetSST(char* buf, uint64_t length) {
     return true;
 }
 
-bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec) {
+    int fast_tier_device_num = FastTier::GetVolNum();
+
     segSize_ = options_.secondary_seg_size;
     volNum_ = bd_vec.size() - fast_tier_device_num;
 
@@ -672,12 +665,13 @@ bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_d
     return true;
 }
 
-//bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int bd_cursor, uint32_t bd_num, uint32_t seg_size, std::vector<DS_MultiTier_Impl::MultiTierDS_SB_Reserved_Volume> &sb_res_vol_vec) {
-bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
-    segSize_ = sbResMediumTier_.segment_size;
-    volNum_ = sbResMediumTier_.volume_num;
+bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
+    int fast_tier_device_num = FastTier::GetVolNum();
 
-    if (!verifyTopology(bd_vec, fast_tier_device_num)) {
+    segSize_ = sbResMediumTierHeader_.segment_size;
+    volNum_ = sbResMediumTierHeader_.volume_num;
+
+    if (!verifyTopology(bd_vec)) {
         __ERROR("TheDevice Topology is inconsistent");
         return false;
     }
@@ -693,7 +687,9 @@ bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_dev
     return true;
 }
 
-bool MediumTier::verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+bool MediumTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
+    int fast_tier_device_num = FastTier::GetVolNum();
+
     // Verify MediumTier Volume Number
     if (volNum_ != bd_vec.size() - fast_tier_device_num) {
         __ERROR("record MediumTierVolNum_ = %d, total block device number: %d", volNum_, (int)bd_vec.size() );

@@ -78,9 +78,8 @@ public:
     bool GetSST(char* buf, uint64_t length);
     bool SetSST(char* buf, uint64_t length);
 
-    //bool CreateVolume(BlockDevice *bdev, uint64_t start_offset, uint32_t seg_size, uint32_t seg_num, uint32_t cur_id);
-    bool CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num,uint64_t sst_offset, uint32_t medium_tier_total_seg_num);
-    bool OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num);
+    bool CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offset, uint32_t medium_tier_total_seg_num);
+    bool OpenVolume(std::vector<BlockDevice*> &bd_vec);
 
     uint32_t GetSegSize() { return segSize_; }
     uint32_t GetTotalFreeSegs();
@@ -95,6 +94,7 @@ public:
     uint32_t getReqQueSize();
     uint32_t getSegWriteQueSize();
 
+    static int GetVolNum() { return 1; }
 
     // Called by IndexManager
     void ModifyDeathEntry(HashEntry &entry);
@@ -134,11 +134,11 @@ private:
     void deleteAllSegments();
     void initSBReservedContentForCreate();
 
-    bool verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num);
+    bool verifyTopology(std::vector<BlockDevice*> &bd_vec);
 
     int calcShardId(KVSlice& slice);
     uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
-    uint32_t calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fst_tier_seg_size, uint32_t med_tier_seg_num);
+    uint32_t calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fast_tier_seg_size, uint32_t med_tier_seg_num);
 
 
     // Request Merge WorkQueue
@@ -195,16 +195,16 @@ public:
         }
     };
 
-    class MultiTierDS_SB_Reserved_MediumTier_Volume {
+    class MultiTierDS_SB_Reserved_MediumTier_Content {
     public:
         char dev_path[hlkvds::DevPathLenLimt];
         uint32_t segment_num;
         uint32_t cur_seg_id;
     public:
-        MultiTierDS_SB_Reserved_MediumTier_Volume() : segment_num(0), cur_seg_id(0) {
+        MultiTierDS_SB_Reserved_MediumTier_Content() : segment_num(0), cur_seg_id(0) {
             memset(dev_path, 0, hlkvds::DevPathLenLimt);
         }
-        MultiTierDS_SB_Reserved_MediumTier_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
+        MultiTierDS_SB_Reserved_MediumTier_Content(std::string path, uint32_t seg_num, uint32_t cur_id)
                 : segment_num(seg_num), cur_seg_id(cur_id) {
             memset(dev_path, 0, hlkvds::DevPathLenLimt);
             memcpy((void*)dev_path, (const void*)path.c_str(), path.size());
@@ -234,10 +234,8 @@ public:
     bool GetSST(char* buf, uint64_t length);
     bool SetSST(char* buf, uint64_t length);
 
-    bool CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num);
-    //bool OpenVolume(std::vector<BlockDevice*> &bd_vec, int bd_cursor, uint32_t bd_num, uint32_t seg_size, std::vector<DS_MultiTier_Impl::MultiTierDS_SB_Reserved_Volume> &sb_res_vol_vec);
-    //bool OpenVolume(std::vector<BlockDevice*> &bd_vec, int bd_cursor, uint32_t bd_num, uint32_t seg_size);
-    bool OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num);
+    bool CreateVolume(std::vector<BlockDevice*> &bd_vec);
+    bool OpenVolume(std::vector<BlockDevice*> &bd_vec);
 
     uint32_t GetSegSize() { return segSize_; }
     uint32_t GetSegTotalNum() { return segTotalNum_; }
@@ -259,15 +257,15 @@ public:
     std::string GetKeyByHashEntry(HashEntry *entry);
     std::string GetValueByHashEntry(HashEntry *entry);
 
-    uint32_t GetSbReservedSize() { return sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) + sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume) * volNum_; }
+    uint32_t GetSbReservedSize() { return sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) + sizeof(MultiTierDS_SB_Reserved_MediumTier_Content) * volNum_; }
 
 private:
     Options &options_;
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
-    MultiTierDS_SB_Reserved_MediumTier_Header sbResMediumTier_;
-    std::vector<MultiTierDS_SB_Reserved_MediumTier_Volume> sbResMediumTierVolVec_;
+    MultiTierDS_SB_Reserved_MediumTier_Header sbResMediumTierHeader_;
+    std::vector<MultiTierDS_SB_Reserved_MediumTier_Content> sbResMediumTierVolVec_;
 
     uint32_t segSize_;
     uint32_t segTotalNum_;
@@ -283,7 +281,7 @@ private:
     void initSBReservedContentForCreate();
     void updateAllVolSBRes();
 
-    bool verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num);
+    bool verifyTopology(std::vector<BlockDevice*> &bd_vec);
 
     uint32_t calcSegNumForVolume(uint64_t capacity, uint32_t seg_size);
 };
