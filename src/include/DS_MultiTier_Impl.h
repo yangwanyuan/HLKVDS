@@ -30,22 +30,22 @@ class Volume;
 class SegForReq;
 
 class FastTier;
-class WarmTier;
+class MediumTier;
 
 class DS_MultiTier_Impl : public DataStor {
 public:
     class MultiTierDS_SB_Reserved_Header {
     public:
         uint32_t sb_reserved_fast_tier_size;
-        uint32_t sb_reserved_warm_tier_size;
+        uint32_t sb_reserved_medium_tier_size;
     public:
         MultiTierDS_SB_Reserved_Header()
                 : sb_reserved_fast_tier_size(0),
-                  sb_reserved_warm_tier_size(0) {
+                  sb_reserved_medium_tier_size(0) {
         }
-        MultiTierDS_SB_Reserved_Header(uint32_t ft_size, uint32_t wt_size)
+        MultiTierDS_SB_Reserved_Header(uint32_t ft_size, uint32_t mt_size)
                 : sb_reserved_fast_tier_size(ft_size),
-                  sb_reserved_warm_tier_size(wt_size) {
+                  sb_reserved_medium_tier_size(mt_size) {
         }
     };
 
@@ -105,7 +105,7 @@ private:
     //std::vector<MultiTierDS_SB_Reserved_Volume> sbResVolVec_;
 
     FastTier *ft_;
-    WarmTier *wt_;
+    MediumTier *mt_;
 
     uint32_t segTotalNum_;
     uint64_t sstLengthOnDisk_;

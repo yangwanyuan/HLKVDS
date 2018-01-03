@@ -79,7 +79,7 @@ public:
     bool SetSST(char* buf, uint64_t length);
 
     //bool CreateVolume(BlockDevice *bdev, uint64_t start_offset, uint32_t seg_size, uint32_t seg_num, uint32_t cur_id);
-    bool CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num,uint64_t sst_offset, uint32_t warm_tier_total_seg_num);
+    bool CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num,uint64_t sst_offset, uint32_t medium_tier_total_seg_num);
     bool OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num);
 
     uint32_t GetSegSize() { return segSize_; }
@@ -180,31 +180,31 @@ protected:
 
 };
 
-class WarmTier : public Tier {
+class MediumTier : public Tier {
 public:
-    class MultiTierDS_SB_Reserved_WarmTier_Header {
+    class MultiTierDS_SB_Reserved_MediumTier_Header {
     public:
         uint32_t segment_size;
         uint32_t volume_num;
     public:
-        MultiTierDS_SB_Reserved_WarmTier_Header()
+        MultiTierDS_SB_Reserved_MediumTier_Header()
                 : segment_size(0), volume_num(0) {
         }
-        MultiTierDS_SB_Reserved_WarmTier_Header(uint32_t seg_size, uint32_t vol_num)
+        MultiTierDS_SB_Reserved_MediumTier_Header(uint32_t seg_size, uint32_t vol_num)
                 : segment_size(seg_size), volume_num(vol_num) {
         }
     };
 
-    class MultiTierDS_SB_Reserved_WarmTier_Volume {
+    class MultiTierDS_SB_Reserved_MediumTier_Volume {
     public:
         char dev_path[hlkvds::DevPathLenLimt];
         uint32_t segment_num;
         uint32_t cur_seg_id;
     public:
-        MultiTierDS_SB_Reserved_WarmTier_Volume() : segment_num(0), cur_seg_id(0) {
+        MultiTierDS_SB_Reserved_MediumTier_Volume() : segment_num(0), cur_seg_id(0) {
             memset(dev_path, 0, hlkvds::DevPathLenLimt);
         }
-        MultiTierDS_SB_Reserved_WarmTier_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
+        MultiTierDS_SB_Reserved_MediumTier_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
                 : segment_num(seg_num), cur_seg_id(cur_id) {
             memset(dev_path, 0, hlkvds::DevPathLenLimt);
             memcpy((void*)dev_path, (const void*)path.c_str(), path.size());
@@ -212,8 +212,8 @@ public:
     };
 
 public:
-    WarmTier(Options& opts, SuperBlockManager* sb, IndexManager* idx);
-    ~WarmTier();
+    MediumTier(Options& opts, SuperBlockManager* sb, IndexManager* idx);
+    ~MediumTier();
 
     void CreateAllSegments();
     void StartThds();
@@ -259,15 +259,15 @@ public:
     std::string GetKeyByHashEntry(HashEntry *entry);
     std::string GetValueByHashEntry(HashEntry *entry);
 
-    uint32_t GetSbReservedSize() { return sizeof(MultiTierDS_SB_Reserved_WarmTier_Header) + sizeof(MultiTierDS_SB_Reserved_WarmTier_Volume) * volNum_; }
+    uint32_t GetSbReservedSize() { return sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) + sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume) * volNum_; }
 
 private:
     Options &options_;
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
-    MultiTierDS_SB_Reserved_WarmTier_Header sbResWarmTier_;
-    std::vector<MultiTierDS_SB_Reserved_WarmTier_Volume> sbResWarmTierVolVec_;
+    MultiTierDS_SB_Reserved_MediumTier_Header sbResMediumTier_;
+    std::vector<MultiTierDS_SB_Reserved_MediumTier_Volume> sbResMediumTierVolVec_;
 
     uint32_t segSize_;
     uint32_t segTotalNum_;

@@ -227,7 +227,7 @@ bool FastTier::SetSST(char* buff, uint64_t length) {
 }
 
 //bool FastTier::CreateVolume(BlockDevice *bdev, uint64_t start_offset, uint32_t seg_size, uint32_t seg_num, uint32_t cur_id) {
-bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num,uint64_t sst_offset, uint32_t warm_tier_total_seg_num) {
+bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num,uint64_t sst_offset, uint32_t medium_tier_total_seg_num) {
     //bdev_ = bdev;
     //segSize_ = options_.segment_size;
     //segNum_ = seg_num;
@@ -239,11 +239,11 @@ bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_dev
     bdev_ = bd_vec[0];
     segSize_ = options_.segment_size;
     uint64_t device_capacity = bdev_->GetDeviceCapacity();
-    uint32_t seg_num = calcSegNumForFastTierVolume(device_capacity, sst_offset, segSize_, warm_tier_total_seg_num);
+    uint32_t seg_num = calcSegNumForFastTierVolume(device_capacity, sst_offset, segSize_, medium_tier_total_seg_num);
     segNum_ = seg_num;
     maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
-    uint32_t seg_total_num = segNum_ + warm_tier_total_seg_num;
+    uint32_t seg_total_num = segNum_ + medium_tier_total_seg_num;
     sstLengthOnDisk_ = calcSSTsLengthOnDiskBySegNum(seg_total_num);
 
     uint64_t start_off = sst_offset + sstLengthOnDisk_;
@@ -510,50 +510,50 @@ void FastTier::SegTimeoutThdEntry() {
     } __DEBUG("Segment Timeout thread stop!!");
 }
 
-WarmTier::WarmTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
+MediumTier::MediumTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), sbMgr_(sb), idxMgr_(idx),
         segSize_(0), segTotalNum_(0), volNum_(0), pickVolId_(-1) {
 }
 
-WarmTier::~WarmTier() {
+MediumTier::~MediumTier() {
     deleteAllVolume();
 }
 
-void WarmTier::CreateAllSegments() {
+void MediumTier::CreateAllSegments() {
 }
 
-void WarmTier::StartThds() {
+void MediumTier::StartThds() {
     for (uint32_t i = 0; i < volNum_; i++) {
         volMap_[i]->StartThds();
     }
 }
 
-void WarmTier::StopThds() {
+void MediumTier::StopThds() {
     for (uint32_t i = 0; i < volNum_; i++) {
         volMap_[i]->StopThds();
     }
 }
 
-void WarmTier::printDeviceTopologyInfo() {
-    __INFO( "\n\t Warm Tier Infomation:\n"
-            "\t Warm Tier Seg Size          : %d\n"
-            "\t Warm Tier Vol Num           : %d",
-            sbResWarmTier_.segment_size, sbResWarmTier_.volume_num);
+void MediumTier::printDeviceTopologyInfo() {
+    __INFO( "\n\t Medium Tier Infomation:\n"
+            "\t Medium Tier Seg Size          : %d\n"
+            "\t Medium Tier Vol Num           : %d",
+            sbResMediumTier_.segment_size, sbResMediumTier_.volume_num);
 
     for (uint32_t i = 0 ; i < volNum_; i++) {
-        __INFO("\n\t Warm Tier Volume[%d] : dev_path = %s, segment_num = %d, cur_seg_id = %d",
-                i, sbResWarmTierVolVec_[i].dev_path,
-                sbResWarmTierVolVec_[i].segment_num,
-                sbResWarmTierVolVec_[i].cur_seg_id);
+        __INFO("\n\t Medium Tier Volume[%d] : dev_path = %s, segment_num = %d, cur_seg_id = %d",
+                i, sbResMediumTierVolVec_[i].dev_path,
+                sbResMediumTierVolVec_[i].segment_num,
+                sbResMediumTierVolVec_[i].cur_seg_id);
     }
 }
 
-void WarmTier::printDynamicInfo() {
+void MediumTier::printDynamicInfo() {
 }
 
-bool WarmTier::GetSBReservedContent(char* buf, uint64_t length) {
-    uint32_t except_length = sizeof(MultiTierDS_SB_Reserved_WarmTier_Header) +
-                            volNum_ * sizeof(MultiTierDS_SB_Reserved_WarmTier_Volume);
+bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
+    uint32_t except_length = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) +
+                            volNum_ * sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
     if (length != except_length) {
         return false;
     }
@@ -561,76 +561,76 @@ bool WarmTier::GetSBReservedContent(char* buf, uint64_t length) {
     updateAllVolSBRes();
 
     char* buf_ptr = buf;
-    uint64_t warm_tier_size = sizeof(MultiTierDS_SB_Reserved_WarmTier_Header);
-    memcpy((void*)buf, (const void *)&sbResWarmTier_, warm_tier_size);
-    __DEBUG("MultiTierDS_SB_Reserved_WarmTier_Header: segment_size = %d, volume_num = %d",
-            sbResWarmTier_.segment_size, sbResWarmTier_.volume_num);
-    buf_ptr += warm_tier_size;
+    uint64_t medium_tier_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
+    memcpy((void*)buf, (const void *)&sbResMediumTier_, medium_tier_size);
+    __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Header: segment_size = %d, volume_num = %d",
+            sbResMediumTier_.segment_size, sbResMediumTier_.volume_num);
+    buf_ptr += medium_tier_size;
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_WarmTier_Volume);
+    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
     for (uint32_t i = 0; i < volNum_; i++) {
-        memcpy((void*)buf_ptr, (const void*)&sbResWarmTierVolVec_[i], sb_res_vol_size);
+        memcpy((void*)buf_ptr, (const void*)&sbResMediumTierVolVec_[i], sb_res_vol_size);
         buf_ptr += sb_res_vol_size;
-        __DEBUG("MultiTierDS_SB_Reserved_WarmTier_Volume[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
-            i, sbResWarmTierVolVec_[i].dev_path, sbResWarmTierVolVec_[i].segment_num,
-            sbResWarmTierVolVec_[i].cur_seg_id);
+        __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Volume[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
+            i, sbResMediumTierVolVec_[i].dev_path, sbResMediumTierVolVec_[i].segment_num,
+            sbResMediumTierVolVec_[i].cur_seg_id);
 
     }
     return true;
 }
 
-bool WarmTier::SetSBReservedContent(char* buf, uint64_t length) {
+bool MediumTier::SetSBReservedContent(char* buf, uint64_t length) {
     char* buf_ptr = buf;
-    uint64_t warm_tier_size = sizeof(MultiTierDS_SB_Reserved_WarmTier_Header);
-    memcpy((void*)&sbResWarmTier_, (const void *)buf_ptr, warm_tier_size);
-    __DEBUG("MultiTierDS_SB_Reserved_WarmTier_Header: segment_size = %d, volume_num = %d",
-            sbResWarmTier_.segment_size, sbResWarmTier_.volume_num);
-    buf_ptr += warm_tier_size;
+    uint64_t medium_tier_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
+    memcpy((void*)&sbResMediumTier_, (const void *)buf_ptr, medium_tier_size);
+    __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Header: segment_size = %d, volume_num = %d",
+            sbResMediumTier_.segment_size, sbResMediumTier_.volume_num);
+    buf_ptr += medium_tier_size;
 
-    uint64_t except_length = sizeof(MultiTierDS_SB_Reserved_WarmTier_Header) +
-                            sbResWarmTier_.volume_num * sizeof(MultiTierDS_SB_Reserved_WarmTier_Volume);
+    uint64_t except_length = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) +
+                            sbResMediumTier_.volume_num * sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
     if (length != except_length) {
         __INFO("!!!!!length = %ld, except_length = %ld, volNum_ = %d", length, except_length, volNum_);
         return false;
     }
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_WarmTier_Volume);
-    for (uint32_t i = 0; i < sbResWarmTier_.volume_num; i++) {
-        MultiTierDS_SB_Reserved_WarmTier_Volume sb_res_vol;
+    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Volume);
+    for (uint32_t i = 0; i < sbResMediumTier_.volume_num; i++) {
+        MultiTierDS_SB_Reserved_MediumTier_Volume sb_res_vol;
         memcpy((void*)&sb_res_vol, (const void*)buf_ptr, sb_res_vol_size);
-        sbResWarmTierVolVec_.push_back(sb_res_vol);
+        sbResMediumTierVolVec_.push_back(sb_res_vol);
         buf_ptr += sb_res_vol_size;
-        __DEBUG("MultiTierDS_SB_Reserved_WarmTier_Volume[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
-            i, sbResWarmTierVolVec_[i].dev_path, sbResWarmTierVolVec_[i].segment_num,
-            sbResWarmTierVolVec_[i].cur_seg_id);
+        __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Volume[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
+            i, sbResMediumTierVolVec_[i].dev_path, sbResMediumTierVolVec_[i].segment_num,
+            sbResMediumTierVolVec_[i].cur_seg_id);
     }
     return true;
 }
 
-void WarmTier::initSBReservedContentForCreate() {
-    sbResWarmTier_.segment_size = segSize_;
-    sbResWarmTier_.volume_num = volNum_;
+void MediumTier::initSBReservedContentForCreate() {
+    sbResMediumTier_.segment_size = segSize_;
+    sbResMediumTier_.volume_num = volNum_;
     for (uint32_t i = 0; i < volNum_; i++) {
-        MultiTierDS_SB_Reserved_WarmTier_Volume sb_res_vol;
+        MultiTierDS_SB_Reserved_MediumTier_Volume sb_res_vol;
         string dev_path = volMap_[i]->GetDevicePath();
         memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
         sb_res_vol.segment_num = volMap_[i]->GetNumberOfSeg();
         sb_res_vol.cur_seg_id = volMap_[i]->GetCurSegId();
-        sbResWarmTierVolVec_.push_back(sb_res_vol);
+        sbResMediumTierVolVec_.push_back(sb_res_vol);
     }
 }
 
-void WarmTier::updateAllVolSBRes() {
+void MediumTier::updateAllVolSBRes() {
     for (uint32_t i = 0; i < volNum_; i++) {
         uint32_t cur_id = volMap_[i]->GetCurSegId();
-        sbResWarmTierVolVec_[i].cur_seg_id = cur_id;
+        sbResMediumTierVolVec_[i].cur_seg_id = cur_id;
     }
 
 }
 
-bool WarmTier::GetSST(char* buf, uint64_t length) {
+bool MediumTier::GetSST(char* buf, uint64_t length) {
     char* buf_ptr = buf;
     for (uint32_t i = 0; i < volNum_; i++) {
         uint64_t vol_sst_length = volMap_[i]->GetSSTLength();
@@ -643,7 +643,7 @@ bool WarmTier::GetSST(char* buf, uint64_t length) {
     return true;
 }
 
-bool WarmTier::SetSST(char* buf, uint64_t length) {
+bool MediumTier::SetSST(char* buf, uint64_t length) {
     char* buf_ptr = buf;
     for (uint32_t i = 0; i < volNum_; i++) {
         uint64_t vol_sst_length = volMap_[i]->GetSSTLength();
@@ -655,7 +655,7 @@ bool WarmTier::SetSST(char* buf, uint64_t length) {
     return true;
 }
 
-bool WarmTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
     segSize_ = options_.secondary_seg_size;
     volNum_ = bd_vec.size() - fast_tier_device_num;
 
@@ -672,10 +672,10 @@ bool WarmTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_dev
     return true;
 }
 
-//bool WarmTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int bd_cursor, uint32_t bd_num, uint32_t seg_size, std::vector<DS_MultiTier_Impl::MultiTierDS_SB_Reserved_Volume> &sb_res_vol_vec) {
-bool WarmTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
-    segSize_ = sbResWarmTier_.segment_size;
-    volNum_ = sbResWarmTier_.volume_num;
+//bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int bd_cursor, uint32_t bd_num, uint32_t seg_size, std::vector<DS_MultiTier_Impl::MultiTierDS_SB_Reserved_Volume> &sb_res_vol_vec) {
+bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+    segSize_ = sbResMediumTier_.segment_size;
+    volNum_ = sbResMediumTier_.volume_num;
 
     if (!verifyTopology(bd_vec, fast_tier_device_num)) {
         __ERROR("TheDevice Topology is inconsistent");
@@ -684,8 +684,8 @@ bool WarmTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_devic
 
     for (uint32_t i = 0; i < volNum_; i++) {
         BlockDevice *bdev = bd_vec[i + fast_tier_device_num];
-        uint32_t seg_num = sbResWarmTierVolVec_[i].segment_num;
-        uint32_t cur_seg_id = sbResWarmTierVolVec_[i].cur_seg_id;
+        uint32_t seg_num = sbResMediumTierVolVec_[i].segment_num;
+        uint32_t cur_seg_id = sbResMediumTierVolVec_[i].cur_seg_id;
         Volume *vol = new Volume(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, cur_seg_id);
         volMap_.insert( pair<int, Volume*>(i, vol) );
         segTotalNum_ += seg_num;
@@ -693,16 +693,16 @@ bool WarmTier::OpenVolume(std::vector<BlockDevice*> &bd_vec, int fast_tier_devic
     return true;
 }
 
-bool WarmTier::verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
-    // Verify WarmTier Volume Number
+bool MediumTier::verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_device_num) {
+    // Verify MediumTier Volume Number
     if (volNum_ != bd_vec.size() - fast_tier_device_num) {
-        __ERROR("record WarmTierVolNum_ = %d, total block device number: %d", volNum_, (int)bd_vec.size() );
+        __ERROR("record MediumTierVolNum_ = %d, total block device number: %d", volNum_, (int)bd_vec.size() );
         return false;
     }
 
-    // Verify WarmTier every Volume
+    // Verify MediumTier every Volume
     for (uint32_t i = 0; i < volNum_; i++) {
-        string record_path = string(sbResWarmTierVolVec_[i].dev_path);
+        string record_path = string(sbResMediumTierVolVec_[i].dev_path);
         string device_path = bd_vec[i+ fast_tier_device_num]->GetDevicePath();
         if (record_path != device_path) {
             __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
@@ -714,7 +714,7 @@ bool WarmTier::verifyTopology(std::vector<BlockDevice*> &bd_vec, int fast_tier_d
 
 }
 
-uint32_t WarmTier::GetTotalFreeSegs() {
+uint32_t MediumTier::GetTotalFreeSegs() {
     uint32_t free_num = 0;
     for (uint32_t i = 0; i < volNum_; i++) {
         free_num += volMap_[i]->GetTotalFreeSegs();
@@ -722,24 +722,24 @@ uint32_t WarmTier::GetTotalFreeSegs() {
     return free_num;
 }
 
-uint32_t WarmTier::GetTotalUsedSegs() {
+uint32_t MediumTier::GetTotalUsedSegs() {
     uint32_t used_num = 0;
     for (uint32_t i = 0; i < volNum_; i++) {
         used_num += volMap_[i]->GetTotalUsedSegs();
     }
     return used_num;
 }
-std::string WarmTier::GetDevicePath(uint32_t index) {
+std::string MediumTier::GetDevicePath(uint32_t index) {
     return volMap_[index]->GetDevicePath();
 }
-uint32_t WarmTier::GetSegNum(uint32_t index) {
+uint32_t MediumTier::GetSegNum(uint32_t index) {
     return volMap_[index]->GetNumberOfSeg();
 }
-uint32_t WarmTier::GetCurSegId(uint32_t index) {
+uint32_t MediumTier::GetCurSegId(uint32_t index) {
     return volMap_[index]->GetCurSegId();
 }
 
-uint64_t WarmTier::GetSSTLength() {
+uint64_t MediumTier::GetSSTLength() {
     uint64_t length = 0;
     for (uint32_t i = 0; i < volNum_; i++) {
         length += volMap_[i]->GetSSTLength();
@@ -747,10 +747,10 @@ uint64_t WarmTier::GetSSTLength() {
     return length;
 }
 
-void WarmTier::ModifyDeathEntry(HashEntry &entry) {
+void MediumTier::ModifyDeathEntry(HashEntry &entry) {
 }
 
-void WarmTier::deleteAllVolume() {
+void MediumTier::deleteAllVolume() {
     map<int, Volume *>::iterator iter;
     for (iter = volMap_.begin(); iter != volMap_.end(); ) {
         Volume *vol = iter->second;
@@ -761,7 +761,7 @@ void WarmTier::deleteAllVolume() {
 }
 
 
-uint32_t WarmTier::calcSegNumForVolume(uint64_t capacity, uint32_t seg_size) {
+uint32_t MediumTier::calcSegNumForVolume(uint64_t capacity, uint32_t seg_size) {
     return capacity / seg_size;
 }
 
