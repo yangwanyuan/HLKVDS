@@ -63,7 +63,7 @@ public:
 
     // Called by Kvdb_Impl
     int GetDataStorType() override { return 0; }
-    void CreateAllSegments() override;
+    void InitSegmentBuffer() override;
     void StartThds() override;
     void StopThds() override;
 
@@ -83,8 +83,8 @@ public:
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
-    bool CreateAllVolumes(uint64_t sst_offset) override;
-    bool OpenAllVolumes() override;
+    bool CreateAllComponents(uint64_t sst_offset) override;
+    bool OpenAllComponents() override;
 
     uint32_t GetTotalSegNum() override {
         return segTotalNum_;

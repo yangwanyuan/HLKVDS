@@ -15,19 +15,19 @@ namespace hlkvds {
 
 DS_MultiTier_Impl::DS_MultiTier_Impl(Options& opts, vector<BlockDevice*> &dev_vec,
                             SuperBlockManager* sb, IndexManager* idx) :
-        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx),
-        segTotalNum_(0), sstLengthOnDisk_(0), maxValueLen_(0) {
+        options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx) {
     ft_ = new FastTier(options_, sbMgr_, idxMgr_);
     mt_ = new MediumTier(options_, sbMgr_, idxMgr_);
     lastTime_ = new KVTime();
 }
 
 DS_MultiTier_Impl::~DS_MultiTier_Impl() {
-    deleteAllVolumes();
+    delete ft_;
+    delete mt_;
     delete lastTime_;
 }
 
-void DS_MultiTier_Impl::CreateAllSegments() {
+void DS_MultiTier_Impl::InitSegmentBuffer() {
     ft_->CreateAllSegments();
 }
 
@@ -51,7 +51,8 @@ void DS_MultiTier_Impl::printDynamicInfo() {
     __INFO("\n\t DS_MultiTier_Impl Dynamic information: \n"
             "\t Request Queue Size          : %d\n"
             "\t Segment Write Queue Size    : %d\n",
-            getReqQueSize(), getSegWriteQueSize());
+            ft_->getReqQueSize(),
+            ft_->getSegWriteQueSize());
 }
 
 Status DS_MultiTier_Impl::WriteData(KVSlice& slice) {
@@ -63,6 +64,7 @@ Status DS_MultiTier_Impl::WriteBatchData(WriteBatch *batch) {
 }
 
 Status DS_MultiTier_Impl::ReadData(KVSlice &slice, std::string &data) {
+    //TODO: find location.
     return ft_->ReadData(slice, data);
 }
 
@@ -187,29 +189,27 @@ bool DS_MultiTier_Impl::SetAllSSTs(char* buf, uint64_t length) {
     return true;
 }
 
-bool DS_MultiTier_Impl::CreateAllVolumes(uint64_t sst_offset) {
+bool DS_MultiTier_Impl::CreateAllComponents(uint64_t sst_offset) {
     bool ret;
     ret = mt_->CreateVolume(bdVec_);
     if (!ret) {
         return false;
     }
-    uint32_t medTierSegTotalNum_ = mt_->GetSegTotalNum();
 
-    ret = ft_->CreateVolume(bdVec_, sst_offset, medTierSegTotalNum_);
+    uint32_t mt_seg_num = mt_->GetSegTotalNum();
+    ret = ft_->CreateVolume(bdVec_, sst_offset, mt_seg_num);
     if (!ret) {
         return false;
     }
 
-    initSBReservedContentForCreate();
-
-    segTotalNum_ = medTierSegTotalNum_ + ft_->GetSegNum();
-    sstLengthOnDisk_ = ft_->GetSSTLengthOnDisk();
-    maxValueLen_ = ft_->GetMaxValueLen();
+    // init SB Reserved Header For Create
+    sbResHeader_.sb_reserved_fast_tier_size = ft_->GetSbReservedSize();
+    sbResHeader_.sb_reserved_medium_tier_size = mt_->GetSbReservedSize();
 
     return true;
 }
 
-bool DS_MultiTier_Impl::OpenAllVolumes() {
+bool DS_MultiTier_Impl::OpenAllComponents() {
     bool ret;
 
     ret = ft_->OpenVolume(bdVec_);
@@ -223,46 +223,64 @@ bool DS_MultiTier_Impl::OpenAllVolumes() {
         return false;
     }
 
-    segTotalNum_ = mt_->GetSegTotalNum() + ft_->GetSegNum();
-    sstLengthOnDisk_ = ft_->GetSSTLengthOnDisk();
-    maxValueLen_ = ft_->GetMaxValueLen();
-
     return true;
 }
 
+uint32_t DS_MultiTier_Impl::GetTotalSegNum() {
+    return ft_->GetSegNum() + mt_->GetSegTotalNum();
+}
+
+uint64_t DS_MultiTier_Impl::GetSSTsLengthOnDisk() {
+    return ft_->GetSSTLengthOnDisk();
+}
+
 void DS_MultiTier_Impl::ModifyDeathEntry(HashEntry &entry) {
+    //TODO: find location
     return ft_->ModifyDeathEntry(entry);
 }
 
 std::string DS_MultiTier_Impl::GetKeyByHashEntry(HashEntry *entry) {
+    //TODO: find location
     return ft_->GetKeyByHashEntry(entry);
 }
 
 std::string DS_MultiTier_Impl::GetValueByHashEntry(HashEntry *entry) {
+    //TODO: find location
     return ft_->GetValueByHashEntry(entry);
 }
 
-void DS_MultiTier_Impl::deleteAllVolumes() {
-    delete ft_;
-    delete mt_;
+uint64_t DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
+    uint64_t sst_pure_length = sizeof(SegmentStat) * seg_num;
+    uint64_t sst_length = sst_pure_length + sizeof(time_t);
+    uint64_t sst_pages = sst_length / getpagesize();
+    sst_length = (sst_pages + 1) * getpagesize();
+    return sst_length;
 }
 
-void DS_MultiTier_Impl::initSBReservedContentForCreate() {
-    sbResHeader_.sb_reserved_fast_tier_size = ft_->GetSbReservedSize();
-    sbResHeader_.sb_reserved_medium_tier_size = mt_->GetSbReservedSize();
+uint32_t DS_MultiTier_Impl::CalcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fast_tier_seg_size, uint32_t med_tier_seg_num) {
+    uint64_t valid_capacity = capacity - sst_offset;
+    uint32_t seg_num_candidate = valid_capacity / fast_tier_seg_size;
+
+    uint32_t seg_num_total = seg_num_candidate + med_tier_seg_num;
+    uint64_t sst_length = DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum( seg_num_total );
+
+    uint32_t seg_size_bit = log2(fast_tier_seg_size);
+
+    while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
+         seg_num_candidate--;
+         seg_num_total = seg_num_candidate + med_tier_seg_num;
+         sst_length = DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum( seg_num_total );
+    }
+    return seg_num_candidate;
+}
+
+uint32_t DS_MultiTier_Impl::CalcSegNumForMediumTierVolume(uint64_t capacity, uint32_t seg_size) {
+    return capacity / seg_size;
 }
 
 uint32_t DS_MultiTier_Impl::getTotalFreeSegs() {
     uint32_t free_num = ft_->GetTotalFreeSegs() + mt_->GetTotalFreeSegs();
     return free_num;
-}
-
-uint32_t DS_MultiTier_Impl::getReqQueSize() {
-    return ft_->getReqQueSize();
-}
-
-uint32_t DS_MultiTier_Impl::getSegWriteQueSize() {
-    return ft_->getSegWriteQueSize();
 }
 
 } // namespace hlkvds

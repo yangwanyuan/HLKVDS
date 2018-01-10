@@ -55,7 +55,7 @@ public:
 
     // Called by Kvdb_Impl
     int GetDataStorType() override { return 1; }
-    void CreateAllSegments() override;
+    void InitSegmentBuffer() override;
     void StartThds() override;
     void StopThds() override;
 
@@ -75,16 +75,11 @@ public:
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
-    bool CreateAllVolumes(uint64_t sst_offset) override;
-    bool OpenAllVolumes() override;
+    bool CreateAllComponents(uint64_t sst_offset) override;
+    bool OpenAllComponents() override;
 
-    uint32_t GetTotalSegNum() override {
-        return segTotalNum_;
-    }
-
-    uint64_t GetSSTsLengthOnDisk() override {
-        return sstLengthOnDisk_;
-    }
+    uint32_t GetTotalSegNum() override;
+    uint64_t GetSSTsLengthOnDisk() override;
 
     // Called by IndexManager
     void ModifyDeathEntry(HashEntry &entry) override;
@@ -93,6 +88,9 @@ public:
     std::string GetKeyByHashEntry(HashEntry *entry) override;
     std::string GetValueByHashEntry(HashEntry *entry) override;
 
+    static uint64_t CalcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
+    static uint32_t CalcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fast_tier_seg_size, uint32_t med_tier_seg_num);
+    static uint32_t CalcSegNumForMediumTierVolume(uint64_t capacity, uint32_t seg_size);
 
 private:
     Options &options_;
@@ -105,21 +103,10 @@ private:
     FastTier *ft_;
     MediumTier *mt_;
 
-    uint32_t segTotalNum_;
-    uint64_t sstLengthOnDisk_;
-
     KVTime* lastTime_;
-
-    uint32_t maxValueLen_;
 
 private:
     uint32_t getTotalFreeSegs();
-    uint32_t getReqQueSize();
-    uint32_t getSegWriteQueSize();
-
-    void deleteAllVolumes();
-
-    void initSBReservedContentForCreate();
 
 };    
 

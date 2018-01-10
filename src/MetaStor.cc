@@ -350,7 +350,7 @@ bool MetaStor::PersistIndexToDevice() {
 }
 
 bool MetaStor::createDataStor() {
-    if (!dataStor_->CreateAllVolumes(sstOff_)) {
+    if (!dataStor_->CreateAllComponents(sstOff_)) {
         __ERROR("Can't Create DataStore");
         return false;
     }
@@ -384,7 +384,7 @@ bool MetaStor::loadDataStor() {
     }
     delete[] reserved_content;
 
-    if (!dataStor_->OpenAllVolumes()) {
+    if (!dataStor_->OpenAllComponents()) {
         __ERROR("Could not Open All Volumes, Maybe device topology is inconsistent");
         return false;
     }

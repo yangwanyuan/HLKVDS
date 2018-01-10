@@ -26,7 +26,7 @@ DS_MultiVolume_Impl::~DS_MultiVolume_Impl() {
     delete lastTime_;
 }
 
-void DS_MultiVolume_Impl::CreateAllSegments() {
+void DS_MultiVolume_Impl::InitSegmentBuffer() {
     std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
     for (int i = 0; i < shardsNum_; i++) {
         int vol_id = pickVol();
@@ -305,7 +305,7 @@ bool DS_MultiVolume_Impl::SetAllSSTs(char* buf, uint64_t length) {
     return true;
 }
 
-bool DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset) {
+bool DS_MultiVolume_Impl::CreateAllComponents(uint64_t sst_offset) {
     segSize_ = options_.segment_size;
 
     uint32_t align_bit = log2(ALIGNED_SIZE);
@@ -344,7 +344,7 @@ bool DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset) {
     return true;
 }
 
-bool DS_MultiVolume_Impl::OpenAllVolumes() {
+bool DS_MultiVolume_Impl::OpenAllComponents() {
     volNum_ = sbResHeader_.volume_num;
     segSize_ = sbResHeader_.segment_size;
     maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();

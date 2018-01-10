@@ -17,6 +17,9 @@
 
 namespace hlkvds {
 
+static const int FastTierVolId = 100;
+static const int FastTierVolNum = 1;
+
 class DataStor;
 
 class KVSlice;
@@ -93,8 +96,6 @@ public:
 
     uint32_t getReqQueSize();
     uint32_t getSegWriteQueSize();
-
-    static int GetVolNum() { return 1; }
 
     // Called by IndexManager
     void ModifyDeathEntry(HashEntry &entry);
@@ -215,7 +216,6 @@ public:
     MediumTier(Options& opts, SuperBlockManager* sb, IndexManager* idx);
     ~MediumTier();
 
-    void CreateAllSegments();
     void StartThds();
     void StopThds();
 

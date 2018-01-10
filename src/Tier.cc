@@ -1,4 +1,3 @@
-#include <math.h>
 #include "Tier.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -6,10 +5,12 @@
 #include "IndexManager.h"
 #include "Volume.h"
 #include "SegmentManager.h"
+#include "DS_MultiTier_Impl.h"
 
 using namespace std;
 
 namespace hlkvds {
+
 Tier::Tier() {
 }
 
@@ -230,15 +231,15 @@ bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offs
     bdev_ = bd_vec[0];
     segSize_ = options_.segment_size;
     uint64_t device_capacity = bdev_->GetDeviceCapacity();
-    uint32_t seg_num = calcSegNumForFastTierVolume(device_capacity, sst_offset, segSize_, medium_tier_total_seg_num);
+    uint32_t seg_num = DS_MultiTier_Impl::CalcSegNumForFastTierVolume(device_capacity, sst_offset, segSize_, medium_tier_total_seg_num);
     segNum_ = seg_num;
     maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
     uint32_t seg_total_num = segNum_ + medium_tier_total_seg_num;
-    sstLengthOnDisk_ = calcSSTsLengthOnDiskBySegNum(seg_total_num);
+    sstLengthOnDisk_ = DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum(seg_total_num);
 
     uint64_t start_off = sst_offset + sstLengthOnDisk_;
-    vol_ = new Volume(bdev_, idxMgr_, options_, 100, start_off, segSize_, segNum_, 0);
+    vol_ = new Volume(bdev_, idxMgr_, options_, hlkvds::FastTierVolId, start_off, segSize_, segNum_, 0);
 
     initSBReservedContentForCreate();
     return true;
@@ -258,7 +259,7 @@ bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
 
     uint32_t cur_id = sbResFastTier_.cur_seg_id;
     uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sbMgr_->GetSSTRegionLength();
-    vol_ = new Volume(bdev_, idxMgr_, options_, 100, start_off, segSize_, segNum_, cur_id);
+    vol_ = new Volume(bdev_, idxMgr_, options_, hlkvds::FastTierVolId, start_off, segSize_, segNum_, cur_id);
     return true;
 }
 
@@ -391,31 +392,6 @@ int FastTier::calcShardId(KVSlice& slice) {
     return KeyDigestHandle::Hash(&slice.GetDigest()) % shardsNum_;
 }
 
-uint64_t FastTier::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
-    uint64_t sst_pure_length = sizeof(SegmentStat) * seg_num;
-    uint64_t sst_length = sst_pure_length + sizeof(time_t);
-    uint64_t sst_pages = sst_length / getpagesize();
-    sst_length = (sst_pages + 1) * getpagesize();
-    return sst_length;
-}
-
-uint32_t FastTier::calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fast_tier_seg_size, uint32_t med_tier_seg_num) {
-    uint64_t valid_capacity = capacity - sst_offset;
-    uint32_t seg_num_candidate = valid_capacity / fast_tier_seg_size;
-
-    uint32_t seg_num_total = seg_num_candidate + med_tier_seg_num;
-    uint64_t sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
-
-    uint32_t seg_size_bit = log2(fast_tier_seg_size);
-
-    while( sst_length + ((uint64_t) seg_num_candidate << seg_size_bit) > valid_capacity) {
-         seg_num_candidate--;
-         seg_num_total = seg_num_candidate + med_tier_seg_num;
-         sst_length = calcSSTsLengthOnDiskBySegNum( seg_num_total );
-    }
-    return seg_num_candidate;
-}
-
 void FastTier::ReqMerge(Request* req) {
     int shard_id = req->GetShardsWQId();
 
@@ -510,9 +486,6 @@ MediumTier::~MediumTier() {
     deleteAllVolume();
 }
 
-void MediumTier::CreateAllSegments() {
-}
-
 void MediumTier::StartThds() {
     for (uint32_t i = 0; i < volNum_; i++) {
         volMap_[i]->StartThds();
@@ -552,17 +525,17 @@ bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
     updateAllVolSBRes();
 
     char* buf_ptr = buf;
-    uint64_t medium_tier_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
-    memcpy((void*)buf, (const void *)&sbResMediumTierHeader_, medium_tier_size);
+    uint64_t medium_tier_header_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
+    memcpy((void*)buf, (const void *)&sbResMediumTierHeader_, medium_tier_header_size);
     __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Header: segment_size = %d, volume_num = %d",
             sbResMediumTierHeader_.segment_size, sbResMediumTierHeader_.volume_num);
-    buf_ptr += medium_tier_size;
+    buf_ptr += medium_tier_header_size;
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
+    uint64_t sb_res_item_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
     for (uint32_t i = 0; i < volNum_; i++) {
-        memcpy((void*)buf_ptr, (const void*)&sbResMediumTierVolVec_[i], sb_res_vol_size);
-        buf_ptr += sb_res_vol_size;
+        memcpy((void*)buf_ptr, (const void*)&sbResMediumTierVolVec_[i], sb_res_item_size);
+        buf_ptr += sb_res_item_size;
         __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Content[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
             i, sbResMediumTierVolVec_[i].dev_path, sbResMediumTierVolVec_[i].segment_num,
             sbResMediumTierVolVec_[i].cur_seg_id);
@@ -573,11 +546,11 @@ bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
 
 bool MediumTier::SetSBReservedContent(char* buf, uint64_t length) {
     char* buf_ptr = buf;
-    uint64_t medium_tier_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
-    memcpy((void*)&sbResMediumTierHeader_, (const void *)buf_ptr, medium_tier_size);
+    uint64_t medium_tier_header_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header);
+    memcpy((void*)&sbResMediumTierHeader_, (const void *)buf_ptr, medium_tier_header_size);
     __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Header: segment_size = %d, volume_num = %d",
             sbResMediumTierHeader_.segment_size, sbResMediumTierHeader_.volume_num);
-    buf_ptr += medium_tier_size;
+    buf_ptr += medium_tier_header_size;
 
     uint64_t except_length = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) +
                             sbResMediumTierHeader_.volume_num * sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
@@ -587,12 +560,12 @@ bool MediumTier::SetSBReservedContent(char* buf, uint64_t length) {
     }
 
     //Get sbResVolVec_
-    uint64_t sb_res_vol_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
+    uint64_t sb_res_item_size = sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
     for (uint32_t i = 0; i < sbResMediumTierHeader_.volume_num; i++) {
-        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_vol;
-        memcpy((void*)&sb_res_vol, (const void*)buf_ptr, sb_res_vol_size);
-        sbResMediumTierVolVec_.push_back(sb_res_vol);
-        buf_ptr += sb_res_vol_size;
+        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_item;
+        memcpy((void*)&sb_res_item, (const void*)buf_ptr, sb_res_item_size);
+        sbResMediumTierVolVec_.push_back(sb_res_item);
+        buf_ptr += sb_res_item_size;
         __DEBUG("MultiTierDS_SB_Reserved_MediumTier_Content[%d]: device_path = %s, segment_num = %d, current_seg_id = %d",
             i, sbResMediumTierVolVec_[i].dev_path, sbResMediumTierVolVec_[i].segment_num,
             sbResMediumTierVolVec_[i].cur_seg_id);
@@ -604,12 +577,12 @@ void MediumTier::initSBReservedContentForCreate() {
     sbResMediumTierHeader_.segment_size = segSize_;
     sbResMediumTierHeader_.volume_num = volNum_;
     for (uint32_t i = 0; i < volNum_; i++) {
-        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_vol;
+        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_item;
         string dev_path = volMap_[i]->GetDevicePath();
-        memcpy((void*)&sb_res_vol.dev_path, (const void*)dev_path.c_str(), dev_path.size());
-        sb_res_vol.segment_num = volMap_[i]->GetNumberOfSeg();
-        sb_res_vol.cur_seg_id = volMap_[i]->GetCurSegId();
-        sbResMediumTierVolVec_.push_back(sb_res_vol);
+        memcpy((void*)&sb_res_item.dev_path, (const void*)dev_path.c_str(), dev_path.size());
+        sb_res_item.segment_num = volMap_[i]->GetNumberOfSeg();
+        sb_res_item.cur_seg_id = volMap_[i]->GetCurSegId();
+        sbResMediumTierVolVec_.push_back(sb_res_item);
     }
 }
 
@@ -647,7 +620,7 @@ bool MediumTier::SetSST(char* buf, uint64_t length) {
 }
 
 bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec) {
-    int fast_tier_device_num = FastTier::GetVolNum();
+    int fast_tier_device_num = hlkvds::FastTierVolNum;
 
     segSize_ = options_.secondary_seg_size;
     volNum_ = bd_vec.size() - fast_tier_device_num;
@@ -655,7 +628,7 @@ bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec) {
     for (uint32_t i = 0; i < volNum_; i++ ) {
         BlockDevice *bdev = bd_vec[i + fast_tier_device_num];
         uint64_t device_capacity = bdev->GetDeviceCapacity();
-        uint32_t seg_num = calcSegNumForVolume(device_capacity, segSize_);
+        uint32_t seg_num = DS_MultiTier_Impl::CalcSegNumForMediumTierVolume(device_capacity, segSize_);
         Volume *vol = new Volume(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, 0);
         volMap_.insert( pair<int, Volume*>(i, vol) );
         segTotalNum_ += seg_num;
@@ -666,7 +639,7 @@ bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec) {
 }
 
 bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
-    int fast_tier_device_num = FastTier::GetVolNum();
+    int fast_tier_device_num = hlkvds::FastTierVolNum;
 
     segSize_ = sbResMediumTierHeader_.segment_size;
     volNum_ = sbResMediumTierHeader_.volume_num;
@@ -688,7 +661,7 @@ bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
 }
 
 bool MediumTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
-    int fast_tier_device_num = FastTier::GetVolNum();
+    int fast_tier_device_num = hlkvds::FastTierVolNum;
 
     // Verify MediumTier Volume Number
     if (volNum_ != bd_vec.size() - fast_tier_device_num) {
@@ -754,11 +727,6 @@ void MediumTier::deleteAllVolume() {
         volMap_.erase(iter++);
     }
 
-}
-
-
-uint32_t MediumTier::calcSegNumForVolume(uint64_t capacity, uint32_t seg_size) {
-    return capacity / seg_size;
 }
 
 }// namespace hlkvds

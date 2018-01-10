@@ -48,7 +48,7 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     __INFO("\nCreate KVDS Success!!!");
     kvds->printDbStates();
 
-    kvds->dataStor_->CreateAllSegments();
+    kvds->dataStor_->InitSegmentBuffer();
     kvds->startThds();
 
     kvds->isOpen_ = true;
@@ -108,7 +108,7 @@ Status KVDS::openDB() {
     __INFO("\nOpen KVDS Success!!!");
     printDbStates();
 
-    dataStor_->CreateAllSegments();
+    dataStor_->InitSegmentBuffer();
     startThds();
     return Status::OK();
 }
