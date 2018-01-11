@@ -34,6 +34,11 @@ class MediumTier;
 
 class DS_MultiTier_Impl : public DataStor {
 public:
+    enum TierType {
+        FastTierType = 0,
+        MediumTierType
+    };
+
     class MultiTierDS_SB_Reserved_Header {
     public:
         uint32_t sb_reserved_fast_tier_size;
@@ -107,6 +112,7 @@ private:
 
 private:
     uint32_t getTotalFreeSegs();
+    TierType locateTierFromEntry(HashEntry *entry);
 
 };    
 

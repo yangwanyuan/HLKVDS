@@ -64,8 +64,14 @@ Status DS_MultiTier_Impl::WriteBatchData(WriteBatch *batch) {
 }
 
 Status DS_MultiTier_Impl::ReadData(KVSlice &slice, std::string &data) {
-    //TODO: find location.
-    return ft_->ReadData(slice, data);
+    HashEntry *entry;
+    entry = &slice.GetHashEntry();
+
+    TierType tier_type = locateTierFromEntry(entry);
+    if (tier_type == TierType::FastTierType) {
+        return ft_->ReadData(slice, data);
+    }
+    return mt_->ReadData(slice, data);
 }
 
 void DS_MultiTier_Impl::ManualGC() {
@@ -196,7 +202,7 @@ bool DS_MultiTier_Impl::CreateAllComponents(uint64_t sst_offset) {
         return false;
     }
 
-    uint32_t mt_seg_num = mt_->GetSegTotalNum();
+    uint32_t mt_seg_num = mt_->GetTotalSegNum();
     ret = ft_->CreateVolume(bdVec_, sst_offset, mt_seg_num);
     if (!ret) {
         return false;
@@ -227,7 +233,7 @@ bool DS_MultiTier_Impl::OpenAllComponents() {
 }
 
 uint32_t DS_MultiTier_Impl::GetTotalSegNum() {
-    return ft_->GetSegNum() + mt_->GetSegTotalNum();
+    return ft_->GetTotalSegNum() + mt_->GetTotalSegNum();
 }
 
 uint64_t DS_MultiTier_Impl::GetSSTsLengthOnDisk() {
@@ -235,18 +241,28 @@ uint64_t DS_MultiTier_Impl::GetSSTsLengthOnDisk() {
 }
 
 void DS_MultiTier_Impl::ModifyDeathEntry(HashEntry &entry) {
-    //TODO: find location
-    return ft_->ModifyDeathEntry(entry);
+    TierType tier_type = locateTierFromEntry(&entry);
+    if (tier_type == TierType::FastTierType) {
+        return ft_->ModifyDeathEntry(entry);
+    }
+    return mt_->ModifyDeathEntry(entry);
 }
 
 std::string DS_MultiTier_Impl::GetKeyByHashEntry(HashEntry *entry) {
-    //TODO: find location
-    return ft_->GetKeyByHashEntry(entry);
+    TierType tier_type = locateTierFromEntry(entry);
+    if (tier_type == TierType::FastTierType) {
+        return ft_->GetKeyByHashEntry(entry);
+    }
+    return mt_->GetKeyByHashEntry(entry);
 }
 
 std::string DS_MultiTier_Impl::GetValueByHashEntry(HashEntry *entry) {
     //TODO: find location
-    return ft_->GetValueByHashEntry(entry);
+    TierType tier_type = locateTierFromEntry(entry);
+    if (tier_type == TierType::FastTierType) {
+        return ft_->GetValueByHashEntry(entry);
+    }
+    return mt_->GetValueByHashEntry(entry);
 }
 
 uint64_t DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
@@ -281,6 +297,15 @@ uint32_t DS_MultiTier_Impl::CalcSegNumForMediumTierVolume(uint64_t capacity, uin
 uint32_t DS_MultiTier_Impl::getTotalFreeSegs() {
     uint32_t free_num = ft_->GetTotalFreeSegs() + mt_->GetTotalFreeSegs();
     return free_num;
+}
+
+DS_MultiTier_Impl::TierType DS_MultiTier_Impl::locateTierFromEntry(HashEntry *entry) {
+    uint16_t pos = entry->GetHeaderLocation();
+    int vol_id = (int)pos;
+    if (vol_id == hlkvds::FastTierVolId) {
+        return TierType::FastTierType;
+    }
+    return TierType::MediumTierType;
 }
 
 } // namespace hlkvds

@@ -1,3 +1,4 @@
+#include <math.h>
 #include "Tier.h"
 #include "Db_Structure.h"
 #include "BlockDevice.h"
@@ -210,15 +211,6 @@ bool FastTier::SetSBReservedContent(char* buf, uint64_t length) {
     return true;
 }
 
-void FastTier::initSBReservedContentForCreate() {
-    sbResFastTier_.segment_size = segSize_;
-    string dev_path  = vol_->GetDevicePath();
-    memcpy((void*)&sbResFastTier_.dev_path, (const void*)dev_path.c_str(), dev_path.size());
-    sbResFastTier_.segment_num = segNum_;
-    sbResFastTier_.cur_seg_id = vol_->GetCurSegId();
-}
-
-
 bool FastTier::GetSST(char* buff, uint64_t length) {
     return vol_->GetSST(buff, length);
 }
@@ -228,9 +220,16 @@ bool FastTier::SetSST(char* buff, uint64_t length) {
 }
 
 bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offset, uint32_t medium_tier_total_seg_num) {
-    bdev_ = bd_vec[0];
     segSize_ = options_.segment_size;
-    uint64_t device_capacity = bdev_->GetDeviceCapacity();
+
+    uint32_t align_bit = log2(ALIGNED_SIZE);
+    if (segSize_ != (segSize_ >> align_bit) << align_bit) {
+        __ERROR("FastTier Segment Size is not page aligned!");
+        return false;
+    }
+
+    BlockDevice *bdev = bd_vec[0];
+    uint64_t device_capacity = bdev->GetDeviceCapacity();
     uint32_t seg_num = DS_MultiTier_Impl::CalcSegNumForFastTierVolume(device_capacity, sst_offset, segSize_, medium_tier_total_seg_num);
     segNum_ = seg_num;
     maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
@@ -239,14 +238,14 @@ bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offs
     sstLengthOnDisk_ = DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum(seg_total_num);
 
     uint64_t start_off = sst_offset + sstLengthOnDisk_;
-    vol_ = new Volume(bdev_, idxMgr_, options_, hlkvds::FastTierVolId, start_off, segSize_, segNum_, 0);
+    vol_ = new Volume(bdev, idxMgr_, options_, hlkvds::FastTierVolId, start_off, segSize_, segNum_, 0);
 
     initSBReservedContentForCreate();
+
     return true;
 }
 
 bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
-    bdev_ = bd_vec[0];
     segSize_ = sbResFastTier_.segment_size;
     segNum_ = sbResFastTier_.segment_num;
     maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
@@ -257,19 +256,10 @@ bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
         return false;
     }
 
+    BlockDevice *bdev = bd_vec[0];
     uint32_t cur_id = sbResFastTier_.cur_seg_id;
     uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sbMgr_->GetSSTRegionLength();
-    vol_ = new Volume(bdev_, idxMgr_, options_, hlkvds::FastTierVolId, start_off, segSize_, segNum_, cur_id);
-    return true;
-}
-
-bool FastTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
-    string record_path = string(sbResFastTier_.dev_path);
-    string device_path = bd_vec[0]->GetDevicePath();
-    if (record_path != device_path) {
-        __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
-        return false;
-    }
+    vol_ = new Volume(bdev, idxMgr_, options_, hlkvds::FastTierVolId, start_off, segSize_, segNum_, cur_id);
     return true;
 }
 
@@ -281,16 +271,24 @@ uint32_t FastTier::GetTotalUsedSegs() {
     return vol_->GetTotalUsedSegs();
 }
 
-uint32_t FastTier::GetCurSegId() {
-    return vol_->GetCurSegId();
-}
-
 uint64_t FastTier::GetSSTLength() {
     return vol_->GetSSTLength();
 }
 
-std::string FastTier::GetDevicePath() {
-    return vol_->GetDevicePath();
+uint32_t FastTier::getReqQueSize() {
+    if (reqWQVec_.empty()) {
+        return 0;
+    }
+    int reqs_num = 0;
+    for (int i = 0; i< shardsNum_; i++) {
+        ReqsMergeWQ *req_wq = reqWQVec_[i];
+        reqs_num += req_wq->Size();
+    }
+    return reqs_num;
+}
+
+uint32_t FastTier::getSegWriteQueSize() {
+    return (!segWteWQ_)? 0 : segWteWQ_->Size();
 }
 
 void FastTier::ModifyDeathEntry(HashEntry &entry) {
@@ -344,22 +342,6 @@ std::string FastTier::GetValueByHashEntry(HashEntry *entry) {
     return res;
 }
 
-uint32_t FastTier::getReqQueSize() {
-    if (reqWQVec_.empty()) {
-        return 0;
-    }
-    int reqs_num = 0;
-    for (int i = 0; i< shardsNum_; i++) {
-        ReqsMergeWQ *req_wq = reqWQVec_[i];
-        reqs_num += req_wq->Size();
-    }
-    return reqs_num;
-}
-
-uint32_t FastTier::getSegWriteQueSize() {
-    return (!segWteWQ_)? 0 : segWteWQ_->Size();
-}
-
 Status FastTier::updateMeta(Request *req) {
     bool res = req->GetWriteStat();
     // update index
@@ -386,6 +368,24 @@ void FastTier::deleteAllSegments() {
     }
     segMap_.clear();
     segMtxVec_.clear();
+}
+
+void FastTier::initSBReservedContentForCreate() {
+    sbResFastTier_.segment_size = segSize_;
+    string dev_path  = vol_->GetDevicePath();
+    memcpy((void*)&sbResFastTier_.dev_path, (const void*)dev_path.c_str(), dev_path.size());
+    sbResFastTier_.segment_num = segNum_;
+    sbResFastTier_.cur_seg_id = vol_->GetCurSegId();
+}
+
+bool FastTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
+    string record_path = string(sbResFastTier_.dev_path);
+    string device_path = bd_vec[0]->GetDevicePath();
+    if (record_path != device_path) {
+        __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
+        return false;
+    }
+    return true;
 }
 
 int FastTier::calcShardId(KVSlice& slice) {
@@ -515,6 +515,39 @@ void MediumTier::printDeviceTopologyInfo() {
 void MediumTier::printDynamicInfo() {
 }
 
+Status MediumTier::ReadData(KVSlice &slice, std::string &data) {
+    HashEntry *entry;
+    entry = &slice.GetHashEntry();
+
+    int vol_id = getVolIdFromEntry(entry);
+    Volume *vol = volMap_[vol_id];
+
+    uint64_t data_offset = 0;
+    if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
+        return Status::Aborted("Calculate data offset failed.");
+    }
+
+    uint16_t data_len = entry->GetDataSize();
+
+    if (data_len == 0) {
+        //The key is not exist
+        return Status::NotFound("Key is not found.");
+    }
+
+    char *mdata = new char[data_len];
+    if (!vol->Read(mdata, data_len, data_offset)) {
+        __ERROR("Could not read data at position");
+        delete[] mdata;
+        return Status::IOError("Could not read data at position.");
+    }
+    data.assign(mdata, data_len);
+    delete[] mdata;
+
+    __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffset());
+
+    return Status::OK();
+}
+
 bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
     uint32_t except_length = sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) +
                             volNum_ * sizeof(MultiTierDS_SB_Reserved_MediumTier_Content);
@@ -573,27 +606,6 @@ bool MediumTier::SetSBReservedContent(char* buf, uint64_t length) {
     return true;
 }
 
-void MediumTier::initSBReservedContentForCreate() {
-    sbResMediumTierHeader_.segment_size = segSize_;
-    sbResMediumTierHeader_.volume_num = volNum_;
-    for (uint32_t i = 0; i < volNum_; i++) {
-        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_item;
-        string dev_path = volMap_[i]->GetDevicePath();
-        memcpy((void*)&sb_res_item.dev_path, (const void*)dev_path.c_str(), dev_path.size());
-        sb_res_item.segment_num = volMap_[i]->GetNumberOfSeg();
-        sb_res_item.cur_seg_id = volMap_[i]->GetCurSegId();
-        sbResMediumTierVolVec_.push_back(sb_res_item);
-    }
-}
-
-void MediumTier::updateAllVolSBRes() {
-    for (uint32_t i = 0; i < volNum_; i++) {
-        uint32_t cur_id = volMap_[i]->GetCurSegId();
-        sbResMediumTierVolVec_[i].cur_seg_id = cur_id;
-    }
-
-}
-
 bool MediumTier::GetSST(char* buf, uint64_t length) {
     char* buf_ptr = buf;
     for (uint32_t i = 0; i < volNum_; i++) {
@@ -603,7 +615,6 @@ bool MediumTier::GetSST(char* buf, uint64_t length) {
         }
         buf_ptr += vol_sst_length;
     }
-
     return true;
 }
 
@@ -620,9 +631,15 @@ bool MediumTier::SetSST(char* buf, uint64_t length) {
 }
 
 bool MediumTier::CreateVolume(std::vector<BlockDevice*> &bd_vec) {
-    int fast_tier_device_num = hlkvds::FastTierVolNum;
 
     segSize_ = options_.secondary_seg_size;
+    uint32_t align_bit = log2(ALIGNED_SIZE);
+    if (segSize_ != (segSize_ >> align_bit) << align_bit) {
+        __ERROR("Medium Tier Segment Size is not page aligned!");
+        return false;
+    }
+
+    int fast_tier_device_num = hlkvds::FastTierVolNum;
     volNum_ = bd_vec.size() - fast_tier_device_num;
 
     for (uint32_t i = 0; i < volNum_; i++ ) {
@@ -660,29 +677,6 @@ bool MediumTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
     return true;
 }
 
-bool MediumTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
-    int fast_tier_device_num = hlkvds::FastTierVolNum;
-
-    // Verify MediumTier Volume Number
-    if (volNum_ != bd_vec.size() - fast_tier_device_num) {
-        __ERROR("record MediumTierVolNum_ = %d, total block device number: %d", volNum_, (int)bd_vec.size() );
-        return false;
-    }
-
-    // Verify MediumTier every Volume
-    for (uint32_t i = 0; i < volNum_; i++) {
-        string record_path = string(sbResMediumTierVolVec_[i].dev_path);
-        string device_path = bd_vec[i+ fast_tier_device_num]->GetDevicePath();
-        if (record_path != device_path) {
-            __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
-            return false;
-        }
-    }
-
-    return true;
-
-}
-
 uint32_t MediumTier::GetTotalFreeSegs() {
     uint32_t free_num = 0;
     for (uint32_t i = 0; i < volNum_; i++) {
@@ -698,15 +692,6 @@ uint32_t MediumTier::GetTotalUsedSegs() {
     }
     return used_num;
 }
-std::string MediumTier::GetDevicePath(uint32_t index) {
-    return volMap_[index]->GetDevicePath();
-}
-uint32_t MediumTier::GetSegNum(uint32_t index) {
-    return volMap_[index]->GetNumberOfSeg();
-}
-uint32_t MediumTier::GetCurSegId(uint32_t index) {
-    return volMap_[index]->GetCurSegId();
-}
 
 uint64_t MediumTier::GetSSTLength() {
     uint64_t length = 0;
@@ -717,6 +702,67 @@ uint64_t MediumTier::GetSSTLength() {
 }
 
 void MediumTier::ModifyDeathEntry(HashEntry &entry) {
+    int vol_id = getVolIdFromEntry(&entry);
+    volMap_[vol_id]->ModifyDeathEntry(entry);
+}
+
+std::string MediumTier::GetKeyByHashEntry(HashEntry *entry){
+    uint64_t key_offset = 0;
+
+    int vol_id = getVolIdFromEntry(entry);
+    Volume *vol = volMap_[vol_id];
+
+    if (!vol->CalcKeyOffsetPhyFromEntry(entry, key_offset)) {
+        return "";
+    }
+    __DEBUG("key offset: %lu",key_offset);
+    uint16_t key_len = entry->GetKeySize();
+    char *mkey = new char[key_len+1];
+    if (!vol->Read(mkey, key_len, key_offset)) {
+        __ERROR("Could not read data at position");
+        delete[] mkey;
+        return "";
+    }
+    mkey[key_len] = '\0';
+    string res(mkey, key_len);
+    //__INFO("Iterator key is %s, key_offset = %lu, key_len = %u", mkey, key_offset, key_len);
+    delete[] mkey;
+
+    return res;
+}
+
+std::string MediumTier::GetValueByHashEntry(HashEntry *entry) {
+    uint64_t data_offset = 0;
+
+    int vol_id = getVolIdFromEntry(entry);
+    Volume *vol = volMap_[vol_id];
+
+    if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
+        return "";
+    }
+    __DEBUG("data offset: %lu",data_offset);
+    uint16_t data_len = entry->GetDataSize();
+    if ( data_len ==0 ) {
+        return "";
+    }
+    char *mdata = new char[data_len+1];
+    if (!vol->Read(mdata, data_len, data_offset)) {
+        __ERROR("Could not read data at position");
+        delete[] mdata;
+        return "";
+    }
+    mdata[data_len]= '\0';
+    string res(mdata, data_len);
+    //__INFO("Iterator value is %s, data_offset = %lu, data_len = %u", mdata, data_offset, data_len);
+    delete[] mdata;
+
+    return res;
+}
+
+int MediumTier::getVolIdFromEntry(HashEntry* entry) {
+    uint16_t pos = entry->GetHeaderLocation();
+    int vol_id = (int)pos;
+    return vol_id;
 }
 
 void MediumTier::deleteAllVolume() {
@@ -726,7 +772,47 @@ void MediumTier::deleteAllVolume() {
         delete vol;
         volMap_.erase(iter++);
     }
+}
 
+void MediumTier::initSBReservedContentForCreate() {
+    sbResMediumTierHeader_.segment_size = segSize_;
+    sbResMediumTierHeader_.volume_num = volNum_;
+    for (uint32_t i = 0; i < volNum_; i++) {
+        MultiTierDS_SB_Reserved_MediumTier_Content sb_res_item;
+        string dev_path = volMap_[i]->GetDevicePath();
+        memcpy((void*)&sb_res_item.dev_path, (const void*)dev_path.c_str(), dev_path.size());
+        sb_res_item.segment_num = volMap_[i]->GetNumberOfSeg();
+        sb_res_item.cur_seg_id = volMap_[i]->GetCurSegId();
+        sbResMediumTierVolVec_.push_back(sb_res_item);
+    }
+}
+
+void MediumTier::updateAllVolSBRes() {
+    for (uint32_t i = 0; i < volNum_; i++) {
+        uint32_t cur_id = volMap_[i]->GetCurSegId();
+        sbResMediumTierVolVec_[i].cur_seg_id = cur_id;
+    }
+}
+
+bool MediumTier::verifyTopology(std::vector<BlockDevice*> &bd_vec) {
+    int fast_tier_device_num = hlkvds::FastTierVolNum;
+
+    // Verify MediumTier Volume Number
+    if (volNum_ != bd_vec.size() - fast_tier_device_num) {
+        __ERROR("record MediumTierVolNum_ = %d, total block device number: %d", volNum_, (int)bd_vec.size() );
+        return false;
+    }
+
+    // Verify MediumTier every Volume
+    for (uint32_t i = 0; i < volNum_; i++) {
+        string record_path = string(sbResMediumTierVolVec_[i].dev_path);
+        string device_path = bd_vec[i + fast_tier_device_num]->GetDevicePath();
+        if (record_path != device_path) {
+            __ERROR("record_path: %s, device_path:%s ", record_path.c_str(), device_path.c_str());
+            return false;
+        }
+    }
+    return true;
 }
 
 }// namespace hlkvds

@@ -90,9 +90,7 @@ public:
 
     uint64_t GetSSTLength();
 
-    std::string GetDevicePath();
-    uint32_t GetSegNum() { return segNum_; }
-    uint32_t GetCurSegId();
+    uint32_t GetTotalSegNum() { return segNum_; }
 
     uint32_t getReqQueSize();
     uint32_t getSegWriteQueSize();
@@ -110,7 +108,6 @@ public:
 
 private:
     Options &options_;
-    BlockDevice *bdev_;
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
@@ -138,9 +135,6 @@ private:
     bool verifyTopology(std::vector<BlockDevice*> &bd_vec);
 
     int calcShardId(KVSlice& slice);
-    uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
-    uint32_t calcSegNumForFastTierVolume(uint64_t capacity, uint64_t sst_offset, uint32_t fast_tier_seg_size, uint32_t med_tier_seg_num);
-
 
     // Request Merge WorkQueue
 protected:
@@ -222,11 +216,11 @@ public:
     void printDeviceTopologyInfo();
     void printDynamicInfo();
 
-    Status WriteData(KVSlice& slice);
-    Status WriteBatchData(WriteBatch *batch);
+    //Status WriteData(KVSlice& slice);
+    //Status WriteBatchData(WriteBatch *batch);
     Status ReadData(KVSlice &slice, std::string &data);
 
-    void ManualGC();
+    //void ManualGC();
 
     bool GetSBReservedContent(char* buf, uint64_t length);
     bool SetSBReservedContent(char* buf, uint64_t length);
@@ -238,17 +232,11 @@ public:
     bool OpenVolume(std::vector<BlockDevice*> &bd_vec);
 
     uint32_t GetSegSize() { return segSize_; }
-    uint32_t GetSegTotalNum() { return segTotalNum_; }
+    uint32_t GetTotalSegNum() { return segTotalNum_; }
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
 
     uint64_t GetSSTLength();
-
-    std::string GetDevicePath(uint32_t index);
-    uint32_t GetSegNum(uint32_t index);
-    uint32_t GetCurSegId(uint32_t index);
-
-    uint32_t GetVolNum() { return volNum_; }
 
     // Called by IndexManager
     void ModifyDeathEntry(HashEntry &entry);
@@ -276,14 +264,13 @@ private:
     std::mutex volIdMtx_;
 
 private:
+    int getVolIdFromEntry(HashEntry* entry);
     void deleteAllVolume();
 
     void initSBReservedContentForCreate();
     void updateAllVolSBRes();
 
     bool verifyTopology(std::vector<BlockDevice*> &bd_vec);
-
-    uint32_t calcSegNumForVolume(uint64_t capacity, uint32_t seg_size);
 };
 
 }// namespace hlkvds
