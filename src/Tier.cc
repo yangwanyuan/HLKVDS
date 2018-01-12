@@ -20,7 +20,7 @@ Tier::~Tier() {
 
 FastTier::FastTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), sbMgr_(sb), idxMgr_(idx), maxValueLen_(0),
-        segSize_(0), segNum_(0), vol_(NULL) {
+        segSize_(0), segNum_(0), vol_(NULL), segWteWQ_(NULL) {
     shardsNum_ = options_.shards_num;
 }
 
