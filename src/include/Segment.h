@@ -253,5 +253,34 @@ private:
     IndexManager* idxMgr_;
 };
 
+//class SegForGC : public SegBase {
+//public:
+//    SegForGC();
+//    ~SegForGC();
+//    SegForGC(const SegForGC& toBeCopied);
+//    SegForGC& operator=(const SegForGC& toBeCopied);
+//
+//    SegForGC(Volume* vol, IndexManager* im);
+//
+//private:
+//    IndexManager* idxMgr_;
+//};
+
+class SegForMigrate : public SegBase {
+public:
+    SegForMigrate();
+    ~SegForMigrate();
+    SegForMigrate(const SegForMigrate& toBeCopied);
+    SegForMigrate& operator=(const SegForMigrate& toBeCopied);
+
+    SegForMigrate(Volume* vol, IndexManager* im);
+
+    void UpdateToIndex();
+    bool TryPutList(std::list<KVSlice*> &slice_list);
+    void PutList(std::list<KVSlice*> &slice_list);
+private:
+    IndexManager* idxMgr_;
+};
+
 }
 #endif //#ifndef _HLKVDS_SEGMENT_H_

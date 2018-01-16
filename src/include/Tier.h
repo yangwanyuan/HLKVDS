@@ -106,6 +106,9 @@ public:
     uint64_t GetSSTLengthOnDisk() { return sstLengthOnDisk_; }
     uint32_t GetMaxValueLen() { return maxValueLen_; }
 
+    // Called by Migrate
+    Volume* GetVolume() { return vol_; }
+
 private:
     Options &options_;
     SuperBlockManager *sbMgr_;
@@ -246,6 +249,9 @@ public:
     std::string GetValueByHashEntry(HashEntry *entry);
 
     uint32_t GetSbReservedSize() { return sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) + sizeof(MultiTierDS_SB_Reserved_MediumTier_Content) * volNum_; }
+
+    // Called by Migrate
+    Volume* GetVolume(uint32_t vol_id) { return volMap_[vol_id]; }
 
 private:
     Options &options_;

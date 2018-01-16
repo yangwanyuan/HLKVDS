@@ -492,4 +492,37 @@ void SegForSlice::UpdateToIndex() {
 
 }
 
+SegForMigrate::SegForMigrate() :
+    SegBase(), idxMgr_(NULL) {
+}
+
+SegForMigrate::~SegForMigrate() {
+}
+
+SegForMigrate& SegForMigrate::operator=(const SegForMigrate& toBeCopied) {
+    if (this == &toBeCopied) {
+        return *this;
+    }
+    SegBase::operator=(toBeCopied);
+    idxMgr_ = toBeCopied.idxMgr_;
+    return *this;
+}
+
+SegForMigrate::SegForMigrate(Volume* vol, IndexManager* im) :
+    SegBase(vol), idxMgr_(im) {
+}
+
+bool SegForMigrate::TryPutList(std::list<KVSlice*> &slice_list) {
+    return true;
+}
+
+void SegForMigrate::PutList(std::list<KVSlice*> &slice_list) {
+}
+
+void SegForMigrate::UpdateToIndex() {
+    list<KVSlice *> &slice_list = GetSliceList();
+    idxMgr_->UpdateIndexes(slice_list);
+}
+
+
 }
