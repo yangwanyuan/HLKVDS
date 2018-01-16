@@ -7,6 +7,7 @@
 #include "Volume.h"
 #include "SegmentManager.h"
 #include "DS_MultiTier_Impl.h"
+#include "Migrate.h"
 
 using namespace std;
 
@@ -20,7 +21,8 @@ Tier::~Tier() {
 
 FastTier::FastTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), sbMgr_(sb), idxMgr_(idx), maxValueLen_(0),
-        segSize_(0), segNum_(0), vol_(NULL), segWteWQ_(NULL) {
+        segSize_(0), segNum_(0), vol_(NULL), mig_(NULL), mt_(NULL),
+        segWteWQ_(NULL) {
     shardsNum_ = options_.shards_num;
 }
 
@@ -40,6 +42,9 @@ void FastTier::CreateAllSegments() {
         std::mutex *seg_mtx = new mutex();
         segMtxVec_.push_back(seg_mtx);
     }
+
+    //Create Migrate;
+    mig_ = new Migrate(idxMgr_, this, mt_, options_);
 }
 
 void FastTier::StartThds() {
@@ -55,11 +60,16 @@ void FastTier::StartThds() {
     segTimeoutT_stop_.store(false);
     segTimeoutT_ = std::thread(&FastTier::SegTimeoutThdEntry, this);
 
-    vol_->StartThds();
+    //vol_->StartThds();
+    migrationT_stop_.store(false);
+    migrationT_ = std::thread(&FastTier::MigrationThdEntry, this);
 }
 
 void FastTier::StopThds() {
-    vol_->StopThds();
+    //vol_->StopThds();
+
+    migrationT_stop_.store(true);
+    migrationT_.join();
 
     segTimeoutT_stop_.store(true);
     segTimeoutT_.join();
@@ -359,6 +369,8 @@ Status FastTier::updateMeta(Request *req) {
 }
 
 void FastTier::deleteAllSegments() {
+    delete mig_;
+
     std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
     for (int i = 0; i< shardsNum_; i++) {
         SegForReq* seg = segMap_[i];
@@ -475,6 +487,22 @@ void FastTier::SegTimeoutThdEntry() {
 
         usleep(options_.expired_time);
     } __DEBUG("Segment Timeout thread stop!!");
+}
+
+void FastTier::MigrationThdEntry() {
+    __INFO("Migration thread start!!");
+    while (!migrationT_stop_) {
+        uint32_t free_seg_num = vol_->GetTotalFreeSegs();
+        uint32_t total_seg_num = vol_->GetNumberOfSeg();
+        uint32_t used_seg_num = total_seg_num - free_seg_num;
+
+        __INFO("Migration thread runningi, used_seg_num = %d", used_seg_num);
+        if (used_seg_num > 30) {
+            uint32_t mt_vol_id = mt_->PickVolForMigrate();
+            mig_->DoMigrate(mt_vol_id);
+        }
+        usleep(1000);
+    }__INFO("Migration thread stop!!");
 }
 
 MediumTier::MediumTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
@@ -757,6 +785,17 @@ std::string MediumTier::GetValueByHashEntry(HashEntry *entry) {
     delete[] mdata;
 
     return res;
+}
+
+uint32_t MediumTier::PickVolForMigrate() {
+    std::lock_guard <std::mutex> l(volIdMtx_);
+    if ( pickVolId_ == (int)(volNum_ - 1) ){
+        pickVolId_ = 0;
+    }
+    else {
+        pickVolId_++;
+    }
+    return pickVolId_;
 }
 
 int MediumTier::getVolIdFromEntry(HashEntry* entry) {

@@ -32,6 +32,9 @@ class BlockDevice;
 class Volume;
 class SegForReq;
 
+class Migrate;
+class MediumTier;
+
 class Tier {
 public:
     Tier();
@@ -109,6 +112,9 @@ public:
     // Called by Migrate
     Volume* GetVolume() { return vol_; }
 
+    // Called by DS_MultiTier_Impl
+    void SetMediumTier(MediumTier *mt) { mt_ = mt; }
+
 private:
     Options &options_;
     SuperBlockManager *sbMgr_;
@@ -129,6 +135,9 @@ private:
 
     Volume *vol_;
 
+    Migrate *mig_;
+    MediumTier *mt_;
+
 private:
     Status updateMeta(Request *req);
 
@@ -138,6 +147,9 @@ private:
     bool verifyTopology(std::vector<BlockDevice*> &bd_vec);
 
     int calcShardId(KVSlice& slice);
+
+    //void prepareToStart();
+    //void postProcess();
 
     // Request Merge WorkQueue
 protected:
@@ -175,6 +187,12 @@ protected:
     std::thread segTimeoutT_;
     std::atomic<bool> segTimeoutT_stop_;
     void SegTimeoutThdEntry();
+
+    // Migrate data to MediumTier thread
+protected:
+    std::thread migrationT_;
+    std::atomic<bool> migrationT_stop_;
+    void MigrationThdEntry();
 
 };
 
@@ -252,6 +270,9 @@ public:
 
     // Called by Migrate
     Volume* GetVolume(uint32_t vol_id) { return volMap_[vol_id]; }
+
+    // Called by FastTier
+    uint32_t PickVolForMigrate();
 
 private:
     Options &options_;

@@ -29,6 +29,7 @@ DS_MultiTier_Impl::~DS_MultiTier_Impl() {
 
 void DS_MultiTier_Impl::InitSegmentBuffer() {
     ft_->CreateAllSegments();
+    ft_->SetMediumTier(mt_);
 }
 
 void DS_MultiTier_Impl::StartThds() {
