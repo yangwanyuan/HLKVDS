@@ -160,12 +160,7 @@ SegBase::SegBase() :
 }
 
 SegBase::~SegBase() {
-    if (segOndisk_) {
-        delete segOndisk_;
-    }
-    if (dataBuf_) {
-        free(dataBuf_);
-    }
+    delete segOndisk_;
 }
 
 SegBase::SegBase(const SegBase& toBeCopied) {
@@ -216,6 +211,25 @@ void SegBase::Put(KVSlice* slice) {
     keyNum_++;
     sliceList_.push_back(slice);
     __DEBUG("Put request key = %s", slice->GetKeyStr().c_str());
+}
+
+bool SegBase::TryPutList(std::list<KVSlice*> &slice_list) {
+    uint32_t freeSize = tailPos_ - headPos_;
+    uint32_t needSize = 0;
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        needSize += slice->GetDataLen() + slice->GetKeyLen() + IndexManager::SizeOfDataHeader();
+    }
+    return freeSize > needSize;
+
+}
+
+void SegBase::PutList(std::list<KVSlice*> &slice_list) {
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        Put(slice);
+    }
+
 }
 
 bool SegBase::WriteSegToDevice() {
@@ -282,22 +296,18 @@ void SegBase::fillEntryToSlice() {
 
 
 bool SegBase::_writeDataToDevice() {
-    if (!newDataBuffer()) {
-        __ERROR("Write Segment error cause by cann't alloc memory, seg_id:%u", segId_);
-        return false;
-    }
+    posix_memalign((void **)&dataBuf_, 4096, segSize_);
 
     copyToDataBuf();
     uint64_t offset = 0;
     vol_->CalcSegOffsetFromId(segId_, offset);
 
-    return vol_->Write(dataBuf_, segSize_, offset);
-}
+    bool ret = vol_->Write(dataBuf_, segSize_, offset);
 
-bool SegBase::newDataBuffer() {
-    //dataBuf_ = new char[segSize_];
-    posix_memalign((void **)&dataBuf_, 4096, segSize_);
-    return true;
+    free(dataBuf_);
+    dataBuf_ = NULL;
+
+    return ret;
 }
 
 void SegBase::copyToDataBuf() {
@@ -510,13 +520,6 @@ SegForMigrate& SegForMigrate::operator=(const SegForMigrate& toBeCopied) {
 
 SegForMigrate::SegForMigrate(Volume* vol, IndexManager* im) :
     SegBase(vol), idxMgr_(im) {
-}
-
-bool SegForMigrate::TryPutList(std::list<KVSlice*> &slice_list) {
-    return true;
-}
-
-void SegForMigrate::PutList(std::list<KVSlice*> &slice_list) {
 }
 
 void SegForMigrate::UpdateToIndex() {

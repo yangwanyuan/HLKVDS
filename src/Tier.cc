@@ -19,9 +19,9 @@ Tier::Tier() {
 Tier::~Tier() {
 }
 
-FastTier::FastTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
+FastTier::FastTier(Options& opts, SuperBlockManager* sb, IndexManager* idx, MediumTier* mt) :
         options_(opts), sbMgr_(sb), idxMgr_(idx), maxValueLen_(0),
-        segSize_(0), segNum_(0), vol_(NULL), mig_(NULL), mt_(NULL),
+        segSize_(0), segNum_(0), vol_(NULL), mig_(NULL), mt_(mt),
         segWteWQ_(NULL) {
     shardsNum_ = options_.shards_num;
 }
@@ -61,6 +61,7 @@ void FastTier::StartThds() {
     segTimeoutT_ = std::thread(&FastTier::SegTimeoutThdEntry, this);
 
     //vol_->StartThds();
+
     migrationT_stop_.store(false);
     migrationT_ = std::thread(&FastTier::MigrationThdEntry, this);
 }
@@ -191,7 +192,7 @@ Status FastTier::ReadData(KVSlice &slice, std::string &data) {
 }
 
 void FastTier::ManualGC() {
-    vol_->FullGC();
+    //vol_->FullGC();
 }
 
 bool FastTier::GetSBReservedContent(char* buf, uint64_t length) {
@@ -490,19 +491,32 @@ void FastTier::SegTimeoutThdEntry() {
 }
 
 void FastTier::MigrationThdEntry() {
-    __INFO("Migration thread start!!");
+    __DEBUG("Migration thread start!!");
     while (!migrationT_stop_) {
         uint32_t free_seg_num = vol_->GetTotalFreeSegs();
         uint32_t total_seg_num = vol_->GetNumberOfSeg();
         uint32_t used_seg_num = total_seg_num - free_seg_num;
 
-        __INFO("Migration thread runningi, used_seg_num = %d", used_seg_num);
-        if (used_seg_num > 30) {
+        double util_rate = (double)used_seg_num / (double)total_seg_num;
+
+        if ( util_rate > 0.3) {
             uint32_t mt_vol_id = mt_->PickVolForMigrate();
             mig_->DoMigrate(mt_vol_id);
+            __DEBUG("Migration thread running, used_seg_num = %d", used_seg_num);
+
+            int sleep_time;
+            if (util_rate > 0.9) {
+                sleep_time = 10;
+            }
+            else if (util_rate > 0.6) {
+                sleep_time = 1000;
+            }
+            else{
+                sleep_time = 100000;
+            }
+            usleep(sleep_time);
         }
-        usleep(1000);
-    }__INFO("Migration thread stop!!");
+    }__DEBUG("Migration thread stop!!");
 }
 
 MediumTier::MediumTier(Options& opts, SuperBlockManager* sb, IndexManager* idx) :
@@ -574,6 +588,14 @@ Status MediumTier::ReadData(KVSlice &slice, std::string &data) {
     __DEBUG("get key: %s, data offset %ld, head_offset is %ld", slice.GetKeyStr().c_str(), data_offset, entry->GetHeaderOffset());
 
     return Status::OK();
+}
+
+void MediumTier::ManualGC() {
+    map<int, Volume *>::iterator iter;
+    for (iter = volMap_.begin(); iter != volMap_.end(); ) {
+        Volume *vol = iter->second;
+        vol->FullGC();
+    }
 }
 
 bool MediumTier::GetSBReservedContent(char* buf, uint64_t length) {
@@ -785,6 +807,11 @@ std::string MediumTier::GetValueByHashEntry(HashEntry *entry) {
     delete[] mdata;
 
     return res;
+}
+
+Volume* MediumTier::GetVolume(uint32_t vol_id) {
+    Volume *vol = volMap_[vol_id];
+    return vol;
 }
 
 uint32_t MediumTier::PickVolForMigrate() {

@@ -62,7 +62,7 @@ public:
     };
 
 public:
-    FastTier(Options& opts, SuperBlockManager* sb, IndexManager* idx);
+    FastTier(Options& opts, SuperBlockManager* sb, IndexManager* idx, MediumTier* mt);
     ~FastTier();
     
     void CreateAllSegments();
@@ -111,9 +111,6 @@ public:
 
     // Called by Migrate
     Volume* GetVolume() { return vol_; }
-
-    // Called by DS_MultiTier_Impl
-    void SetMediumTier(MediumTier *mt) { mt_ = mt; }
 
 private:
     Options &options_;
@@ -237,11 +234,9 @@ public:
     void printDeviceTopologyInfo();
     void printDynamicInfo();
 
-    //Status WriteData(KVSlice& slice);
-    //Status WriteBatchData(WriteBatch *batch);
     Status ReadData(KVSlice &slice, std::string &data);
 
-    //void ManualGC();
+    void ManualGC();
 
     bool GetSBReservedContent(char* buf, uint64_t length);
     bool SetSBReservedContent(char* buf, uint64_t length);
@@ -269,7 +264,7 @@ public:
     uint32_t GetSbReservedSize() { return sizeof(MultiTierDS_SB_Reserved_MediumTier_Header) + sizeof(MultiTierDS_SB_Reserved_MediumTier_Content) * volNum_; }
 
     // Called by Migrate
-    Volume* GetVolume(uint32_t vol_id) { return volMap_[vol_id]; }
+    Volume* GetVolume(uint32_t vol_id);
 
     // Called by FastTier
     uint32_t PickVolForMigrate();

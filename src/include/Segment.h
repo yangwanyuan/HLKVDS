@@ -153,6 +153,8 @@ public:
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
+    bool TryPutList(std::list<KVSlice*> &slice_list);
+    void PutList(std::list<KVSlice*> &slice_list);
     bool WriteSegToDevice();
     uint32_t GetFreeSize() const {
         return tailPos_ - headPos_;
@@ -182,7 +184,6 @@ private:
     void fillEntryToSlice();
     bool _writeDataToDevice();
     void copyToDataBuf();
-    bool newDataBuffer();
 
 private:
     int32_t segId_;
@@ -276,8 +277,6 @@ public:
     SegForMigrate(Volume* vol, IndexManager* im);
 
     void UpdateToIndex();
-    bool TryPutList(std::list<KVSlice*> &slice_list);
-    void PutList(std::list<KVSlice*> &slice_list);
 private:
     IndexManager* idxMgr_;
 };

@@ -9,7 +9,8 @@ using namespace std;
 
 namespace hlkvds {
 Migrate::~Migrate() {
-    delete[] ftDataBuf_;
+    free(ftDataBuf_);
+    ftDataBuf_ = NULL;
 }
 
 Migrate::Migrate(IndexManager* im, FastTier* ft, MediumTier* mt, Options &opt) :

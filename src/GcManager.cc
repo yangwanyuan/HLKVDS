@@ -8,15 +8,17 @@ using namespace std;
 
 namespace hlkvds {
 GcManager::~GcManager() {
-    if (dataBuf_) {
-        delete[] dataBuf_;
-    }
+    free(dataBuf_);
+    dataBuf_ = NULL;
 }
 
 GcManager::GcManager(IndexManager* im, Volume* vol, Options &opt) :
     options_(opt), dataBuf_(NULL) {
     idxMgr_ = im;
     vol_ = vol;
+
+    uint32_t seg_size = vol_->GetSegmentSize();
+    posix_memalign((void **)&dataBuf_, 4096, seg_size);
 }
 
 bool GcManager::ForeGC() {
@@ -131,11 +133,6 @@ void GcManager::FullGC() {
 }
 
 uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
-    if (!dataBuf_) {
-        uint32_t seg_size = vol_->GetSegmentSize();
-        //dataBuf_ = new char[seg_size];
-        posix_memalign((void **)&dataBuf_, 4096, seg_size);
-    }
 
     bool ret;
     std::vector < uint32_t > free_seg_vec;

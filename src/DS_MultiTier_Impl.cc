@@ -16,20 +16,19 @@ namespace hlkvds {
 DS_MultiTier_Impl::DS_MultiTier_Impl(Options& opts, vector<BlockDevice*> &dev_vec,
                             SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx) {
-    ft_ = new FastTier(options_, sbMgr_, idxMgr_);
     mt_ = new MediumTier(options_, sbMgr_, idxMgr_);
+    ft_ = new FastTier(options_, sbMgr_, idxMgr_, mt_);
     lastTime_ = new KVTime();
 }
 
 DS_MultiTier_Impl::~DS_MultiTier_Impl() {
-    delete ft_;
     delete mt_;
+    delete ft_;
     delete lastTime_;
 }
 
 void DS_MultiTier_Impl::InitSegmentBuffer() {
     ft_->CreateAllSegments();
-    ft_->SetMediumTier(mt_);
 }
 
 void DS_MultiTier_Impl::StartThds() {
@@ -77,6 +76,7 @@ Status DS_MultiTier_Impl::ReadData(KVSlice &slice, std::string &data) {
 
 void DS_MultiTier_Impl::ManualGC() {
     ft_->ManualGC();
+    mt_->ManualGC();
 }
 
 bool DS_MultiTier_Impl::GetSBReservedContent(char* buf, uint64_t length) {
@@ -222,11 +222,13 @@ bool DS_MultiTier_Impl::OpenAllComponents() {
     ret = ft_->OpenVolume(bdVec_);
 
     if (!ret) {
+        __ERROR("Fast Tier Open Volume Failed!");
         return false;
     }
 
     ret = mt_->OpenVolume(bdVec_);
     if (!ret) {
+        __ERROR("Medium Tier Open Volume Failed!");
         return false;
     }
 
