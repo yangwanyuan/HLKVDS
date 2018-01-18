@@ -410,8 +410,7 @@ bool IndexManager::IsSameInMem(HashEntry entry)
         return false;
     } else {
         HashEntry *entry_inMem = entry_list->getRef(entry);
-        __DEBUG("the entry header_offset = %ld, in memory entry header_offset=%ld", entry.GetHeaderOffset(), entry_inMem->GetHeaderOffset());
-        if (entry_inMem->GetHeaderOffset() == entry.GetHeaderOffset()) {
+        if (entry_inMem->GetHeaderAddress() == entry.GetHeaderAddress()) {
             __DEBUG("Same, because entry is same with in memory!");
             return true;
         }
