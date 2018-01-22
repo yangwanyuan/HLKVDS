@@ -57,6 +57,7 @@ public:
     uint32_t GetTotalUsedSegs();
     
     void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);
+    void SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, uint32_t max_seg_num);
     
     
     bool Alloc(uint32_t& seg_id);

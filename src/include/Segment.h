@@ -64,14 +64,18 @@ public:
         return *entry_;
     }
 
+    HashEntry& GetHashEntryBeforeGC() const {
+        return *entryGC_;
+    }
+
     uint32_t GetSegId() const {
         return segId_;
     }
 
     void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
     void SetHashEntry(const HashEntry *hash_entry);
+    void SetHashEntryBeforeGC(const HashEntry *hash_entry);
     void SetSegId(uint32_t seg_id);
-
 
 private:
     const char* key_;
@@ -82,6 +86,7 @@ private:
     HashEntry *entry_;
     uint32_t segId_;
     bool deepCopy_;
+    HashEntry *entryGC_;
 
     void copy_helper(const KVSlice& toBeCopied);
     void calcDigest();

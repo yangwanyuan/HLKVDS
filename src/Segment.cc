@@ -15,7 +15,7 @@ namespace hlkvds {
 
 KVSlice::KVSlice() :
     key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL),
-            entry_(NULL), segId_(0) {
+            entry_(NULL), segId_(0), entryGC_(NULL) {
 }
 
 KVSlice::~KVSlice() {
@@ -29,11 +29,14 @@ KVSlice::~KVSlice() {
     if (entry_) {
         delete entry_;
     }
+    if (entryGC_) {
+        delete entryGC_;
+    }
 }
 
 KVSlice::KVSlice(const KVSlice& toBeCopied) :
     key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL),
-            entry_(NULL), segId_(0), deepCopy_(false) {
+            entry_(NULL), segId_(0), deepCopy_(false), entryGC_(NULL) {
     copy_helper(toBeCopied);
 }
 
@@ -51,11 +54,13 @@ void KVSlice::copy_helper(const KVSlice& toBeCopied) {
     *entry_ = *toBeCopied.entry_;
     segId_ = toBeCopied.segId_;
     deepCopy_ = toBeCopied.deepCopy_;
+    *entryGC_ = *toBeCopied.entryGC_;
 }
 
 KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len, bool deep_copy) :
     key_(NULL), keyLength_(key_len), data_(NULL), dataLength_(data_len),
-            digest_(NULL), entry_(NULL), segId_(0), deepCopy_(deep_copy) {
+            digest_(NULL), entry_(NULL), segId_(0), deepCopy_(deep_copy),
+            entryGC_(NULL) {
     if (deepCopy_) {
         key_ = new char[key_len];
         data_ = new char[data_len];
@@ -71,7 +76,8 @@ KVSlice::KVSlice(const char* key, int key_len, const char* data, int data_len, b
 KVSlice::KVSlice(Kvdb_Digest *digest, const char* key, int key_len,
                 const char* data, int data_len) :
     key_(key), keyLength_(key_len), data_(data), dataLength_(data_len),
-            digest_(NULL), entry_(NULL), segId_(0), deepCopy_(false) {
+            digest_(NULL), entry_(NULL), segId_(0), deepCopy_(false),
+            entryGC_(NULL) {
     digest_ = new Kvdb_Digest(*digest);
 }
 
@@ -105,6 +111,10 @@ string KVSlice::GetDataStr() const {
 
 void KVSlice::SetHashEntry(const HashEntry *hash_entry) {
     entry_ = new HashEntry(*hash_entry);
+}
+
+void KVSlice::SetHashEntryBeforeGC(const HashEntry *hash_entry) {
+    entryGC_ = new HashEntry(*hash_entry);
 }
 
 void KVSlice::SetSegId(uint32_t seg_id) {
@@ -491,14 +501,8 @@ SegForSlice::SegForSlice(Volume* vol, IndexManager* im) :
 }
 
 void SegForSlice::UpdateToIndex() {
-    //std::lock_guard <std::mutex> l(mtx_);
     list<KVSlice *> &slice_list = GetSliceList();
     idxMgr_->UpdateIndexes(slice_list);
-    //for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
-    //        != slice_list.end(); iter++) {
-    //    KVSlice *slice = *iter;
-    //    idxMgr_->UpdateIndex(slice);
-    //} __DEBUG("UpdateToIndex Success!");
 
 }
 
@@ -524,7 +528,7 @@ SegForMigrate::SegForMigrate(Volume* vol, IndexManager* im) :
 
 void SegForMigrate::UpdateToIndex() {
     list<KVSlice *> &slice_list = GetSliceList();
-    idxMgr_->UpdateIndexes(slice_list);
+    idxMgr_->UpdateIndexesForGC(slice_list);
 }
 
 

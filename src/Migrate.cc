@@ -20,13 +20,42 @@ Migrate::Migrate(IndexManager* im, FastTier* ft, MediumTier* mt, Options &opt) :
         posix_memalign((void **)&ftDataBuf_, 4096, ftSegSize_);
 }
 
-void Migrate::DoMigrate(uint32_t mt_vol_id) {
+uint32_t Migrate::QuickMigrate(uint32_t mt_vol_id) {
+    std::lock_guard < std::mutex > lck(mtx_);
+
     //Get the sorted Segments
+    Volume *ft_vol = ft_->GetVolume();
+
+    //check free segment;
+    uint32_t free_seg_num = ft_vol->GetTotalFreeSegs();
+    if (free_seg_num > SEG_RESERVED_FOR_GC) {
+        __DEBUG("some thread already called Do Migrate, ignore this call!");
+        return 0;
+    }
+
+    return doMigrate(mt_vol_id, 100);
+
+}
+
+uint32_t Migrate::BackMigrate(uint32_t mt_vol_id) {
+    std::lock_guard < std::mutex > lck(mtx_);
+    return doMigrate(mt_vol_id, 1000);
+}
+
+uint32_t Migrate::DeepMigrate(uint32_t mt_vol_id) {
+    std::lock_guard < std::mutex > lck(mtx_);
+    Volume *ft_vol = ft_->GetVolume();
+    uint32_t max_seg_num = ft_vol->GetNumberOfSeg();
+    return doMigrate(mt_vol_id, max_seg_num);
+
+}
+
+uint32_t Migrate::doMigrate(uint32_t mt_vol_id, uint32_t max_seg_num) {
     Volume *ft_vol = ft_->GetVolume();
     Volume *mt_vol = mt_->GetVolume(mt_vol_id);
 
     std::multimap < uint32_t, uint32_t > cands_map;
-    ft_vol->SortSegsByUtils(cands_map, options_.seg_full_rate);
+    ft_vol->SortSegsByTS(cands_map, max_seg_num);
 
     //do merge
     bool ret = false;
@@ -65,13 +94,14 @@ void Migrate::DoMigrate(uint32_t mt_vol_id) {
         delete mig_seg;
         mt_vol->FreeForFailed(mig_seg_id);
         cleanKvList(recycle_list);
-        return ;
+        return 0;
     }
 
     uint32_t free_size = mig_seg->GetFreeSize();
     mt_vol->Use(mig_seg_id, free_size);
 
     mig_seg->UpdateToIndex();
+
 
     //clean work for first segment
     for (std::vector<uint32_t>::iterator iter = free_seg_vec.begin(); iter
@@ -84,7 +114,8 @@ void Migrate::DoMigrate(uint32_t mt_vol_id) {
     uint32_t total_free = free_seg_vec.size();
 
     cands_map.clear();
-    __DEBUG("Once DoMigrate total free %d segments in Fast Tier!", total_free);
+    __DEBUG("Once doMigrate total free %d segments in Fast Tier!", total_free);
+    return total_free;
 }
 
 void Migrate::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
@@ -126,6 +157,7 @@ void Migrate::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                 memcpy(key, &ftDataBuf_[key_offset], key_len);
                 key[key_len] = '\0';
                 KVSlice *slice = new KVSlice(&digest, key, key_len, data, data_len);
+                slice->SetHashEntryBeforeGC(&hash_entry);
 
                 slice_list.push_back(slice);
                 __DEBUG("the slice key_digest = %s, value = %s, seg_offset = %ld, head_offset = %d is valid, need to write", digest.GetDigest(), data, phy_offset, head_offset);

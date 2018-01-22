@@ -242,7 +242,7 @@ bool IndexManager::Set(char* buff, uint64_t length) {
     return true;
 }
 
-bool IndexManager::UpdateIndex(KVSlice* slice) {
+bool IndexManager::UpdateIndex(KVSlice* slice, bool gc_update) {
     const Kvdb_Digest *digest = &slice->GetDigest();
 
     HashEntry entry = slice->GetHashEntry();
@@ -250,8 +250,24 @@ bool IndexManager::UpdateIndex(KVSlice* slice) {
 
     uint32_t hash_index = KeyDigestHandle::Hash(digest) % htSize_;
 
-    std::unique_lock<std::mutex> meta_lck(mtx_, std::defer_lock);
 
+    if (gc_update) {
+        HashEntry entry_before_gc = slice->GetHashEntryBeforeGC();
+        if (!IsSameInMem(entry_before_gc)) {
+            dataStor_->ModifyDeathEntry(entry);
+            return true;
+        }
+        else {
+            std::lock_guard<std::mutex> l(hashtable_[hash_index].slotMtx_);
+            LinkedList<HashEntry> *entry_list = hashtable_[hash_index].entryList_;
+
+            dataStor_->ModifyDeathEntry(entry_before_gc);
+            entry_list->put(entry);
+            return true;
+        }
+    }
+
+    std::unique_lock<std::mutex> meta_lck(mtx_, std::defer_lock);
     std::lock_guard<std::mutex> l(hashtable_[hash_index].slotMtx_);
     LinkedList<HashEntry> *entry_list = hashtable_[hash_index].entryList_;
 
@@ -386,6 +402,15 @@ bool IndexManager::GetHashEntry(KVSlice *slice) {
     return false;
 }
 
+void IndexManager::UpdateIndexesForGC(std::list<KVSlice*> &slice_list) {
+    std::lock_guard<std::mutex> l(batch_mtx_);
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter
+            != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        UpdateIndex(slice, true);
+    } __DEBUG("UpdateToIndexForGC Success!");
+}
+
 uint64_t IndexManager::GetDataTheorySize() const {
     std::lock_guard<std::mutex> l(mtx_);
     return dataTheorySize_;
@@ -396,7 +421,7 @@ uint32_t IndexManager::GetKeyCounter() const {
     return keyCounter_;
 }
 
-bool IndexManager::IsSameInMem(HashEntry entry)
+bool IndexManager::IsSameInMem(HashEntry &entry)
 {
     Kvdb_Digest digest = entry.GetKeyDigest();
     uint32_t hash_index = KeyDigestHandle::Hash(&digest) % htSize_;

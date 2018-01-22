@@ -123,13 +123,12 @@ Status FastTier::WriteBatchData(WriteBatch *batch) {
     uint32_t seg_id = 0;
     bool ret;
 
-    //TODO: use GcSegment first, need abstract segment.
+    //TODO: Implement exception when no space to alloc
     while (!vol_->Alloc(seg_id)) {
-        ret = vol_->ForeGC();
-        if (!ret) {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            return Status::Aborted("Can't allocate a Empty Segment.");
-        }
+        __DEBUG("cant't alloc segment, need migrate, free = %d, used = %d", vol_->GetTotalFreeSegs(), vol_->GetTotalUsedSegs());
+        uint32_t mt_vol_id = mt_->PickVolForMigrate();
+        uint32_t free_num = mig_->QuickMigrate(mt_vol_id);
+        __DEBUG("After Migrate, free total %d segments", free_num);
     }
 
     SegForSlice *seg = new SegForSlice(vol_, idxMgr_);
@@ -441,12 +440,12 @@ void FastTier::SegWrite(SegForReq *seg) {
 
     uint32_t seg_id = 0;
     bool res;
+    //TODO: Implement exception when no space to alloc
     while (!vol->Alloc(seg_id)) {
-        res = vol->ForeGC();
-        if (!res) {
-            __ERROR("Cann't get a new Empty Segment.\n");
-            seg->Notify(res);
-        }
+        __DEBUG("cant't alloc segment, need migrate, free = %d, used = %d", vol_->GetTotalFreeSegs(), vol_->GetTotalUsedSegs());
+        uint32_t mt_vol_id = mt_->PickVolForMigrate();
+        uint32_t free_num = mig_->QuickMigrate(mt_vol_id);
+        __DEBUG("After Migrate, free total %d segments", free_num);
     }
     uint32_t free_size = seg->GetFreeSize();
     seg->SetSegId(seg_id);
@@ -501,8 +500,8 @@ void FastTier::MigrationThdEntry() {
 
         if ( util_rate > 0.3) {
             uint32_t mt_vol_id = mt_->PickVolForMigrate();
-            mig_->DoMigrate(mt_vol_id);
-            __DEBUG("Migration thread running, used_seg_num = %d", used_seg_num);
+            uint32_t free_num = mig_->BackMigrate(mt_vol_id);
+            __DEBUG("Once migration done, free %d segments", free_num);
 
             int sleep_time;
             if (util_rate > 0.9) {

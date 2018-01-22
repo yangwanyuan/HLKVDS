@@ -282,10 +282,12 @@ public:
 
     void InitDataStor(DataStor *ds);
 
-    bool UpdateIndex(KVSlice* slice);
+    bool UpdateIndex(KVSlice* slice, bool gc_update = false);
     void UpdateIndexes(std::list<KVSlice*> &slice_list);
     bool GetHashEntry(KVSlice *slice);
     void RemoveEntry(HashEntry entry);
+
+    void UpdateIndexesForGC(std::list<KVSlice*> &slice_list);
 
     uint32_t GetHashTableSize() const {
         return htSize_;
@@ -305,7 +307,7 @@ public:
     IndexManager(SuperBlockManager* sbm, Options &opt);
     ~IndexManager();
 
-    bool IsSameInMem(HashEntry entry);
+    bool IsSameInMem(HashEntry &entry);
 
     LinkedList<HashEntry>* GetEntryListByNo(uint32_t no) {
         return hashtable_[no].entryList_;

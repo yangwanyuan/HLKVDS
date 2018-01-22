@@ -131,6 +131,10 @@ void Volume::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double
     return segMgr_->SortSegsByUtils(cand_map, utils);
 }
 
+void Volume::SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, uint32_t max_seg_num) {
+    return segMgr_->SortSegsByTS(cand_map, max_seg_num);
+}
+
 bool Volume::AllocForGC(uint32_t& seg_id) {
     return segMgr_->AllocForGC(seg_id);
 }

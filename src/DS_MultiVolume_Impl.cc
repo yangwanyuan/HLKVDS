@@ -221,7 +221,7 @@ bool DS_MultiVolume_Impl::GetSBReservedContent(char* buf, uint64_t length) {
     for (uint32_t i = 0; i < vol_num; i++) {
         memcpy((void*)(sb_res_vol_ptr), (const void*)&sbResVolVec_[i], sb_res_vol_size);
         sb_res_vol_ptr += sb_res_vol_size;
-        __DEBUG("Volume [i], device_path= %s, segment_num = %d, current_seg_id = %d", i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num, sbResVolVec_[i].cur_seg_id);
+        __DEBUG("Volume [%d], device_path= %s, segment_num = %d, current_seg_id = %d", i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num, sbResVolVec_[i].cur_seg_id);
     }
 
     return true;

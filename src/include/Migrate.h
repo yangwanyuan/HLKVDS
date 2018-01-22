@@ -21,7 +21,9 @@ public:
     ~Migrate();
     Migrate(IndexManager* im, FastTier* ft, MediumTier* mt, Options &opt);
 
-    void DoMigrate(uint32_t mt_vol_id);
+    uint32_t QuickMigrate(uint32_t mt_vol_id);
+    uint32_t BackMigrate(uint32_t mt_vol_id);
+    uint32_t DeepMigrate(uint32_t mt_vol_id);
 
 private:
     void loadSegKV(std::list<KVSlice*> &slice_list, uint32_t num_keys,
@@ -30,11 +32,15 @@ private:
     bool loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list);
     void cleanKvList(std::list<KVSlice*> &slice_list);
 
+    uint32_t doMigrate(uint32_t mt_vol_id, uint32_t max_seg_num);
+
 private:
     FastTier *ft_;
     MediumTier* mt_;
     IndexManager* idxMgr_;
     Options &options_;
+
+    std::mutex mtx_;
 
     char *ftDataBuf_;
     uint32_t ftSegSize_;

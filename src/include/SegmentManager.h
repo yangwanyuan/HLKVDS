@@ -65,8 +65,8 @@ public:
     void Use(uint32_t seg_id, uint32_t free_size);
     void AddDeathSize(uint32_t seg_id, uint32_t death_size);
 
-    void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map,
-                         double utils);
+    void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);
+    void SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, uint32_t max_seg_num);
 
     uint32_t GetTotalFreeSegs();
     uint32_t GetTotalUsedSegs();
