@@ -24,8 +24,11 @@ class SegForReq;
 
 class SegHeaderOnDisk {
 public:
-    uint64_t time_stamp;
-    uint32_t checksum;
+    uint64_t timestamp;
+    uint64_t trx_id;
+    uint32_t trx_segs;
+    uint32_t checksum_data;
+    uint32_t checksum_length;
     uint32_t number_keys;
 public:
     SegHeaderOnDisk();
@@ -33,11 +36,7 @@ public:
     SegHeaderOnDisk(const SegHeaderOnDisk& toBeCopied);
     SegHeaderOnDisk& operator=(const SegHeaderOnDisk& toBeCopied);
 
-    SegHeaderOnDisk(uint32_t num);
-    void Update();
-    void SetKeyNum(uint32_t num) {
-        number_keys = num;
-    }
+    SegHeaderOnDisk(uint64_t ts, uint64_t id, uint32_t segs, uint32_t data, uint32_t len, uint32_t keys_num);
 };
 
 class KVSlice {
@@ -216,7 +215,6 @@ private:
     int32_t segId_;
     Volume* vol_;
     int32_t segSize_;
-    KVTime persistTime_;
 
     uint32_t headPos_;
     uint32_t tailPos_;
@@ -226,7 +224,6 @@ private:
 
     std::list<KVSlice *> sliceList_;
 
-    SegHeaderOnDisk *segHeader_;
     char *dataBuf_;
 };
 

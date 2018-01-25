@@ -14,34 +14,38 @@ using namespace std;
 namespace hlkvds {
 
 SegHeaderOnDisk::SegHeaderOnDisk() :
-    checksum(0), number_keys(0) {
-    time_stamp = KVTime::GetNow();
+        timestamp(0), trx_id(0), trx_segs(0), checksum_data(0),
+        checksum_length(0), number_keys(0) {
 }
 
 SegHeaderOnDisk::~SegHeaderOnDisk() {
 }
 
 SegHeaderOnDisk::SegHeaderOnDisk(const SegHeaderOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
+    timestamp = toBeCopied.timestamp;
+    trx_id = toBeCopied.trx_id;
+    trx_segs = toBeCopied.trx_segs;
+    checksum_data = toBeCopied.checksum_data;
+    checksum_length = toBeCopied.checksum_length;
     number_keys = toBeCopied.number_keys;
 }
 
 SegHeaderOnDisk& SegHeaderOnDisk::operator=(const SegHeaderOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
+    timestamp = toBeCopied.timestamp;
+    trx_id = toBeCopied.trx_id;
+    trx_segs = toBeCopied.trx_segs;
+    checksum_data = toBeCopied.checksum_data;
+    checksum_length = toBeCopied.checksum_length;
     number_keys = toBeCopied.number_keys;
     return *this;
 }
 
-SegHeaderOnDisk::SegHeaderOnDisk(uint32_t num) :
-    checksum(0), number_keys(num) {
-    time_stamp = KVTime::GetNow();
+SegHeaderOnDisk::SegHeaderOnDisk(uint64_t ts, uint64_t id, uint32_t segs,
+                                uint32_t data, uint32_t len, uint32_t keys_num) :
+        timestamp(ts), trx_id(id), trx_segs(segs), checksum_data(data),
+        checksum_length(len), number_keys(keys_num) {
 }
 
-void SegHeaderOnDisk::Update() {
-    time_stamp = KVTime::GetNow();
-}
 
 KVSlice::KVSlice() :
     key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL),
@@ -195,16 +199,13 @@ void Request::Signal() {
 SegBase::SegBase() :
     segId_(-1), vol_(NULL), segSize_(-1),
         headPos_(0), tailPos_(0), keyNum_(0),
-        keyAlignedNum_(0), segHeader_(NULL), dataBuf_(NULL) {
-    segHeader_ = new SegHeaderOnDisk();
+        keyAlignedNum_(0), dataBuf_(NULL) {
 }
 
 SegBase::~SegBase() {
-    delete segHeader_;
 }
 
 SegBase::SegBase(const SegBase& toBeCopied) {
-    segHeader_ = new SegHeaderOnDisk();
     copyHelper(toBeCopied);
 }
 
@@ -221,17 +222,15 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
     tailPos_ = toBeCopied.tailPos_;
     keyNum_ = toBeCopied.keyNum_;
     keyAlignedNum_ = toBeCopied.keyAlignedNum_;
-    *segHeader_ = *toBeCopied.segHeader_;
     memcpy(dataBuf_, toBeCopied.dataBuf_, segSize_);
     sliceList_ = toBeCopied.sliceList_;
 }
 
 SegBase::SegBase(Volume* vol) :
-    segId_(-1), vol_(vol),
+        segId_(-1), vol_(vol),
         segSize_(vol_->GetSegmentSize()),
         headPos_(SegBase::SizeOfSegOnDisk()), tailPos_(segSize_),
-        keyNum_(0), keyAlignedNum_(0), segHeader_(NULL), dataBuf_(NULL) {
-    segHeader_ = new SegHeaderOnDisk();
+        keyNum_(0), keyAlignedNum_(0), dataBuf_(NULL) {
 }
 
 bool SegBase::TryPut(KVSlice* slice) {
@@ -387,11 +386,14 @@ void SegBase::copyToDataBuf() {
         }
     }
 
-    //copy segment header to data buffer.
-    //segHeader_->SetTS(persistTime_);
-    segHeader_->SetKeyNum(keyNum_);
-    //setOndisk_->SetCrc(crc_num);
-    memcpy(dataBuf_, segHeader_, SegBase::SizeOfSegOnDisk());
+    // Generate SegHeaderOnDisk
+    uint64_t timestamp = KVTime::GetNow();
+    uint64_t trx_id = 0;
+    uint32_t trx_segs = 0;
+    uint32_t checksum_data = 0;
+    uint32_t checksum_length = 0;
+    SegHeaderOnDisk seg_header(timestamp, trx_id, trx_segs, checksum_data, checksum_length, keyNum_);
+    memcpy(dataBuf_, &seg_header, SegBase::SizeOfSegOnDisk());
 
     //set 0 to free data buffer
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));
