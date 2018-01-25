@@ -149,7 +149,7 @@ void SegmentManager::SortSegsByUtils( std::multimap<uint32_t, uint32_t> &cand_ma
         if (segTable_[index].state == SegUseStat::USED) {
             used_size = segSize_ - (segTable_[index].free_size
                     + segTable_[index].death_size
-                    + (uint32_t) Volume::SizeOfSegOnDisk());
+                    + (uint32_t) SegBase::SizeOfSegOnDisk());
             if (used_size < thld) {
                 cand_map.insert(std::pair<uint32_t, uint32_t>(used_size, index));
             }
@@ -168,7 +168,7 @@ void SegmentManager::SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, u
         if (segTable_[index].state == SegUseStat::USED) {
             used_size = segSize_ - (segTable_[index].free_size
                     + segTable_[index].death_size
-                    + (uint32_t) Volume::SizeOfSegOnDisk());
+                    + (uint32_t) SegBase::SizeOfSegOnDisk());
             used_map.insert(std::pair<uint32_t, uint32_t>(used_size, index));
         }
     }

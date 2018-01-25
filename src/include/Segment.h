@@ -15,13 +15,30 @@
 
 namespace hlkvds {
 
-class SegmentOnDisk;
 class DataHeader;
 class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
 class Volume;
 class SegForReq;
+
+class SegmentOnDisk {
+public:
+    uint64_t time_stamp;
+    uint32_t checksum;
+    uint32_t number_keys;
+public:
+    SegmentOnDisk();
+    ~SegmentOnDisk();
+    SegmentOnDisk(const SegmentOnDisk& toBeCopied);
+    SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
+
+    SegmentOnDisk(uint32_t num);
+    void Update();
+    void SetKeyNum(uint32_t num) {
+        number_keys = num;
+    }
+};
 
 class KVSlice {
 public:
@@ -182,6 +199,11 @@ public:
 
     Volume* GetSelfVolume() {
         return vol_;
+    }
+
+public:
+    static inline size_t SizeOfSegOnDisk() {
+        return sizeof(SegmentOnDisk);
     }
 
 private:

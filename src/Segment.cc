@@ -13,6 +13,36 @@ using namespace std;
 
 namespace hlkvds {
 
+SegmentOnDisk::SegmentOnDisk() :
+    checksum(0), number_keys(0) {
+    time_stamp = KVTime::GetNow();
+}
+
+SegmentOnDisk::~SegmentOnDisk() {
+}
+
+SegmentOnDisk::SegmentOnDisk(const SegmentOnDisk& toBeCopied) {
+    time_stamp = toBeCopied.time_stamp;
+    checksum = toBeCopied.checksum;
+    number_keys = toBeCopied.number_keys;
+}
+
+SegmentOnDisk& SegmentOnDisk::operator=(const SegmentOnDisk& toBeCopied) {
+    time_stamp = toBeCopied.time_stamp;
+    checksum = toBeCopied.checksum;
+    number_keys = toBeCopied.number_keys;
+    return *this;
+}
+
+SegmentOnDisk::SegmentOnDisk(uint32_t num) :
+    checksum(0), number_keys(num) {
+    time_stamp = KVTime::GetNow();
+}
+
+void SegmentOnDisk::Update() {
+    time_stamp = KVTime::GetNow();
+}
+
 KVSlice::KVSlice() :
     key_(NULL), keyLength_(0), data_(NULL), dataLength_(0), digest_(NULL),
             entry_(NULL), segId_(0), entryGC_(NULL) {
@@ -199,7 +229,7 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
 SegBase::SegBase(Volume* vol) :
     segId_(-1), vol_(vol),
         segSize_(vol_->GetSegmentSize()),
-        headPos_(Volume::SizeOfSegOnDisk()), tailPos_(segSize_),
+        headPos_(SegBase::SizeOfSegOnDisk()), tailPos_(segSize_),
         keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
     segOndisk_ = new SegmentOnDisk();
 }
@@ -254,7 +284,7 @@ bool SegBase::WriteSegToDevice() {
 }
 
 void SegBase::fillEntryToSlice() {
-    uint32_t head_pos = Volume::SizeOfSegOnDisk();
+    uint32_t head_pos = SegBase::SizeOfSegOnDisk();
     uint32_t tail_pos = segSize_;
     int vol_id = vol_->GetId();
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -327,7 +357,7 @@ void SegBase::copyToDataBuf() {
     uint32_t offset_begin = 0;
     uint32_t offset_end = segSize_;
 
-    offset_begin += Volume::SizeOfSegOnDisk();
+    offset_begin += SegBase::SizeOfSegOnDisk();
 
     //aggregate iovec
     for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
@@ -361,7 +391,7 @@ void SegBase::copyToDataBuf() {
     //segOndisk_->SetTS(persistTime_);
     segOndisk_->SetKeyNum(keyNum_);
     //setOndisk_->SetCrc(crc_num);
-    memcpy(dataBuf_, segOndisk_, Volume::SizeOfSegOnDisk());
+    memcpy(dataBuf_, segOndisk_, SegBase::SizeOfSegOnDisk());
 
     //set 0 to free data buffer
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));

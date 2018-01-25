@@ -9,36 +9,6 @@
 using namespace std;
 namespace hlkvds {         
 
-SegmentOnDisk::SegmentOnDisk() :
-    checksum(0), number_keys(0) {
-    time_stamp = KVTime::GetNow();
-}
-
-SegmentOnDisk::~SegmentOnDisk() {
-}
-
-SegmentOnDisk::SegmentOnDisk(const SegmentOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
-    number_keys = toBeCopied.number_keys;
-}
-
-SegmentOnDisk& SegmentOnDisk::operator=(const SegmentOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
-    number_keys = toBeCopied.number_keys;
-    return *this;
-}
-
-SegmentOnDisk::SegmentOnDisk(uint32_t num) :
-    checksum(0), number_keys(num) {
-    time_stamp = KVTime::GetNow();
-}
-
-void SegmentOnDisk::Update() {
-    time_stamp = KVTime::GetNow();
-}
-    
 Volume::Volume(BlockDevice* dev, IndexManager* im,
                 Options& opts, int vol_id, uint64_t start_off,
                 uint32_t segment_size, uint32_t segment_num,
@@ -149,7 +119,6 @@ void Volume::Use(uint32_t seg_id, uint32_t free_size) {
 }
 
 //////////////////////////////////////////////////
-
 
 bool Volume::ForeGC() {
     return gcMgr_->ForeGC();

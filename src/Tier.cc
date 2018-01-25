@@ -240,7 +240,7 @@ bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offs
     uint64_t device_capacity = bdev->GetDeviceCapacity();
     uint32_t seg_num = DS_MultiTier_Impl::CalcSegNumForFastTierVolume(device_capacity, sst_offset, segSize_, medium_tier_total_seg_num);
     segNum_ = seg_num;
-    maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    maxValueLen_ = segSize_ - SegBase::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
 
     uint32_t seg_total_num = segNum_ + medium_tier_total_seg_num;
     sstLengthOnDisk_ = DS_MultiTier_Impl::CalcSSTsLengthOnDiskBySegNum(seg_total_num);
@@ -256,7 +256,7 @@ bool FastTier::CreateVolume(std::vector<BlockDevice*> &bd_vec, uint64_t sst_offs
 bool FastTier::OpenVolume(std::vector<BlockDevice*> &bd_vec) {
     segSize_ = sbResFastTier_.segment_size;
     segNum_ = sbResFastTier_.segment_num;
-    maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    maxValueLen_ = segSize_ - SegBase::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     sstLengthOnDisk_ = sbMgr_->GetSSTRegionLength();
 
     if (!verifyTopology(bd_vec)) {

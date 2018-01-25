@@ -19,24 +19,6 @@ class IndexManager;
 class KVSlice;
 class HashEntry;
 
-class SegmentOnDisk {
-public:
-    uint64_t time_stamp;
-    uint32_t checksum;
-    uint32_t number_keys;
-public:
-    SegmentOnDisk();
-    ~SegmentOnDisk();
-    SegmentOnDisk(const SegmentOnDisk& toBeCopied);
-    SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
-
-    SegmentOnDisk(uint32_t num);
-    void Update();
-    void SetKeyNum(uint32_t num) {
-        number_keys = num;
-    }
-};
-
 class Volume {
 public:
     Volume(BlockDevice* dev, IndexManager* im, Options& opts,
@@ -78,10 +60,6 @@ public:
 
 //move from SegmentManager
 public:
-
-    static inline size_t SizeOfSegOnDisk() {
-        return sizeof(SegmentOnDisk);
-    }
 
     uint32_t GetNumberOfSeg() {
         return segNum_;

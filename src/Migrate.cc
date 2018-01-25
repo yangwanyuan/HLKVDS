@@ -121,7 +121,7 @@ uint32_t Migrate::doMigrate(uint32_t mt_vol_id, uint32_t max_seg_num) {
 
 void Migrate::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                           uint64_t phy_offset) {
-    uint32_t head_offset = Volume::SizeOfSegOnDisk();
+    uint32_t head_offset = SegBase::SizeOfSegOnDisk();
 
     Volume *ft_vol = ft_->GetVolume();
     int vol_id = ft_vol->GetId();
@@ -183,7 +183,7 @@ bool Migrate::loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list) {
     }
 
     SegmentOnDisk seg_disk;
-    memcpy(&seg_disk, ftDataBuf_, Volume::SizeOfSegOnDisk());
+    memcpy(&seg_disk, ftDataBuf_, SegBase::SizeOfSegOnDisk());
 
     uint32_t num_keys = seg_disk.number_keys;
 

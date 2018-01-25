@@ -314,7 +314,7 @@ bool DS_MultiVolume_Impl::CreateAllComponents(uint64_t sst_offset) {
         return false;
     }
 
-    maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    maxValueLen_ = segSize_ - SegBase::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     volNum_ = bdVec_.size();
 
     //Create Pure Volumes
@@ -347,7 +347,7 @@ bool DS_MultiVolume_Impl::CreateAllComponents(uint64_t sst_offset) {
 bool DS_MultiVolume_Impl::OpenAllComponents() {
     volNum_ = sbResHeader_.volume_num;
     segSize_ = sbResHeader_.segment_size;
-    maxValueLen_ = segSize_ - Volume::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    maxValueLen_ = segSize_ - SegBase::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     sstLengthOnDisk_ = sbMgr_->GetSSTRegionLength();
 
     BlockDevice *meta_bdev = bdVec_[0];
