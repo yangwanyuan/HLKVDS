@@ -20,8 +20,8 @@ Migrate::Migrate(IndexManager* im, FastTier* ft, MediumTier* mt, Options &opt) :
         posix_memalign((void **)&ftDataBuf_, 4096, ftSegSize_);
 }
 
-uint32_t Migrate::QuickMigrate(uint32_t mt_vol_id) {
-    std::lock_guard < std::mutex > lck(mtx_);
+uint32_t Migrate::ForeMigrate(uint32_t mt_vol_id) {
+    std::lock_guard <std::mutex> lck(mtx_);
 
     //Get the sorted Segments
     Volume *ft_vol = ft_->GetVolume();
@@ -33,21 +33,14 @@ uint32_t Migrate::QuickMigrate(uint32_t mt_vol_id) {
         return 0;
     }
 
-    return doMigrate(mt_vol_id, 100);
-
+    uint32_t max_seg_num = ft_vol->GetNumberOfSeg();
+    free_seg_num = doMigrate(mt_vol_id, max_seg_num);
+    return free_seg_num;
 }
 
 uint32_t Migrate::BackMigrate(uint32_t mt_vol_id) {
-    std::lock_guard < std::mutex > lck(mtx_);
-    return doMigrate(mt_vol_id, 1000);
-}
-
-uint32_t Migrate::DeepMigrate(uint32_t mt_vol_id) {
-    std::lock_guard < std::mutex > lck(mtx_);
-    Volume *ft_vol = ft_->GetVolume();
-    uint32_t max_seg_num = ft_vol->GetNumberOfSeg();
-    return doMigrate(mt_vol_id, max_seg_num);
-
+    std::lock_guard <std::mutex> lck(mtx_);
+    return doMigrate(mt_vol_id, 10000);
 }
 
 uint32_t Migrate::doMigrate(uint32_t mt_vol_id, uint32_t max_seg_num) {
@@ -85,9 +78,17 @@ uint32_t Migrate::doMigrate(uint32_t mt_vol_id, uint32_t max_seg_num) {
         }
     }
     
+    //Allocate segment id from volume
     uint32_t mig_seg_id;
-    mt_vol->AllocForGC(mig_seg_id);
+    if (!mt_vol->Alloc(mig_seg_id)) {
+        __WARN("The Medium Tier Volume[%d] is Full, can not allocate segment", mig_seg_id);
+        delete mig_seg;
+        cleanKvList(recycle_list);
+        return 0;
+    }
     mig_seg->SetSegId(mig_seg_id);
+
+    //Write to volume device
     ret = mig_seg->WriteSegToDevice();
     if (!ret) {
         __ERROR("Write First GC segment to device failed, free 0 segments");

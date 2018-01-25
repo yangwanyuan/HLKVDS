@@ -124,6 +124,8 @@ private:
     std::map<int, SegForReq *> segMap_;
     std::vector<std::mutex *> segMtxVec_;
 
+    std::mutex allocMtx_;
+
     uint32_t maxValueLen_;
     uint64_t sstLengthOnDisk_;
 
@@ -145,6 +147,7 @@ private:
 
     int calcShardId(KVSlice& slice);
 
+    bool allocSegment(uint32_t &seg_id);
     //void prepareToStart();
     //void postProcess();
 
@@ -265,6 +268,7 @@ public:
 
     // Called by Migrate
     Volume* GetVolume(uint32_t vol_id);
+    uint32_t GetVolumeNum() const { return volNum_; }
 
     // Called by FastTier
     uint32_t PickVolForMigrate();

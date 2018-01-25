@@ -21,9 +21,8 @@ public:
     ~Migrate();
     Migrate(IndexManager* im, FastTier* ft, MediumTier* mt, Options &opt);
 
-    uint32_t QuickMigrate(uint32_t mt_vol_id);
+    uint32_t ForeMigrate(uint32_t mt_vol_id);
     uint32_t BackMigrate(uint32_t mt_vol_id);
-    uint32_t DeepMigrate(uint32_t mt_vol_id);
 
 private:
     void loadSegKV(std::list<KVSlice*> &slice_list, uint32_t num_keys,

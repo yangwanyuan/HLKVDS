@@ -121,14 +121,12 @@ Status FastTier::WriteData(KVSlice& slice) {
 
 Status FastTier::WriteBatchData(WriteBatch *batch) {
     uint32_t seg_id = 0;
-    bool ret;
+    bool ret = false;
 
-    //TODO: Implement exception when no space to alloc
-    while (!vol_->Alloc(seg_id)) {
-        __DEBUG("cant't alloc segment, need migrate, free = %d, used = %d", vol_->GetTotalFreeSegs(), vol_->GetTotalUsedSegs());
-        uint32_t mt_vol_id = mt_->PickVolForMigrate();
-        uint32_t free_num = mig_->QuickMigrate(mt_vol_id);
-        __DEBUG("After Migrate, free total %d segments", free_num);
+    ret = allocSegment(seg_id);
+    if (!ret) {
+        __ERROR("Cann't get a new Empty Segment.\n");
+        return Status::Aborted("Can't allocate a Empty Segment.");
     }
 
     SegForSlice *seg = new SegForSlice(vol_, idxMgr_);
@@ -404,6 +402,24 @@ int FastTier::calcShardId(KVSlice& slice) {
     return KeyDigestHandle::Hash(&slice.GetDigest()) % shardsNum_;
 }
 
+bool FastTier::allocSegment(uint32_t &seg_id) {
+    std::lock_guard <std::mutex> l(allocMtx_);
+
+    uint32_t mt_vol_num = mt_->GetVolumeNum();
+    while (!vol_->Alloc(seg_id)) {
+        __DEBUG("cant't alloc segment, need migrate, free = %d, used = %d", vol_->GetTotalFreeSegs(), vol_->GetTotalUsedSegs());
+        if (mt_vol_num == 0) {
+            return false;
+        }
+        uint32_t mt_vol_id = mt_->PickVolForMigrate();
+        mt_vol_num--;
+        uint32_t free_num = mig_->ForeMigrate(mt_vol_id);
+        __DEBUG("After migration total free %d segments on Medium Tier Volume [%d].", free_num, mt_vol_id);
+    }
+
+    return true;
+}
+
 void FastTier::ReqMerge(Request* req) {
     int shard_id = req->GetShardsWQId();
 
@@ -436,26 +452,25 @@ void FastTier::ReqMerge(Request* req) {
 }
 
 void FastTier::SegWrite(SegForReq *seg) {
-    Volume *vol =  seg->GetSelfVolume();
-
     uint32_t seg_id = 0;
-    bool res;
-    //TODO: Implement exception when no space to alloc
-    while (!vol->Alloc(seg_id)) {
-        __DEBUG("cant't alloc segment, need migrate, free = %d, used = %d", vol_->GetTotalFreeSegs(), vol_->GetTotalUsedSegs());
-        uint32_t mt_vol_id = mt_->PickVolForMigrate();
-        uint32_t free_num = mig_->QuickMigrate(mt_vol_id);
-        __DEBUG("After Migrate, free total %d segments", free_num);
+    bool ret = false;
+
+    ret = allocSegment(seg_id);
+    if (!ret) {
+        __ERROR("Cann't get a new Empty Segment.\n");
+        seg->Notify(ret);
+        return ;
     }
+
     uint32_t free_size = seg->GetFreeSize();
     seg->SetSegId(seg_id);
-    res = seg->WriteSegToDevice();
-    if (res) {
-        vol->Use(seg_id, free_size);
+    ret = seg->WriteSegToDevice();
+    if (ret) {
+        vol_->Use(seg_id, free_size);
     } else {
-        vol->FreeForFailed(seg_id);
+        vol_->FreeForFailed(seg_id);
     }
-    seg->Notify(res);
+    seg->Notify(ret);
 }
 
 void FastTier::SegTimeoutThdEntry() {
@@ -498,23 +513,29 @@ void FastTier::MigrationThdEntry() {
 
         double util_rate = (double)used_seg_num / (double)total_seg_num;
 
-        if ( util_rate > 0.3) {
+        //if ( util_rate > 0.3) {
+        //    uint32_t mt_vol_id = mt_->PickVolForMigrate();
+        //    uint32_t free_num = mig_->BackMigrate(mt_vol_id);
+        //    __DEBUG("Once migration done, free %d segments", free_num);
+
+        //    int sleep_time;
+        //    if (util_rate > 0.8) {
+        //        sleep_time = 10;
+        //    }
+        //    else if (util_rate > 0.5) {
+        //        sleep_time = 1000;
+        //    }
+        //    else{
+        //        sleep_time = 100000;
+        //    }
+        //    usleep(sleep_time);
+        //}
+        if (util_rate > 0.1) {
             uint32_t mt_vol_id = mt_->PickVolForMigrate();
             uint32_t free_num = mig_->BackMigrate(mt_vol_id);
             __DEBUG("Once migration done, free %d segments", free_num);
-
-            int sleep_time;
-            if (util_rate > 0.9) {
-                sleep_time = 10;
-            }
-            else if (util_rate > 0.6) {
-                sleep_time = 1000;
-            }
-            else{
-                sleep_time = 100000;
-            }
-            usleep(sleep_time);
         }
+        usleep(1000);
     }__DEBUG("Migration thread stop!!");
 }
 
