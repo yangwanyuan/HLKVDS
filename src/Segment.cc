@@ -13,33 +13,33 @@ using namespace std;
 
 namespace hlkvds {
 
-SegmentOnDisk::SegmentOnDisk() :
+SegHeaderOnDisk::SegHeaderOnDisk() :
     checksum(0), number_keys(0) {
     time_stamp = KVTime::GetNow();
 }
 
-SegmentOnDisk::~SegmentOnDisk() {
+SegHeaderOnDisk::~SegHeaderOnDisk() {
 }
 
-SegmentOnDisk::SegmentOnDisk(const SegmentOnDisk& toBeCopied) {
+SegHeaderOnDisk::SegHeaderOnDisk(const SegHeaderOnDisk& toBeCopied) {
     time_stamp = toBeCopied.time_stamp;
     checksum = toBeCopied.checksum;
     number_keys = toBeCopied.number_keys;
 }
 
-SegmentOnDisk& SegmentOnDisk::operator=(const SegmentOnDisk& toBeCopied) {
+SegHeaderOnDisk& SegHeaderOnDisk::operator=(const SegHeaderOnDisk& toBeCopied) {
     time_stamp = toBeCopied.time_stamp;
     checksum = toBeCopied.checksum;
     number_keys = toBeCopied.number_keys;
     return *this;
 }
 
-SegmentOnDisk::SegmentOnDisk(uint32_t num) :
+SegHeaderOnDisk::SegHeaderOnDisk(uint32_t num) :
     checksum(0), number_keys(num) {
     time_stamp = KVTime::GetNow();
 }
 
-void SegmentOnDisk::Update() {
+void SegHeaderOnDisk::Update() {
     time_stamp = KVTime::GetNow();
 }
 
@@ -195,16 +195,16 @@ void Request::Signal() {
 SegBase::SegBase() :
     segId_(-1), vol_(NULL), segSize_(-1),
         headPos_(0), tailPos_(0), keyNum_(0),
-        keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
-    segOndisk_ = new SegmentOnDisk();
+        keyAlignedNum_(0), segHeader_(NULL), dataBuf_(NULL) {
+    segHeader_ = new SegHeaderOnDisk();
 }
 
 SegBase::~SegBase() {
-    delete segOndisk_;
+    delete segHeader_;
 }
 
 SegBase::SegBase(const SegBase& toBeCopied) {
-    segOndisk_ = new SegmentOnDisk();
+    segHeader_ = new SegHeaderOnDisk();
     copyHelper(toBeCopied);
 }
 
@@ -221,7 +221,7 @@ void SegBase::copyHelper(const SegBase& toBeCopied) {
     tailPos_ = toBeCopied.tailPos_;
     keyNum_ = toBeCopied.keyNum_;
     keyAlignedNum_ = toBeCopied.keyAlignedNum_;
-    *segOndisk_ = *toBeCopied.segOndisk_;
+    *segHeader_ = *toBeCopied.segHeader_;
     memcpy(dataBuf_, toBeCopied.dataBuf_, segSize_);
     sliceList_ = toBeCopied.sliceList_;
 }
@@ -230,8 +230,8 @@ SegBase::SegBase(Volume* vol) :
     segId_(-1), vol_(vol),
         segSize_(vol_->GetSegmentSize()),
         headPos_(SegBase::SizeOfSegOnDisk()), tailPos_(segSize_),
-        keyNum_(0), keyAlignedNum_(0), segOndisk_(NULL), dataBuf_(NULL) {
-    segOndisk_ = new SegmentOnDisk();
+        keyNum_(0), keyAlignedNum_(0), segHeader_(NULL), dataBuf_(NULL) {
+    segHeader_ = new SegHeaderOnDisk();
 }
 
 bool SegBase::TryPut(KVSlice* slice) {
@@ -388,10 +388,10 @@ void SegBase::copyToDataBuf() {
     }
 
     //copy segment header to data buffer.
-    //segOndisk_->SetTS(persistTime_);
-    segOndisk_->SetKeyNum(keyNum_);
+    //segHeader_->SetTS(persistTime_);
+    segHeader_->SetKeyNum(keyNum_);
     //setOndisk_->SetCrc(crc_num);
-    memcpy(dataBuf_, segOndisk_, SegBase::SizeOfSegOnDisk());
+    memcpy(dataBuf_, segHeader_, SegBase::SizeOfSegOnDisk());
 
     //set 0 to free data buffer
     memset(&(dataBuf_[offset_begin]), 0, (offset_end - offset_begin));

@@ -22,18 +22,18 @@ class IndexManager;
 class Volume;
 class SegForReq;
 
-class SegmentOnDisk {
+class SegHeaderOnDisk {
 public:
     uint64_t time_stamp;
     uint32_t checksum;
     uint32_t number_keys;
 public:
-    SegmentOnDisk();
-    ~SegmentOnDisk();
-    SegmentOnDisk(const SegmentOnDisk& toBeCopied);
-    SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
+    SegHeaderOnDisk();
+    ~SegHeaderOnDisk();
+    SegHeaderOnDisk(const SegHeaderOnDisk& toBeCopied);
+    SegHeaderOnDisk& operator=(const SegHeaderOnDisk& toBeCopied);
 
-    SegmentOnDisk(uint32_t num);
+    SegHeaderOnDisk(uint32_t num);
     void Update();
     void SetKeyNum(uint32_t num) {
         number_keys = num;
@@ -203,7 +203,7 @@ public:
 
 public:
     static inline size_t SizeOfSegOnDisk() {
-        return sizeof(SegmentOnDisk);
+        return sizeof(SegHeaderOnDisk);
     }
 
 private:
@@ -226,7 +226,7 @@ private:
 
     std::list<KVSlice *> sliceList_;
 
-    SegmentOnDisk *segOndisk_;
+    SegHeaderOnDisk *segHeader_;
     char *dataBuf_;
 };
 

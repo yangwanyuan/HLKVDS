@@ -182,10 +182,10 @@ bool Migrate::loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list) {
         return false;
     }
 
-    SegmentOnDisk seg_disk;
-    memcpy(&seg_disk, ftDataBuf_, SegBase::SizeOfSegOnDisk());
+    SegHeaderOnDisk seg_header;
+    memcpy(&seg_header, ftDataBuf_, SegBase::SizeOfSegOnDisk());
 
-    uint32_t num_keys = seg_disk.number_keys;
+    uint32_t num_keys = seg_header.number_keys;
 
     loadSegKV(slice_list, num_keys, seg_phy_off);
     return true;
