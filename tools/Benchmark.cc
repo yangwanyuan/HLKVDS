@@ -44,6 +44,7 @@ struct benchmark_arg {
     int thread_num;
     int segment_K;
     int shards_num;
+    int ds_type;
     Benchmark_Type bench_type;
 };
 
@@ -119,10 +120,10 @@ private:
 
 void usage() {
     cout << "Usage: ./Benchmark create|write|overwrite|read -f dbfile -s db_size \
--n num_records -t thread_num -seg segment_size(KB) -shards shards_num" << endl;
+-n num_records -t thread_num -seg segment_size(KB) -shards shards_num -dstype [0|1]" << endl;
 }
 
-int Create_DB(string filename, int db_size, int segment_K, int shards_num) {
+int Create_DB(string filename, int db_size, int segment_K, int shards_num, int ds_type) {
     cout << "Start CreateDB, Please wait ..." << endl;
     int ht_size = db_size ;
     int segment_size = SEG_UNIT_SIZE * segment_K;
@@ -131,6 +132,7 @@ int Create_DB(string filename, int db_size, int segment_K, int shards_num) {
     opts.hashtable_size = ht_size;
     opts.segment_size = segment_size;
     opts.shards_num = shards_num;
+    opts.datastor_type = ds_type;
 
     KVTime tv_start;
     KVDS *db = KVDS::Create_KVDS(filename.c_str(), opts);
@@ -360,7 +362,7 @@ void Bench_Get_Seq(KVDS *db, int record_num, vector<string> &key_list,
 }
 
 int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
-    if (argc != 14) {
+    if (argc != 16) {
         cout << "Please Input all the parameters!" << endl;
         return -1;
     }
@@ -388,13 +390,15 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     string str_t = "-t";
     string str_seg = "-seg";
     string str_shards = "-shards";
+    string str_type = "-dstype";
 
     if (strcmp(argv[2], str_f.c_str()) !=0 || \
         strcmp(argv[4], str_s.c_str()) != 0 || \
         strcmp(argv[6], str_n.c_str()) != 0 || \
         strcmp(argv[8], str_t.c_str()) != 0 || \
         strcmp(argv[10], str_seg.c_str()) != 0 || \
-        strcmp(argv[12], str_shards.c_str()) != 0) {
+        strcmp(argv[12], str_shards.c_str()) != 0 || \
+        strcmp(argv[14], str_type.c_str()) != 0) {
         cout << "Please Input Correct parameter!" << endl;
         return -1;
     }
@@ -405,6 +409,7 @@ int Parse_Option(int argc, char** argv, benchmark_arg &bm_arg) {
     bm_arg.thread_num = atoi(argv[9]);
     bm_arg.segment_K = atoi(argv[11]);
     bm_arg.shards_num = atoi(argv[13]);
+    bm_arg.ds_type = atoi(argv[15]);
     
     if (bm_arg.db_size < 0 ||  bm_arg.record_num < 0 || \
         bm_arg.thread_num < 0 || bm_arg.segment_K < 0 || \
@@ -421,9 +426,10 @@ void Bench_Create_DB(benchmark_arg bm_arg) {
     int db_size = bm_arg.db_size;
     int segment_K = bm_arg.segment_K;
     int shards_num = bm_arg.shards_num;
+    int ds_type = bm_arg.ds_type;
 
     vector<string> key_list;
-    if (Create_DB(file_path, db_size, segment_K, shards_num) < 0) {
+    if (Create_DB(file_path, db_size, segment_K, shards_num, ds_type) < 0) {
         cout << "Create DB Fail!!!" <<endl;
         return;
     }
@@ -437,10 +443,6 @@ void Bench_Write(benchmark_arg bm_arg) {
 
     vector<string> key_list;
     Create_Keys(record_num, key_list);
-    //if (Create_DB(file_path, db_size, segment_K, shards_num) < 0) {
-    //    cout << "Create DB Fail!!!" <<endl;
-    //    return;
-    //}
 
     KVDS *db = Open_DB(file_path, shards_num);
 
@@ -455,10 +457,11 @@ void Bench_Overwrite(benchmark_arg bm_arg) {
     int thread_num = bm_arg.thread_num;
     int segment_K = bm_arg.segment_K;
     int shards_num = bm_arg.shards_num;
+    int ds_type = bm_arg.ds_type;
 
     vector<string> key_list;
     Create_Keys(record_num, key_list);
-    if (Create_DB(file_path, db_size, segment_K, shards_num) < 0) {
+    if (Create_DB(file_path, db_size, segment_K, shards_num, ds_type) < 0) {
         cout << "Create DB Fail!!!" <<endl;
         return;
     }
