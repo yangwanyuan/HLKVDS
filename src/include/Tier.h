@@ -138,6 +138,8 @@ private:
     MediumTier *mt_;
 
 private:
+    Status writeDataAggregate(KVSlice& slice);
+    Status writeDataImmediately(KVSlice& slice);
     Status updateMeta(Request *req);
 
     void deleteAllSegments();

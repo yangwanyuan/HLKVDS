@@ -15,11 +15,11 @@ Options::Options() :
         seg_full_rate(SEG_FULL_RATE),
         gc_upper_level(GC_UPPER_LEVEL),
         gc_lower_level(GC_LOWER_LEVEL),
+        aggregate_request(1),
 
         datastor_type(1),
-        //datastor_type(0),
-        segment_size(SEGMENT_SIZE),
         hashtable_size(0),
+        segment_size(SEGMENT_SIZE),
         secondary_seg_size(SEGMENT_SIZE) {
 }
 

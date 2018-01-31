@@ -106,17 +106,13 @@ Status FastTier::WriteData(KVSlice& slice) {
         return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
-    Request *req = new Request(slice);
+    if (options_.aggregate_request == 1) {
+        return FastTier::writeDataAggregate(slice);
+    }
+    else {
+        return FastTier::writeDataImmediately(slice);
+    }
 
-    int shards_id = calcShardId(slice);
-    req->SetShardsWQId(shards_id);
-    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
-    req_wq->Add_task(req);
-
-    req->Wait();
-    Status s = updateMeta(req);
-    delete req;
-    return s;
 }
 
 Status FastTier::WriteBatchData(WriteBatch *batch) {
@@ -348,6 +344,25 @@ std::string FastTier::GetValueByHashEntry(HashEntry *entry) {
     delete[] mdata;
 
     return res;
+}
+
+Status FastTier::writeDataAggregate(KVSlice& slice) {
+
+    Request *req = new Request(slice);
+
+    int shards_id = calcShardId(slice);
+    req->SetShardsWQId(shards_id);
+    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
+    req_wq->Add_task(req);
+
+    req->Wait();
+    Status s = updateMeta(req);
+    delete req;
+    return s;
+}
+
+Status FastTier::writeDataImmediately(KVSlice& slice){
+    return Status::Aborted("Not Implement write data immediately");
 }
 
 Status FastTier::updateMeta(Request *req) {

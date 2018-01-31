@@ -19,10 +19,12 @@ struct Options {
     double gc_upper_level;
     double gc_lower_level;
 
+    bool aggregate_request;
+
     //Create DB parameters
     int datastor_type;
-    int segment_size;
     int hashtable_size;
+    int segment_size;
     int secondary_seg_size;
 
     Options();
