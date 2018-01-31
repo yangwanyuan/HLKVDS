@@ -160,17 +160,8 @@ bool Volume::CalcDataOffsetPhyFromEntry(HashEntry* entry,
 
 bool Volume::CalcKeyOffsetPhyFromEntry(HashEntry* entry,
                                            uint64_t& key_offset) {
-    uint64_t seg_offset = 0;
     uint64_t header_offset = entry->GetHeaderOffset();
-    if (!CalcSegOffsetFromOffset(header_offset, seg_offset)) {
-        return false;
-    }
-    uint32_t data_size = entry->GetDataSize();
-    if ( data_size == ALIGNED_SIZE) {
-        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize();
-    } else {
-        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize() - data_size;
-    }
+    key_offset = header_offset + IndexManager::SizeOfDataHeader();
     return true;
 }
 
