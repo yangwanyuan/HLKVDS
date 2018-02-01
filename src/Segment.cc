@@ -564,4 +564,173 @@ void SegForMigrate::UpdateToIndex() {
 }
 
 
+SegLatencyFriendly::SegLatencyFriendly() :
+    vol_(NULL), idxMgr_(NULL), segId_(-1), segSize_(-1),
+    headPos_(0), keyNum_(0), checksumSize_(0), dataBuf_(NULL) {
+}
+
+SegLatencyFriendly::~SegLatencyFriendly() {
+}
+
+SegLatencyFriendly::SegLatencyFriendly(const SegLatencyFriendly& toBeCopied) {
+    copyHelper(toBeCopied);
+}
+
+SegLatencyFriendly& SegLatencyFriendly::operator=(const SegLatencyFriendly& toBeCopied) {
+    copyHelper(toBeCopied);
+    return *this;
+}
+
+SegLatencyFriendly::SegLatencyFriendly(Volume* vol, IndexManager* im) :
+    vol_(vol), idxMgr_(im), segId_(-1), segSize_(vol_->GetSegmentSize()),
+    headPos_(SegBase::SizeOfSegOnDisk()), keyNum_(0), checksumSize_(0),
+    dataBuf_(NULL){
+}
+
+void SegLatencyFriendly::copyHelper(const SegLatencyFriendly& toBeCopied) {
+    segId_ = toBeCopied.segId_;
+    vol_ = toBeCopied.vol_;
+    segSize_ = toBeCopied.segSize_;
+
+    headPos_ = toBeCopied.headPos_;
+    keyNum_ = toBeCopied.keyNum_;
+    checksumSize_ = toBeCopied.checksumSize_;
+}
+
+bool SegLatencyFriendly::TryPut(KVSlice* slice) {
+    uint32_t free_size = segSize_ - headPos_;
+    uint32_t need_size = slice->GetDataLen() + slice->GetKeyLen() + IndexManager::SizeOfDataHeader();
+    return free_size > need_size;
+}
+
+void SegLatencyFriendly::Put(KVSlice* slice) {
+    headPos_ += IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();
+    keyNum_++;
+    sliceList_.push_back(slice);
+    __DEBUG("Put request key = %s", slice->GetKeyStr().c_str());
+}
+
+bool SegLatencyFriendly::TryPutList(std::list<KVSlice*> &slice_list) {
+    uint32_t free_size = segSize_ - headPos_;
+    uint32_t need_size = 0;
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        need_size += slice->GetDataLen() + slice->GetKeyLen() + IndexManager::SizeOfDataHeader();
+    }
+    return free_size > need_size;
+}
+
+void SegLatencyFriendly::PutList(std::list<KVSlice*> &slice_list) {
+    for (list<KVSlice *>::iterator iter = slice_list.begin(); iter != slice_list.end(); iter++) {
+        KVSlice *slice = *iter;
+        Put(slice);
+    }
+}
+
+bool SegLatencyFriendly::WriteSegToDevice() {
+    if (segId_ < 0)
+    {
+        __ERROR("Not set seg_id to segment");
+        return false;
+    }
+    fillEntryToSlice();
+    __DEBUG("Begin write seg, free size %u, seg id: %d, key num: %d", tailPos_-headPos_ , segId_, keyNum_);
+    return _writeDataToDevice();
+}
+
+void SegLatencyFriendly::fillEntryToSlice() {
+    uint32_t head_pos = SegBase::SizeOfSegOnDisk();
+    int vol_id = vol_->GetId();
+
+    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
+            != sliceList_.end(); iter++) {
+        KVSlice *slice = *iter;
+        slice->SetSegId(segId_);
+
+        uint32_t data_offset = head_pos + IndexManager::SizeOfDataHeader() + slice->GetKeyLen();
+        uint32_t next_offset = head_pos + IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();
+        DataHeader data_header(slice->GetDigest(), slice->GetKeyLen(), slice->GetDataLen(),
+                               data_offset, next_offset);
+        uint64_t seg_offset = 0;
+        vol_->CalcSegOffsetFromId(segId_, seg_offset);
+        uint64_t header_offset = seg_offset + head_pos;
+
+        DataHeaderAddress addrs(vol_id, header_offset);
+        HashEntry hash_entry(data_header, addrs, NULL);
+        slice->SetHashEntry(&hash_entry);
+
+        head_pos += IndexManager::SizeOfDataHeader() + slice->GetKeyLen() + slice->GetDataLen();
+        __DEBUG("SegmentSlice: key=%s, data_offset=%u, header_offset=%lu, seg_id=%u, head_pos=%u", slice->GetKey(), data_offset, header_offset, segId_, head_pos);
+    }
+
+    if (head_pos != headPos_ ) {
+        __ERROR("Segment fillEntryToSlice  Failed!!! head_pos= %u, headPos_=%u", head_pos, headPos_);
+    }
+}
+
+bool SegLatencyFriendly::_writeDataToDevice() {
+    checksumSize_ = headPos_ - SegBase::SizeOfSegOnDisk();
+    uint32_t pages_num = headPos_ / getpagesize();
+    uint32_t aligned_size = ( pages_num + 1 ) * getpagesize();
+
+    posix_memalign((void**)&dataBuf_, 4096, aligned_size);
+
+    copyToDataBuf();
+    uint64_t offset = 0;
+    vol_->CalcSegOffsetFromId(segId_, offset);
+
+    bool ret = vol_->Write(dataBuf_, aligned_size, offset);
+
+    free(dataBuf_);
+    dataBuf_ = NULL;
+
+
+    return ret;
+}
+
+void SegLatencyFriendly::copyToDataBuf() {
+    uint64_t offset = 0;
+    vol_->CalcSegOffsetFromId(segId_, offset);
+
+    uint32_t offset_begin = 0;
+
+    offset_begin += SegBase::SizeOfSegOnDisk();
+
+    //aggregate iovec
+    for (list<KVSlice *>::iterator iter = sliceList_.begin(); iter
+            != sliceList_.end(); iter++) {
+        KVSlice *slice = *iter;
+        DataHeader *header =
+                &slice->GetHashEntry().GetEntryOnDisk().GetDataHeader();
+        char *data = (char *) slice->GetData();
+        uint16_t data_len = slice->GetDataLen();
+
+        char *key = (char *) slice->GetKey();
+        uint16_t key_len = slice->GetKeyLen();
+        memcpy(&(dataBuf_[offset_begin]), header, IndexManager::SizeOfDataHeader());
+        __DEBUG("write key = %s, seg_id: %u, header offset: %u", slice->GetKey(), segId_, offset_begin);
+        offset_begin += IndexManager::SizeOfDataHeader();
+        memcpy(&(dataBuf_[offset_begin]), key, key_len);
+        __DEBUG("write key = %s, key offset: %u", slice->GetKey(), offset_begin);
+        offset_begin += key_len;
+        memcpy(&(dataBuf_[offset_begin]), data, data_len);
+        __DEBUG("write key = %s, data position: %u", slice->GetKey(), offset_begin);
+        offset_begin += data_len;
+    }
+
+    // Generate SegHeaderOnDisk
+    uint64_t timestamp = KVTime::GetNow();
+    uint64_t trx_id = 0;
+    uint32_t trx_segs = 0;
+    uint32_t checksum_data = 0;
+    SegHeaderOnDisk seg_header(timestamp, trx_id, trx_segs, checksum_data, checksumSize_, keyNum_);
+    memcpy(dataBuf_, &seg_header, SegBase::SizeOfSegOnDisk());
+
+}
+
+void SegLatencyFriendly::UpdateToIndex() {
+    list<KVSlice *> &slice_list = GetSliceList();
+    idxMgr_->UpdateIndexes(slice_list);
+}
+
 }

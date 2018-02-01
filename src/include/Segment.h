@@ -305,5 +305,71 @@ private:
     IndexManager* idxMgr_;
 };
 
+class SegLatencyFriendly {
+public:
+    SegLatencyFriendly();
+    ~SegLatencyFriendly();
+    SegLatencyFriendly(const SegLatencyFriendly& toBeCopied);
+    SegLatencyFriendly& operator=(const SegLatencyFriendly& toBeCopied);
+    SegLatencyFriendly(Volume* vol, IndexManager* idx);
+
+    bool TryPut(KVSlice *slice);
+    void Put(KVSlice *slice);
+    bool TryPutList(std::list<KVSlice*> &slice_list);
+    void PutList(std::list<KVSlice*> &slice_list);
+
+    bool WriteSegToDevice();
+
+    void UpdateToIndex();
+
+    uint32_t GetFreeSize() const {
+        return segSize_ - SegBase::SizeOfSegOnDisk() - checksumSize_;
+    }
+
+    int32_t GetSegId() const {
+        return segId_;
+    }
+
+    void SegSegId(int32_t seg_id) {
+        segId_ = seg_id;
+    }
+
+    int32_t GetKeyNum() const {
+        return keyNum_;
+    }
+
+    std::list<KVSlice *>& GetSliceList() {
+        return sliceList_;
+    }
+
+    Volume* GetSelfVolume() {
+        return vol_;
+    }
+
+private:
+    void copyHelper(const SegLatencyFriendly& toBeCopied);
+    void fillEntryToSlice();
+    bool _writeDataToDevice();
+    void copyToDataBuf();
+
+private:
+    Volume* vol_;
+    IndexManager* idxMgr_;
+
+    int32_t segId_;
+    int32_t segSize_;
+
+    uint32_t headPos_;
+
+    int32_t keyNum_;
+
+    uint32_t checksumSize_;
+
+    std::list<KVSlice *> sliceList_;
+
+    char *dataBuf_;
+
+};
+
 }
 #endif //#ifndef _HLKVDS_SEGMENT_H_

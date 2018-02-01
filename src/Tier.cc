@@ -362,7 +362,31 @@ Status FastTier::writeDataAggregate(KVSlice& slice) {
 }
 
 Status FastTier::writeDataImmediately(KVSlice& slice){
-    return Status::Aborted("Not Implement write data immediately");
+    uint32_t seg_id = 0;
+    bool ret = false;
+
+    ret = allocSegment(seg_id);
+    if (!ret) {
+        __ERROR("Cann't get a new Empty Segment.\n");
+        return Status::Aborted("Can't allocate a Empty Segment.");
+    }
+
+    SegLatencyFriendly *seg = new SegLatencyFriendly(vol_, idxMgr_);
+    seg->Put(&slice);
+    seg->SegSegId(seg_id);
+    ret = seg->WriteSegToDevice();
+    if(!ret) {
+        __ERROR("Write batch segment to device failed");
+        vol_->FreeForFailed(seg_id);
+        delete seg;
+        return Status::IOError("could not write batch segment to device ");
+    }
+    uint32_t free_size = seg->GetFreeSize();
+    vol_->Use(seg_id, free_size);
+    seg->UpdateToIndex();
+    delete seg;
+    return Status::OK();
+
 }
 
 Status FastTier::updateMeta(Request *req) {
