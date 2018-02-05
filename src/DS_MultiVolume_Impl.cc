@@ -15,7 +15,7 @@ namespace hlkvds {
 DS_MultiVolume_Impl::DS_MultiVolume_Impl(Options& opts, vector<BlockDevice*> &dev_vec,
                             SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), segSize_(0), maxValueLen_(0),
-        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), segTimeoutT_stop_(false) {
+        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), segWteWQ_(NULL), segTimeoutT_stop_(false) {
     shardsNum_ = options_.shards_num;
     lastTime_ = new KVTime();
 }
