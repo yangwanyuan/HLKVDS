@@ -69,6 +69,7 @@ $(TEST_OBJECTS): %.o: %.cc
 
 ${SRC_DIR}/libhlkvds.so: ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -shared -o $@ ${LIBS}
+	ar rcs src/libhlkvds.a $^
 
 ${TOOLS_DIR}/Benchmark: ${TOOLS_DIR}/Benchmark.cc ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS}
@@ -114,8 +115,10 @@ clean:
 install:
 	cp -r src/include/hlkvds /usr/local/include
 	cp src/libhlkvds.so /usr/local/lib
+	cp src/libhlkvds.a /usr/local/lib
 
 .PHONY : uninstall
 uninstall:
 	rm -fr /usr/local/include/hlkvds
 	rm -f /usr/local/lib/libhlkvds.so
+	rm -f /usr/local/lib/libhlkvds.a
