@@ -5,6 +5,7 @@
 tags
 deps/
 test.img
+test_file*
 test/include/gmock
 test/include/gtest
 test/lib
