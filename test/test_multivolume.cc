@@ -14,7 +14,10 @@ TEST_F(TestMultiVolume, OpenDB) {
     KVDS *db = Create();
     EXPECT_TRUE( NULL != db);
     delete db;
-    db = Open();
+
+    Options opts;
+    opts.datastor_type = 0;
+    db = Open(opts);
     EXPECT_TRUE( NULL != db);
     delete db;
 }

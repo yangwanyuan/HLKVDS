@@ -18,8 +18,8 @@ public:
     ~TestNewBase();
 
     KVDS* Create();
-    KVDS* Open();
-    KVDS* ReOpen();
+    KVDS* Open(Options &opts);
+    KVDS* ReOpen(Options &opts);
 
     Status Insert(const char* key, uint32_t key_len, const char* data, uint16_t length);
     Status Get(const char* key, uint32_t key_len, std::string &data);
@@ -29,7 +29,7 @@ public:
     
 public:
     std::string path_;
-    Options opts_;
+    int dsType_;
     KVDS *db_;
 
 };

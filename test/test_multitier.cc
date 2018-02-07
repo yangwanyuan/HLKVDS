@@ -14,7 +14,10 @@ TEST_F(TestMultiTier, OpenDB) {
     KVDS *db = Create();
     EXPECT_TRUE( NULL != db);
     delete db;
-    db = Open();
+
+    Options opts;
+    opts.datastor_type = 0;
+    db = Open(opts);
     EXPECT_TRUE( NULL != db);
     delete db;
 }
@@ -126,6 +129,31 @@ TEST_F(TestMultiTier, Iterator) {
     EXPECT_EQ(test_key, iter->Key());
     EXPECT_EQ(test_value, iter->Value());
 
+    delete db;
+}
+
+TEST_F(TestMultiTier, InsertLatencyFriendly) {
+    KVDS *db = Create();
+    delete db;
+
+    Options opts;
+    opts.aggregate_request = 0;
+    db = Open(opts);
+
+    string test_key = "test-key";
+    int test_key_size = 8;
+    string test_value = "test-value";
+    int test_value_size = 10;
+
+    Status s = Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+
+    EXPECT_TRUE(s.ok());
+    string get_data;
+    s=Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
+
+    EXPECT_EQ(test_value,get_data);
+    get_data.clear();
     delete db;
 }
 
