@@ -55,12 +55,11 @@ DB::DBReaper::~DBReaper() {
 }
 
 Status DB::Insert(const char* key, uint32_t key_len, const char* data,
-                uint16_t length) {
-    Status s = kvds_->Insert(key, key_len, data, length);
+                uint16_t length, bool immediately) {
+    Status s = kvds_->Insert(key, key_len, data, length, immediately);
     if (!s.ok()) {
         std::cout << "DB Insert failed" << std::endl;
     }
-
     return s;
 }
 

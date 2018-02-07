@@ -67,7 +67,7 @@ public:
     void printDeviceTopologyInfo() override;
     void printDynamicInfo() override;
 
-    Status WriteData(KVSlice& slice) override;
+    Status WriteData(KVSlice& slice, bool immediately) override;
     Status WriteBatchData(WriteBatch *batch) override;
     Status ReadData(KVSlice &slice, std::string &data) override;
 

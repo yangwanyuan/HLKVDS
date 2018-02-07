@@ -33,8 +33,8 @@ KVDS* TestNewBase::ReOpen(Options &opts) {
     return Open(opts);
 }
 
-Status TestNewBase::Insert(const char* key, uint32_t key_len, const char* data, uint16_t length) {
-    return db_->Insert(key, key_len, data, length);
+Status TestNewBase::Insert(const char* key, uint32_t key_len, const char* data, uint16_t length, bool immediately) {
+    return db_->Insert(key, key_len, data, length, immediately);
 }
 
 Status TestNewBase::Get(const char* key, uint32_t key_len, std::string &data) {

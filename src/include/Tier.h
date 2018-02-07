@@ -72,7 +72,7 @@ public:
     void printDeviceTopologyInfo();
     void printDynamicInfo();
 
-    Status WriteData(KVSlice& slice);
+    Status WriteData(KVSlice& slice, bool immediately);
     Status WriteBatchData(WriteBatch *batch);
     Status ReadData(KVSlice &slice, std::string &data);
 

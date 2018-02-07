@@ -21,7 +21,7 @@ public:
     KVDS* Open(Options &opts);
     KVDS* ReOpen(Options &opts);
 
-    Status Insert(const char* key, uint32_t key_len, const char* data, uint16_t length);
+    Status Insert(const char* key, uint32_t key_len, const char* data, uint16_t length, bool immediately = false);
     Status Get(const char* key, uint32_t key_len, std::string &data);
     Status Delete(const char* key, uint32_t key_len);
     Status InsertBatch(WriteBatch *batch);

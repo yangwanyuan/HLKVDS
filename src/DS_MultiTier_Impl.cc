@@ -55,8 +55,8 @@ void DS_MultiTier_Impl::printDynamicInfo() {
             ft_->getSegWriteQueSize());
 }
 
-Status DS_MultiTier_Impl::WriteData(KVSlice& slice) {
-    return ft_->WriteData(slice);
+Status DS_MultiTier_Impl::WriteData(KVSlice& slice, bool immediately) {
+    return ft_->WriteData(slice, immediately);
 }
 
 Status DS_MultiTier_Impl::WriteBatchData(WriteBatch *batch) {

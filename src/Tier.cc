@@ -101,12 +101,12 @@ void FastTier::printDeviceTopologyInfo() {
 void FastTier::printDynamicInfo() {
 }
 
-Status FastTier::WriteData(KVSlice& slice) {
+Status FastTier::WriteData(KVSlice& slice, bool immediately) {
     if (slice.GetDataLen() > maxValueLen_) {
         return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
-    if (options_.aggregate_request == 1) {
+    if (options_.aggregate_request == 1 && !immediately) {
         return writeDataAggregate(slice);
     }
     else {

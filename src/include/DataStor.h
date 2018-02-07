@@ -38,7 +38,7 @@ public:
     virtual void printDeviceTopologyInfo() = 0;
     virtual void printDynamicInfo() = 0;
 
-    virtual Status WriteData(KVSlice& slice) = 0;
+    virtual Status WriteData(KVSlice& slice, bool immediately) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
     virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
 

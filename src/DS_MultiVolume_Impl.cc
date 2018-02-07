@@ -97,12 +97,12 @@ void DS_MultiVolume_Impl::printDynamicInfo() {
             getReqQueSize(), getSegWriteQueSize());
 }
 
-Status DS_MultiVolume_Impl::WriteData(KVSlice& slice) {
+Status DS_MultiVolume_Impl::WriteData(KVSlice& slice, bool immediately) {
     if (slice.GetDataLen() > maxValueLen_) {
         return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
-    if (options_.aggregate_request == 1) {
+    if (options_.aggregate_request == 1 && !immediately) {
         return writeDataAggregate(slice);
     }
     else {
