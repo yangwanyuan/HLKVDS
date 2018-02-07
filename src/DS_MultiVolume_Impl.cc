@@ -102,17 +102,12 @@ Status DS_MultiVolume_Impl::WriteData(KVSlice& slice) {
         return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
-    Request *req = new Request(slice);
-
-    int shards_id = calcShardId(slice);
-    req->SetShardsWQId(shards_id);
-    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
-    req_wq->Add_task(req);
-
-    req->Wait();
-    Status s = updateMeta(req);
-    delete req;
-    return s;
+    if (options_.aggregate_request == 1) {
+        return writeDataAggregate(slice);
+    }
+    else {
+        return writeDataImmediately(slice);
+    }
 }
 
 Status DS_MultiVolume_Impl::WriteBatchData(WriteBatch *batch) {
@@ -439,6 +434,55 @@ string DS_MultiVolume_Impl::GetValueByHashEntry(HashEntry *entry) {
     delete[] mdata;
 
     return res;
+}
+
+
+Status DS_MultiVolume_Impl::writeDataAggregate(KVSlice& slice) {
+
+    Request *req = new Request(slice);
+
+    int shards_id = calcShardId(slice);
+    req->SetShardsWQId(shards_id);
+    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
+    req_wq->Add_task(req);
+
+    req->Wait();
+    Status s = updateMeta(req);
+    delete req;
+    return s;
+}
+
+Status DS_MultiVolume_Impl::writeDataImmediately(KVSlice& slice) {
+    uint32_t seg_id = 0;
+    bool ret = false;
+
+    int vol_id = pickVol();
+    Volume *vol = volMap_[vol_id];
+
+    //TODO: use GcSegment first, need abstract segment.
+    while (!vol->Alloc(seg_id)) {
+        ret = vol->ForeGC();
+        if (!ret) {
+            __ERROR("Cann't get a new Empty Segment.\n");
+            return Status::Aborted("Can't allocate a Empty Segment.");
+        }
+    }
+
+    SegLatencyFriendly *seg = new SegLatencyFriendly(vol, idxMgr_);
+    seg->Put(&slice);
+    seg->SegSegId(seg_id);
+    ret = seg->WriteSegToDevice();
+    if(!ret) {
+        __ERROR("Write batch segment to device failed");
+        vol->FreeForFailed(seg_id);
+        delete seg;
+        return Status::IOError("could not write batch segment to device ");
+    }
+    uint32_t free_size = seg->GetFreeSize();
+    vol->Use(seg_id, free_size);
+    seg->UpdateToIndex();
+    delete seg;
+    return Status::OK();
 }
 
 uint64_t DS_MultiVolume_Impl::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {

@@ -132,6 +132,31 @@ TEST_F(TestMultiVolume, Iterator) {
     delete db;
 }
 
+TEST_F(TestMultiVolume, InsertLatencyFriendly) {
+    KVDS *db = Create();
+    delete db;
+
+    Options opts;
+    opts.aggregate_request = 0;
+    db = Open(opts);
+
+    string test_key = "test-key";
+    int test_key_size = 8;
+    string test_value = "test-value";
+    int test_value_size = 10;
+
+    Status s = Insert(test_key.c_str(), test_key_size, test_value.c_str(), test_value_size);
+
+    EXPECT_TRUE(s.ok());
+    string get_data;
+    s=Get(test_key.c_str(), test_key_size, get_data);
+    EXPECT_TRUE(s.ok());
+
+    EXPECT_EQ(test_value,get_data);
+    get_data.clear();
+    delete db;
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

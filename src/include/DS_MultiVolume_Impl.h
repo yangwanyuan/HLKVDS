@@ -102,6 +102,9 @@ public:
     std::string GetValueByHashEntry(HashEntry *entry) override;
 
 private:
+    Status writeDataAggregate(KVSlice& slice);
+    Status writeDataImmediately(KVSlice& slice);
+
     uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
     uint32_t calcSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
     uint32_t calcSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
