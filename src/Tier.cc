@@ -107,10 +107,10 @@ Status FastTier::WriteData(KVSlice& slice) {
     }
 
     if (options_.aggregate_request == 1) {
-        return FastTier::writeDataAggregate(slice);
+        return writeDataAggregate(slice);
     }
     else {
-        return FastTier::writeDataImmediately(slice);
+        return writeDataImmediately(slice);
     }
 
 }
