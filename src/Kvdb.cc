@@ -50,8 +50,8 @@ DB::DBReaper::DBReaper() {
 }
 
 DB::DBReaper::~DBReaper() {
-    delete db_;
-    db_ = NULL;
+    //delete db_;
+    //db_ = NULL;
 }
 
 Status DB::Insert(const char* key, uint32_t key_len, const char* data,
