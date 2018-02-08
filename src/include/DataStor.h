@@ -6,6 +6,8 @@
 
 namespace hlkvds {
 
+static const int DevPathLenLimt = 20;
+
 class BlockDevice;
 class SuperBlockManager;
 class IndexManager;
@@ -17,6 +19,9 @@ class WriteBatch;
 class KVSlice;
 class HashEntry;
 
+class Request;
+class SegForReq;
+
 class DataStor {
 public:
     DataStor() {}
@@ -26,14 +31,14 @@ public:
     static DataStor* Create(Options &opts, std::vector<BlockDevice*> &dev_vec, SuperBlockManager* sb, IndexManager* idx, int datastor_type);
 
     virtual int GetDataStorType() = 0;
-    virtual void CreateAllSegments() = 0;
+    virtual void InitSegmentBuffer() = 0;
     virtual void StartThds() = 0;
     virtual void StopThds() = 0;
 
     virtual void printDeviceTopologyInfo() = 0;
     virtual void printDynamicInfo() = 0;
 
-    virtual Status WriteData(KVSlice& slice) = 0;
+    virtual Status WriteData(KVSlice& slice, bool immediately) = 0;
     virtual Status WriteBatchData(WriteBatch *batch) =0;
     virtual Status ReadData(KVSlice &slice, std::string &data) = 0;
 
@@ -46,8 +51,8 @@ public:
     virtual bool GetAllSSTs(char* buf, uint64_t length) = 0;
     virtual bool SetAllSSTs(char* buf, uint64_t length) = 0;
 
-    virtual void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) = 0;
-    virtual bool OpenAllVolumes() = 0;
+    virtual bool CreateAllComponents(uint64_t sst_offset) = 0;
+    virtual bool OpenAllComponents() = 0;
 
     virtual uint32_t GetTotalSegNum() = 0;
     virtual uint64_t GetSSTsLengthOnDisk() = 0;

@@ -5,7 +5,7 @@
 #include "BlockDevice.h"
 #include "SuperBlockManager.h"
 #include "IndexManager.h"
-#include "Volumes.h"
+#include "Volume.h"
 #include "SegmentManager.h"
 
 using namespace std;
@@ -15,8 +15,7 @@ namespace hlkvds {
 DS_MultiVolume_Impl::DS_MultiVolume_Impl(Options& opts, vector<BlockDevice*> &dev_vec,
                             SuperBlockManager* sb, IndexManager* idx) :
         options_(opts), bdVec_(dev_vec), sbMgr_(sb), idxMgr_(idx), segSize_(0), maxValueLen_(0),
-        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), segWteWQ_(NULL),
-        segTimeoutT_stop_(false) {
+        volNum_(0), segTotalNum_(0), sstLengthOnDisk_(0), pickVolId_(-1), segWteWQ_(NULL), segTimeoutT_stop_(false) {
     shardsNum_ = options_.shards_num;
     lastTime_ = new KVTime();
 }
@@ -27,7 +26,7 @@ DS_MultiVolume_Impl::~DS_MultiVolume_Impl() {
     delete lastTime_;
 }
 
-void DS_MultiVolume_Impl::CreateAllSegments() {
+void DS_MultiVolume_Impl::InitSegmentBuffer() {
     std::unique_lock<std::mutex> lck_seg_map(segMapMtx_);
     for (int i = 0; i < shardsNum_; i++) {
         int vol_id = pickVol();
@@ -98,22 +97,17 @@ void DS_MultiVolume_Impl::printDynamicInfo() {
             getReqQueSize(), getSegWriteQueSize());
 }
 
-Status DS_MultiVolume_Impl::WriteData(KVSlice& slice) {
+Status DS_MultiVolume_Impl::WriteData(KVSlice& slice, bool immediately) {
     if (slice.GetDataLen() > maxValueLen_) {
         return Status::NotSupported("Data length cann't be longer than max segment size");
     }
 
-    Request *req = new Request(slice);
-
-    int shards_id = calcShardId(slice);
-    req->SetShardsWQId(shards_id);
-    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
-    req_wq->Add_task(req);
-
-    req->Wait();
-    Status s = updateMeta(req);
-    delete req;
-    return s;
+    if (options_.aggregate_request == 1 && !immediately) {
+        return writeDataAggregate(slice);
+    }
+    else {
+        return writeDataImmediately(slice);
+    }
 }
 
 Status DS_MultiVolume_Impl::WriteBatchData(WriteBatch *batch) {
@@ -121,7 +115,7 @@ Status DS_MultiVolume_Impl::WriteBatchData(WriteBatch *batch) {
     bool ret;
 
     int vol_id = pickVol();
-    Volumes *vol = volMap_[vol_id];
+    Volume *vol = volMap_[vol_id];
 
     //TODO: use GcSegment first, need abstract segment.
     while (!vol->Alloc(seg_id)) {
@@ -166,7 +160,7 @@ Status DS_MultiVolume_Impl::ReadData(KVSlice &slice, string &data) {
     entry = &slice.GetHashEntry();
 
     int vol_id = getVolIdFromEntry(entry);
-    Volumes *vol = volMap_[vol_id];
+    Volume *vol = volMap_[vol_id];
 
     uint64_t data_offset = 0;
     if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
@@ -222,7 +216,7 @@ bool DS_MultiVolume_Impl::GetSBReservedContent(char* buf, uint64_t length) {
     for (uint32_t i = 0; i < vol_num; i++) {
         memcpy((void*)(sb_res_vol_ptr), (const void*)&sbResVolVec_[i], sb_res_vol_size);
         sb_res_vol_ptr += sb_res_vol_size;
-        __DEBUG("Volume [i], device_path= %s, segment_num = %d, current_seg_id = %d", i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num, sbResVolVec_[i].cur_seg_id);
+        __DEBUG("Volume [%d], device_path= %s, segment_num = %d, current_seg_id = %d", i, sbResVolVec_[i].dev_path, sbResVolVec_[i].segment_num, sbResVolVec_[i].cur_seg_id);
     }
 
     return true;
@@ -306,9 +300,16 @@ bool DS_MultiVolume_Impl::SetAllSSTs(char* buf, uint64_t length) {
     return true;
 }
 
-void DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) {
-    segSize_ = segment_size;
-    maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+bool DS_MultiVolume_Impl::CreateAllComponents(uint64_t sst_offset) {
+    segSize_ = options_.segment_size;
+
+    uint32_t align_bit = log2(ALIGNED_SIZE);
+    if (segSize_ != (segSize_ >> align_bit) << align_bit) {
+        __ERROR("Segment Size is not page aligned!");
+        return false;
+    }
+
+    maxValueLen_ = segSize_ - SegBase::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     volNum_ = bdVec_.size();
 
     //Create Pure Volumes
@@ -318,8 +319,8 @@ void DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment
             uint64_t device_capacity = bdev->GetDeviceCapacity();
             uint32_t seg_num = calcSegNumForPureVolume(device_capacity, segSize_);
             segTotalNum_ += seg_num;
-            Volumes *vol = new Volumes(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, 0);
-            volMap_.insert( pair<int, Volumes *>(i, vol) );
+            Volume *vol = new Volume(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, 0);
+            volMap_.insert( pair<int, Volume *>(i, vol) );
         }
     }
 
@@ -330,16 +331,18 @@ void DS_MultiVolume_Impl::CreateAllVolumes(uint64_t sst_offset, uint32_t segment
     segTotalNum_ += seg_num;
     sstLengthOnDisk_ = calcSSTsLengthOnDiskBySegNum(segTotalNum_);
     uint64_t start_off = sst_offset + sstLengthOnDisk_;
-    Volumes *vol = new Volumes(bdev, idxMgr_, options_, 0, start_off, segSize_, seg_num, 0);
+    Volume *vol = new Volume(bdev, idxMgr_, options_, 0, start_off, segSize_, seg_num, 0);
     volMap_.insert( make_pair(0, vol) );
 
     initSBReservedContentForCreate();
+
+    return true;
 }
 
-bool DS_MultiVolume_Impl::OpenAllVolumes() {
+bool DS_MultiVolume_Impl::OpenAllComponents() {
     volNum_ = sbResHeader_.volume_num;
     segSize_ = sbResHeader_.segment_size;
-    maxValueLen_ = segSize_ - Volumes::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
+    maxValueLen_ = segSize_ - SegBase::SizeOfSegOnDisk() - IndexManager::SizeOfHashEntryOnDisk();
     sstLengthOnDisk_ = sbMgr_->GetSSTRegionLength();
 
     BlockDevice *meta_bdev = bdVec_[0];
@@ -354,8 +357,8 @@ bool DS_MultiVolume_Impl::OpenAllVolumes() {
     //Create Meta Volume
     uint64_t start_off = sbMgr_->GetSSTRegionOffset() + sstLengthOnDisk_;
 
-    Volumes *meta_vol = new Volumes(meta_bdev, idxMgr_, options_, 0, start_off, segSize_, meta_seg_num, meta_cur_seg_id);
-    volMap_.insert( pair<int, Volumes *>(0, meta_vol) );
+    Volume *meta_vol = new Volume(meta_bdev, idxMgr_, options_, 0, start_off, segSize_, meta_seg_num, meta_cur_seg_id);
+    volMap_.insert( pair<int, Volume *>(0, meta_vol) );
 
     segTotalNum_ += meta_seg_num;
 
@@ -365,8 +368,8 @@ bool DS_MultiVolume_Impl::OpenAllVolumes() {
             BlockDevice *bdev = bdVec_[i];
             uint32_t seg_num = sbResVolVec_[i].segment_num;
             uint32_t cur_seg_id = sbResVolVec_[i].cur_seg_id;
-            Volumes *vol = new Volumes(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, cur_seg_id);
-            volMap_.insert( pair<int, Volumes *>(i, vol) );
+            Volume *vol = new Volume(bdev, idxMgr_, options_, i, 0, segSize_, seg_num, cur_seg_id);
+            volMap_.insert( pair<int, Volume *>(i, vol) );
 
             segTotalNum_ += seg_num;
         }
@@ -384,7 +387,7 @@ string DS_MultiVolume_Impl::GetKeyByHashEntry(HashEntry *entry) {
     uint64_t key_offset = 0;
 
     int vol_id = getVolIdFromEntry(entry);
-    Volumes *vol = volMap_[vol_id];
+    Volume *vol = volMap_[vol_id];
 
     if (!vol->CalcKeyOffsetPhyFromEntry(entry, key_offset)) {
         return "";
@@ -409,7 +412,7 @@ string DS_MultiVolume_Impl::GetValueByHashEntry(HashEntry *entry) {
     uint64_t data_offset = 0;
 
     int vol_id = getVolIdFromEntry(entry);
-    Volumes *vol = volMap_[vol_id];
+    Volume *vol = volMap_[vol_id];
 
     if (!vol->CalcDataOffsetPhyFromEntry(entry, data_offset)) {
         return "";
@@ -431,6 +434,55 @@ string DS_MultiVolume_Impl::GetValueByHashEntry(HashEntry *entry) {
     delete[] mdata;
 
     return res;
+}
+
+
+Status DS_MultiVolume_Impl::writeDataAggregate(KVSlice& slice) {
+
+    Request *req = new Request(slice);
+
+    int shards_id = calcShardId(slice);
+    req->SetShardsWQId(shards_id);
+    ReqsMergeWQ *req_wq = reqWQVec_[shards_id];
+    req_wq->Add_task(req);
+
+    req->Wait();
+    Status s = updateMeta(req);
+    delete req;
+    return s;
+}
+
+Status DS_MultiVolume_Impl::writeDataImmediately(KVSlice& slice) {
+    uint32_t seg_id = 0;
+    bool ret = false;
+
+    int vol_id = pickVol();
+    Volume *vol = volMap_[vol_id];
+
+    //TODO: use GcSegment first, need abstract segment.
+    while (!vol->Alloc(seg_id)) {
+        ret = vol->ForeGC();
+        if (!ret) {
+            __ERROR("Cann't get a new Empty Segment.\n");
+            return Status::Aborted("Can't allocate a Empty Segment.");
+        }
+    }
+
+    SegLatencyFriendly *seg = new SegLatencyFriendly(vol, idxMgr_);
+    seg->Put(&slice);
+    seg->SegSegId(seg_id);
+    ret = seg->WriteSegToDevice();
+    if(!ret) {
+        __ERROR("Write batch segment to device failed");
+        vol->FreeForFailed(seg_id);
+        delete seg;
+        return Status::IOError("could not write batch segment to device ");
+    }
+    uint32_t free_size = seg->GetFreeSize();
+    vol->Use(seg_id, free_size);
+    seg->UpdateToIndex();
+    delete seg;
+    return Status::OK();
 }
 
 uint64_t DS_MultiVolume_Impl::calcSSTsLengthOnDiskBySegNum(uint32_t seg_num) {
@@ -503,9 +555,9 @@ Status DS_MultiVolume_Impl::updateMeta(Request *req) {
 }
 
 void DS_MultiVolume_Impl::deleteAllVolumes() {
-    map<int, Volumes *>::iterator iter;
+    map<int, Volume *>::iterator iter;
     for (iter = volMap_.begin(); iter != volMap_.end(); ) {
-        Volumes *vol = iter->second;
+        Volume *vol = iter->second;
         delete vol;
         volMap_.erase(iter++);
     }
@@ -617,7 +669,7 @@ void DS_MultiVolume_Impl::ReqMerge(Request* req) {
 }
 
 void DS_MultiVolume_Impl::SegWrite(SegForReq *seg) {
-    Volumes *vol =  seg->GetSelfVolume();
+    Volume *vol =  seg->GetSelfVolume();
 
     uint32_t seg_id = 0;
     bool res;

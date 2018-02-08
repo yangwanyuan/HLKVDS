@@ -1,5 +1,5 @@
-#ifndef _HLKVDS_GCMANAGER_H_
-#define _HLKVDS_GCMANAGER_H_
+#ifndef _HLKVDS_MIGRATE_H_
+#define _HLKVDS_MIGRATE_H_
 
 #include <sys/types.h>
 #include <mutex>
@@ -12,36 +12,39 @@ namespace hlkvds {
 
 class IndexManager;
 class Volume;
+class FastTier;
+class MediumTier;
 class KVSlice;
 
-class GcManager {
+class Migrate {
 public:
-    ~GcManager();
-    GcManager(IndexManager* im, Volume* vol, Options &opt);
+    ~Migrate();
+    Migrate(IndexManager* im, FastTier* ft, MediumTier* mt, Options &opt);
 
-    bool ForeGC();
-    void BackGC();
-    void FullGC();
+    uint32_t ForeMigrate(uint32_t mt_vol_id);
+    uint32_t BackMigrate(uint32_t mt_vol_id);
 
 private:
-    uint32_t doMerge(std::multimap<uint32_t, uint32_t> &cands_map);
-
     void loadSegKV(std::list<KVSlice*> &slice_list, uint32_t num_keys,
                    uint64_t phy_offset);
 
     bool loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list);
     void cleanKvList(std::list<KVSlice*> &slice_list);
 
+    uint32_t doMigrate(uint32_t mt_vol_id, uint32_t max_seg_num);
+
 private:
-    Volume* vol_;
+    FastTier *ft_;
+    MediumTier* mt_;
     IndexManager* idxMgr_;
     Options &options_;
 
-    std::mutex gcMtx_;
+    std::mutex mtx_;
 
-    char *dataBuf_;
+    char *ftDataBuf_;
+    uint32_t ftSegSize_;
 };
 
 }//namespace hlkvds
 
-#endif //#ifndef _HLKVDS_GCMANAGER_H_
+#endif //#ifndef _HLKVDS_MIGRATE_H_

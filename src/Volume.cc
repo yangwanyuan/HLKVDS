@@ -1,6 +1,6 @@
 #include <math.h>
 
-#include "Volumes.h"
+#include "Volume.h"
 #include "BlockDevice.h"
 #include "SegmentManager.h"
 #include "GcManager.h"
@@ -9,37 +9,7 @@
 using namespace std;
 namespace hlkvds {         
 
-SegmentOnDisk::SegmentOnDisk() :
-    checksum(0), number_keys(0) {
-    time_stamp = KVTime::GetNow();
-}
-
-SegmentOnDisk::~SegmentOnDisk() {
-}
-
-SegmentOnDisk::SegmentOnDisk(const SegmentOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
-    number_keys = toBeCopied.number_keys;
-}
-
-SegmentOnDisk& SegmentOnDisk::operator=(const SegmentOnDisk& toBeCopied) {
-    time_stamp = toBeCopied.time_stamp;
-    checksum = toBeCopied.checksum;
-    number_keys = toBeCopied.number_keys;
-    return *this;
-}
-
-SegmentOnDisk::SegmentOnDisk(uint32_t num) :
-    checksum(0), number_keys(num) {
-    time_stamp = KVTime::GetNow();
-}
-
-void SegmentOnDisk::Update() {
-    time_stamp = KVTime::GetNow();
-}
-    
-Volumes::Volumes(BlockDevice* dev, IndexManager* im,
+Volume::Volume(BlockDevice* dev, IndexManager* im,
                 Options& opts, int vol_id, uint64_t start_off,
                 uint32_t segment_size, uint32_t segment_num,
                 uint32_t cur_seg_id)
@@ -53,22 +23,22 @@ Volumes::Volumes(BlockDevice* dev, IndexManager* im,
     gcMgr_ = new GcManager(idxMgr_, this, options_);
 }
 
-Volumes::~Volumes() {
+Volume::~Volume() {
     delete segMgr_;
     delete gcMgr_;
 }
 
-void Volumes::StartThds() {
+void Volume::StartThds() {
     gcT_stop_.store(false);
-    gcT_ = std::thread(&Volumes::GCThdEntry, this);
+    gcT_ = std::thread(&Volume::GCThdEntry, this);
 } 
 
-void Volumes::StopThds() {
+void Volume::StopThds() {
     gcT_stop_.store(true);
     gcT_.join();
 }
 
-void Volumes::GCThdEntry() {
+void Volume::GCThdEntry() {
     __DEBUG("GC thread start!!");
     while (!gcT_stop_) {
         gcMgr_->BackGC();
@@ -76,19 +46,19 @@ void Volumes::GCThdEntry() {
     } __DEBUG("GC thread stop!!");
 }
 
-bool Volumes::Alloc(uint32_t& seg_id) {
+bool Volume::Alloc(uint32_t& seg_id) {
     return segMgr_->Alloc(seg_id);
 }
 
-bool Volumes::GetSST(char* buf, uint64_t length) {
+bool Volume::GetSST(char* buf, uint64_t length) {
     return segMgr_->Get(buf, length);
 }
 
-bool Volumes::SetSST(char* buf, uint64_t length) {
+bool Volume::SetSST(char* buf, uint64_t length) {
     return segMgr_->Set(buf, length);
 }
 
-bool Volumes::Read(char* data, size_t count, off_t offset) {
+bool Volume::Read(char* data, size_t count, off_t offset) {
     uint64_t phy_offset = offset + startOff_;
     if (bdev_->pRead(data, count, phy_offset) != (ssize_t)count) {
         __ERROR("Read data error!!!");
@@ -97,7 +67,7 @@ bool Volumes::Read(char* data, size_t count, off_t offset) {
     return true;
 }
 
-bool Volumes::Write(char* data, size_t count, off_t offset) {
+bool Volume::Write(char* data, size_t count, off_t offset) {
     uint64_t phy_offset = offset + startOff_;
     if (bdev_->pWrite(data, count, phy_offset) != (ssize_t)count) {
         __ERROR("Write data error!!!");
@@ -106,63 +76,66 @@ bool Volumes::Write(char* data, size_t count, off_t offset) {
     return true;
 }
 
-uint32_t Volumes::GetCurSegId() {
+uint32_t Volume::GetCurSegId() {
     return segMgr_->GetNowSegId();
 }
 
-string Volumes::GetDevicePath() {
+string Volume::GetDevicePath() {
     return bdev_->GetDevicePath();
 }
 
-uint64_t Volumes::GetSSTLength() {
+uint64_t Volume::GetSSTLength() {
     return SegmentManager::SizeOfSegmentStat() * segNum_;
 }
 ////////////////////////////////////////////////////
 
-uint32_t Volumes::GetTotalFreeSegs() {
+uint32_t Volume::GetTotalFreeSegs() {
     return segMgr_->GetTotalFreeSegs();
 }
 
-uint32_t Volumes::GetTotalUsedSegs() {
+uint32_t Volume::GetTotalUsedSegs() {
     return segMgr_->GetTotalUsedSegs();
 }
 
-void Volumes::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils) {
+void Volume::SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils) {
     return segMgr_->SortSegsByUtils(cand_map, utils);
 }
 
-bool Volumes::AllocForGC(uint32_t& seg_id) {
+void Volume::SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, uint32_t max_seg_num) {
+    return segMgr_->SortSegsByTS(cand_map, max_seg_num);
+}
+
+bool Volume::AllocForGC(uint32_t& seg_id) {
     return segMgr_->AllocForGC(seg_id);
 }
-void Volumes::FreeForFailed(uint32_t seg_id) {
+void Volume::FreeForFailed(uint32_t seg_id) {
     return segMgr_->FreeForFailed(seg_id);
 }
-void Volumes::FreeForGC(uint32_t seg_id) {
+void Volume::FreeForGC(uint32_t seg_id) {
     return segMgr_->FreeForGC(seg_id);
 }
-void Volumes::Use(uint32_t seg_id, uint32_t free_size) {
+void Volume::Use(uint32_t seg_id, uint32_t free_size) {
     return segMgr_->Use(seg_id, free_size);
 }
 
 //////////////////////////////////////////////////
 
-
-bool Volumes::ForeGC() {
+bool Volume::ForeGC() {
     return gcMgr_->ForeGC();
 }
 
-void Volumes::FullGC() {
+void Volume::FullGC() {
     return gcMgr_->FullGC();
 }
 
-void Volumes::BackGC() {
+void Volume::BackGC() {
     return gcMgr_->BackGC();
 }
 
 /////////////////////////////
 // move from SegmentManager
 
-bool Volumes::CalcSegOffsetFromOffset(uint64_t offset,
+bool Volume::CalcSegOffsetFromOffset(uint64_t offset,
                                          uint64_t& seg_offset) {
     uint32_t seg_id = 0;
     if (!CalcSegIdFromOffset(offset, seg_id)) {
@@ -174,7 +147,7 @@ bool Volumes::CalcSegOffsetFromOffset(uint64_t offset,
     return true;
 }
 
-bool Volumes::CalcDataOffsetPhyFromEntry(HashEntry* entry,
+bool Volume::CalcDataOffsetPhyFromEntry(HashEntry* entry,
                                             uint64_t& data_offset) {
     uint64_t seg_offset = 0;
     uint64_t header_offset = entry->GetHeaderOffset();
@@ -185,23 +158,14 @@ bool Volumes::CalcDataOffsetPhyFromEntry(HashEntry* entry,
     return true;
 }
 
-bool Volumes::CalcKeyOffsetPhyFromEntry(HashEntry* entry,
+bool Volume::CalcKeyOffsetPhyFromEntry(HashEntry* entry,
                                            uint64_t& key_offset) {
-    uint64_t seg_offset = 0;
     uint64_t header_offset = entry->GetHeaderOffset();
-    if (!CalcSegOffsetFromOffset(header_offset, seg_offset)) {
-        return false;
-    }
-    uint32_t data_size = entry->GetDataSize();
-    if ( data_size == ALIGNED_SIZE) {
-        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize();
-    } else {
-        key_offset = seg_offset + entry->GetNextHeadOffsetInSeg() - entry->GetKeySize() - data_size;
-    }
+    key_offset = header_offset + IndexManager::SizeOfDataHeader();
     return true;
 }
 
-void Volumes::ModifyDeathEntry(HashEntry &entry) {
+void Volume::ModifyDeathEntry(HashEntry &entry) {
     uint32_t seg_id;
     uint64_t offset = entry.GetHeaderOffset();
     if (!CalcSegIdFromOffset(offset, seg_id)) {

@@ -1,22 +1,24 @@
 #include "GcManager.h"
 #include "Db_Structure.h"
 #include "IndexManager.h"
-#include "Volumes.h"
+#include "Volume.h"
 #include "Segment.h"
 
 using namespace std;
 
 namespace hlkvds {
 GcManager::~GcManager() {
-    if (dataBuf_) {
-        delete[] dataBuf_;
-    }
+    free(dataBuf_);
+    dataBuf_ = NULL;
 }
 
-GcManager::GcManager(IndexManager* im, Volumes* vol, Options &opt) :
+GcManager::GcManager(IndexManager* im, Volume* vol, Options &opt) :
     options_(opt), dataBuf_(NULL) {
     idxMgr_ = im;
     vol_ = vol;
+
+    uint32_t seg_size = vol_->GetSegmentSize();
+    posix_memalign((void **)&dataBuf_, 4096, seg_size);
 }
 
 bool GcManager::ForeGC() {
@@ -131,11 +133,6 @@ void GcManager::FullGC() {
 }
 
 uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
-    if (!dataBuf_) {
-        uint32_t seg_size = vol_->GetSegmentSize();
-        //dataBuf_ = new char[seg_size];
-        posix_memalign((void **)&dataBuf_, 4096, seg_size);
-    }
 
     bool ret;
     std::vector < uint32_t > free_seg_vec;
@@ -248,7 +245,7 @@ uint32_t GcManager::doMerge(std::multimap<uint32_t, uint32_t> &cands_map) {
 
 void GcManager::loadSegKV(list<KVSlice*> &slice_list, uint32_t num_keys,
                           uint64_t phy_offset) {
-    uint32_t head_offset = Volumes::SizeOfSegOnDisk();
+    uint32_t head_offset = SegBase::SizeOfSegOnDisk();
     int vol_id = vol_->GetId();
 
     for (uint32_t index = 0; index < num_keys; index++) {
@@ -303,10 +300,10 @@ bool GcManager::loadKvList(uint32_t seg_id, std::list<KVSlice*> &slice_list) {
         return false;
     }
 
-    SegmentOnDisk seg_disk;
-    memcpy(&seg_disk, dataBuf_, Volumes::SizeOfSegOnDisk());
+    SegHeaderOnDisk seg_header;
+    memcpy(&seg_header, dataBuf_, SegBase::SizeOfSegOnDisk());
 
-    uint32_t num_keys = seg_disk.number_keys;
+    uint32_t num_keys = seg_header.number_keys;
 
     loadSegKV(slice_list, num_keys, seg_phy_off);
     return true;

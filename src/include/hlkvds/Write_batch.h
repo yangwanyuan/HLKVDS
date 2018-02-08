@@ -9,6 +9,8 @@ namespace hlkvds {
 class KVSlice;
 class KVDS;
 class DS_MultiVolume_Impl;
+class DS_MultiTier_Impl;
+class FastTier;
 
 class WriteBatch {
 public:
@@ -24,6 +26,8 @@ private:
     std::list<KVSlice *> batch_;
     friend class KVDS;
     friend class DS_MultiVolume_Impl;
+    friend class DS_MultiTier_Impl;
+    friend class FastTier;
 };
 
 } // namespace hlkvds

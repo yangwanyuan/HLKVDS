@@ -1,5 +1,5 @@
-#ifndef _HLKVDS_VOLUMES_H_
-#define _HLKVDS_VOLUMES_H_
+#ifndef _HLKVDS_VOLUME_H_
+#define _HLKVDS_VOLUME_H_
 
 #include <stdint.h>
 #include <thread>
@@ -19,30 +19,12 @@ class IndexManager;
 class KVSlice;
 class HashEntry;
 
-class SegmentOnDisk {
+class Volume {
 public:
-    uint64_t time_stamp;
-    uint32_t checksum;
-    uint32_t number_keys;
-public:
-    SegmentOnDisk();
-    ~SegmentOnDisk();
-    SegmentOnDisk(const SegmentOnDisk& toBeCopied);
-    SegmentOnDisk& operator=(const SegmentOnDisk& toBeCopied);
-
-    SegmentOnDisk(uint32_t num);
-    void Update();
-    void SetKeyNum(uint32_t num) {
-        number_keys = num;
-    }
-};
-
-class Volumes {
-public:
-    Volumes(BlockDevice* dev, IndexManager* im, Options& opts,
+    Volume(BlockDevice* dev, IndexManager* im, Options& opts,
             int vol_id, uint64_t start_off, uint32_t segment_size, uint32_t segment_num,
             uint32_t cur_seg_id);
-    ~Volumes();
+    ~Volume();
 
     void StartThds();
     void StopThds();
@@ -57,6 +39,7 @@ public:
     uint32_t GetTotalUsedSegs();
     
     void SortSegsByUtils(std::multimap<uint32_t, uint32_t> &cand_map, double utils);
+    void SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, uint32_t max_seg_num);
     
     
     bool Alloc(uint32_t& seg_id);
@@ -77,10 +60,6 @@ public:
 
 //move from SegmentManager
 public:
-
-    static inline size_t SizeOfSegOnDisk() {
-        return sizeof(SegmentOnDisk);
-    }
 
     uint32_t GetNumberOfSeg() {
         return segNum_;
@@ -134,4 +113,4 @@ private:
 
 } //namespace hlkvds
 
-#endif //#ifndef _HLKVDS_VOLUMES_H_
+#endif //#ifndef _HLKVDS_VOLUME_H_

@@ -15,8 +15,6 @@
 #include "Segment.h"
 #include "WorkQueue.h"
 
-#define DEVICE_PATH_LEN_LIMT 20
-
 namespace hlkvds {
 
 class DataStor;
@@ -28,7 +26,7 @@ class SuperBlockManager;
 class IndexManager;
 
 class BlockDevice;
-class Volumes;
+class Volume;
 class SegForReq;
 
 class DS_MultiVolume_Impl : public DataStor {
@@ -45,16 +43,16 @@ public:
 
     class MultiVolumeDS_SB_Reserved_Volume {
     public:
-        char dev_path[DEVICE_PATH_LEN_LIMT];
+        char dev_path[hlkvds::DevPathLenLimt];
         uint32_t segment_num;
         uint32_t cur_seg_id;
     public:
         MultiVolumeDS_SB_Reserved_Volume() : segment_num(0), cur_seg_id(0) {
-            memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
+            memset(dev_path, 0, hlkvds::DevPathLenLimt);
         }
         MultiVolumeDS_SB_Reserved_Volume(std::string path, uint32_t seg_num, uint32_t cur_id)
             : segment_num(seg_num), cur_seg_id(cur_id) {
-            memset(dev_path, 0, DEVICE_PATH_LEN_LIMT);
+            memset(dev_path, 0, hlkvds::DevPathLenLimt);
             memcpy((void*)dev_path, (const void*)path.c_str(), path.size());
         }
     };
@@ -65,14 +63,14 @@ public:
 
     // Called by Kvdb_Impl
     int GetDataStorType() override { return 0; }
-    void CreateAllSegments() override;
+    void InitSegmentBuffer() override;
     void StartThds() override;
     void StopThds() override;
 
     void printDeviceTopologyInfo() override;
     void printDynamicInfo() override;
 
-    Status WriteData(KVSlice& slice) override;
+    Status WriteData(KVSlice& slice, bool immediately) override;
     Status WriteBatchData(WriteBatch *batch) override;
     Status ReadData(KVSlice &slice, std::string &data) override;
 
@@ -85,8 +83,8 @@ public:
     bool GetAllSSTs(char* buf, uint64_t length) override;
     bool SetAllSSTs(char* buf, uint64_t length) override;
 
-    void CreateAllVolumes(uint64_t sst_offset, uint32_t segment_size) override;
-    bool OpenAllVolumes() override;
+    bool CreateAllComponents(uint64_t sst_offset) override;
+    bool OpenAllComponents() override;
 
     uint32_t GetTotalSegNum() override {
         return segTotalNum_;
@@ -100,10 +98,13 @@ public:
     void ModifyDeathEntry(HashEntry &entry) override;
 
     // Called by Iterator
-    std::string GetKeyByHashEntry(HashEntry *entry);
-    std::string GetValueByHashEntry(HashEntry *entry);
+    std::string GetKeyByHashEntry(HashEntry *entry) override;
+    std::string GetValueByHashEntry(HashEntry *entry) override;
 
 private:
+    Status writeDataAggregate(KVSlice& slice);
+    Status writeDataImmediately(KVSlice& slice);
+
     uint64_t calcSSTsLengthOnDiskBySegNum(uint32_t seg_num);
     uint32_t calcSegNumForPureVolume(uint64_t capacity, uint32_t seg_size);
     uint32_t calcSegNumForMetaVolume(uint64_t capacity, uint64_t sst_offset, uint32_t total_buddy_seg_num, uint32_t seg_size);
@@ -132,7 +133,7 @@ private:
     SuperBlockManager *sbMgr_;
     IndexManager *idxMgr_;
 
-    std::map<int, Volumes *> volMap_;
+    std::map<int, Volume *> volMap_;
 
     int shardsNum_;
     std::mutex segMapMtx_;
@@ -154,12 +155,11 @@ private:
     MultiVolumeDS_SB_Reserved_Header sbResHeader_;
     std::vector<MultiVolumeDS_SB_Reserved_Volume> sbResVolVec_;
 
-    // Request Merge thread
-private:
+    // Request Merge WorkQueue
+protected:
     class ReqsMergeWQ : public dslab::WorkQueue<Request> {
     public:
         explicit ReqsMergeWQ(DS_MultiVolume_Impl *ds, int thd_num=1) : dslab::WorkQueue<Request>(thd_num), ds_(ds) {}
-
     protected:
         void _process(Request* req) override {
             ds_->ReqMerge(req);
@@ -170,8 +170,8 @@ private:
     std::vector<ReqsMergeWQ *> reqWQVec_;
     void ReqMerge(Request* req);
 
-    // Seg Write to device thread
-private:
+    // Seg Write to device WorkQueue
+protected:
     class SegmentWriteWQ : public dslab::WorkQueue<SegForReq> {
     public:
         explicit SegmentWriteWQ(DS_MultiVolume_Impl *ds, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), ds_(ds) {}
@@ -184,10 +184,10 @@ private:
         DS_MultiVolume_Impl *ds_;
     };
     SegmentWriteWQ * segWteWQ_;
-    void SegWrite(SegForReq* seg);
+    void SegWrite(SegForReq* req);
 
     // Seg Timeout thread
-private:
+protected:
     std::thread segTimeoutT_;
     std::atomic<bool> segTimeoutT_stop_;
     void SegTimeoutThdEntry();

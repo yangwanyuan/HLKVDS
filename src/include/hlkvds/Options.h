@@ -11,19 +11,21 @@ struct Options {
     int cache_policy;
     int slru_partition;
 
-    //use in Create DB
-    int segment_size;
-    int hashtable_size;
-    int datastor_type;
-    //int data_aligned_size;
-
-    //use in Open DB
+    //Open DB parameters
     int expired_time;
     int seg_write_thread;
     int shards_num;
     double seg_full_rate;
     double gc_upper_level;
     double gc_lower_level;
+
+    bool aggregate_request;
+
+    //Create DB parameters
+    int datastor_type;
+    int hashtable_size;
+    int segment_size;
+    int secondary_seg_size;
 
     Options();
 };

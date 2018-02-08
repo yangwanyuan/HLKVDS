@@ -1,6 +1,6 @@
 #include "SegmentManager.h"
 #include "IndexManager.h"
-#include "Volumes.h"
+#include "Volume.h"
 
 namespace hlkvds {
 
@@ -45,7 +45,7 @@ bool SegmentManager::Set(char* buf, uint64_t length) {
 }
 
 bool SegmentManager::Alloc(uint32_t& seg_id) {
-    std::unique_lock < std::mutex > l(mtx_);
+    std::unique_lock <std::mutex> l(mtx_);
     if (freedCounter_ <= SEG_RESERVED_FOR_GC) {
         return false;
     }
@@ -56,7 +56,7 @@ bool SegmentManager::Alloc(uint32_t& seg_id) {
 
 bool SegmentManager::AllocForGC(uint32_t& seg_id) {
     //for first use !!
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     if (segTable_[curSegId_].state == SegUseStat::FREE) {
         seg_id = curSegId_;
         segTable_[curSegId_].state = SegUseStat::RESERVED;
@@ -88,7 +88,7 @@ bool SegmentManager::AllocForGC(uint32_t& seg_id) {
 }
 
 void SegmentManager::FreeForFailed(uint32_t seg_id) {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     segTable_[seg_id].state = SegUseStat::FREE;
     segTable_[seg_id].free_size = 0;
     segTable_[seg_id].death_size = 0;
@@ -99,7 +99,7 @@ void SegmentManager::FreeForFailed(uint32_t seg_id) {
 }
 
 void SegmentManager::FreeForGC(uint32_t seg_id) {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     segTable_[seg_id].state = SegUseStat::FREE;
     segTable_[seg_id].free_size = 0;
     segTable_[seg_id].death_size = 0;
@@ -110,7 +110,7 @@ void SegmentManager::FreeForGC(uint32_t seg_id) {
 }
 
 void SegmentManager::Use(uint32_t seg_id, uint32_t free_size) {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     segTable_[seg_id].state = SegUseStat::USED;
     segTable_[seg_id].free_size = free_size;
 
@@ -126,24 +126,22 @@ void SegmentManager::Use(uint32_t seg_id, uint32_t free_size) {
 //}
 
 void SegmentManager::AddDeathSize(uint32_t seg_id, uint32_t death_size) {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     segTable_[seg_id].death_size += death_size;
 }
 
 uint32_t SegmentManager::GetTotalFreeSegs() {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     return freedCounter_;
 }
 
 uint32_t SegmentManager::GetTotalUsedSegs() {
-    std::lock_guard < std::mutex > l(mtx_);
+    std::lock_guard <std::mutex> l(mtx_);
     return usedCounter_;
 }
 
-void SegmentManager::SortSegsByUtils(
-                                     std::multimap<uint32_t, uint32_t> &cand_map,
-                                     double utils) {
-    std::lock_guard < std::mutex > lck(mtx_);
+void SegmentManager::SortSegsByUtils( std::multimap<uint32_t, uint32_t> &cand_map, double utils) {
+    std::lock_guard <std::mutex> lck(mtx_);
     uint32_t used_size;
     uint32_t thld = (uint32_t)(segSize_ * utils);
 
@@ -151,12 +149,38 @@ void SegmentManager::SortSegsByUtils(
         if (segTable_[index].state == SegUseStat::USED) {
             used_size = segSize_ - (segTable_[index].free_size
                     + segTable_[index].death_size
-                    + (uint32_t) Volumes::SizeOfSegOnDisk());
+                    + (uint32_t) SegBase::SizeOfSegOnDisk());
             if (used_size < thld) {
                 cand_map.insert(std::pair<uint32_t, uint32_t>(used_size, index));
             }
         }
     } __DEBUG("There is tatal %lu segments utils under %f", cand_map.size(), utils);
+}
+
+void SegmentManager::SortSegsByTS(std::multimap<uint32_t, uint32_t> &cand_map, uint32_t max_seg_num)
+{
+    std::unique_lock<std::mutex> lck(mtx_, std::defer_lock);
+    uint32_t used_size;
+
+    lck.lock();
+    std::multimap<uint32_t, uint32_t> used_map;
+    for (uint32_t index = 0; index < segNum_; index++) {
+        if (segTable_[index].state == SegUseStat::USED) {
+            used_size = segSize_ - (segTable_[index].free_size
+                    + segTable_[index].death_size
+                    + (uint32_t) SegBase::SizeOfSegOnDisk());
+            used_map.insert(std::pair<uint32_t, uint32_t>(used_size, index));
+        }
+    }
+    lck.unlock();
+
+    for(std::multimap<uint32_t, uint32_t>::iterator iter = used_map.begin(); iter != used_map.end(); iter++) {
+        if (max_seg_num == 0) {
+            break;
+        }
+        cand_map.insert(*iter);
+        max_seg_num --;
+    }
 }
 
 SegmentManager::SegmentManager(Options &opt, uint32_t segment_size, uint32_t segment_num, uint32_t cur_seg_id, uint32_t seg_size_bit)

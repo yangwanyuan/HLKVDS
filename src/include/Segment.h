@@ -15,13 +15,29 @@
 
 namespace hlkvds {
 
-class SegmentOnDisk;
 class DataHeader;
 class DataHeaderOffset;
 class HashEntry;
 class IndexManager;
-class Volumes;
+class Volume;
 class SegForReq;
+
+class SegHeaderOnDisk {
+public:
+    uint64_t timestamp;
+    uint64_t trx_id;
+    uint32_t trx_segs;
+    uint32_t checksum_data;
+    uint32_t checksum_length;
+    uint32_t number_keys;
+public:
+    SegHeaderOnDisk();
+    ~SegHeaderOnDisk();
+    SegHeaderOnDisk(const SegHeaderOnDisk& toBeCopied);
+    SegHeaderOnDisk& operator=(const SegHeaderOnDisk& toBeCopied);
+
+    SegHeaderOnDisk(uint64_t ts, uint64_t id, uint32_t segs, uint32_t data, uint32_t len, uint32_t keys_num);
+};
 
 class KVSlice {
 public:
@@ -64,14 +80,18 @@ public:
         return *entry_;
     }
 
+    HashEntry& GetHashEntryBeforeGC() const {
+        return *entryGC_;
+    }
+
     uint32_t GetSegId() const {
         return segId_;
     }
 
     void SetKeyValue(const char* key, int key_len, const char* data, int data_len);
     void SetHashEntry(const HashEntry *hash_entry);
+    void SetHashEntryBeforeGC(const HashEntry *hash_entry);
     void SetSegId(uint32_t seg_id);
-
 
 private:
     const char* key_;
@@ -82,6 +102,7 @@ private:
     HashEntry *entry_;
     uint32_t segId_;
     bool deepCopy_;
+    HashEntry *entryGC_;
 
     void copy_helper(const KVSlice& toBeCopied);
     void calcDigest();
@@ -149,10 +170,12 @@ public:
     ~SegBase();
     SegBase(const SegBase& toBeCopied);
     SegBase& operator=(const SegBase& toBeCopied);
-    SegBase(Volumes* vol);
+    SegBase(Volume* vol);
 
     bool TryPut(KVSlice* slice);
     void Put(KVSlice* slice);
+    bool TryPutList(std::list<KVSlice*> &slice_list);
+    void PutList(std::list<KVSlice*> &slice_list);
     bool WriteSegToDevice();
     uint32_t GetFreeSize() const {
         return tailPos_ - headPos_;
@@ -173,8 +196,13 @@ public:
         return sliceList_;
     }
 
-    Volumes* GetSelfVolume() {
+    Volume* GetSelfVolume() {
         return vol_;
+    }
+
+public:
+    static inline size_t SizeOfSegOnDisk() {
+        return sizeof(SegHeaderOnDisk);
     }
 
 private:
@@ -182,13 +210,11 @@ private:
     void fillEntryToSlice();
     bool _writeDataToDevice();
     void copyToDataBuf();
-    bool newDataBuffer();
 
 private:
     int32_t segId_;
-    Volumes* vol_;
+    Volume* vol_;
     int32_t segSize_;
-    KVTime persistTime_;
 
     uint32_t headPos_;
     uint32_t tailPos_;
@@ -198,7 +224,6 @@ private:
 
     std::list<KVSlice *> sliceList_;
 
-    SegmentOnDisk *segOndisk_;
     char *dataBuf_;
 };
 
@@ -209,7 +234,7 @@ public:
     SegForReq(const SegForReq& toBeCopied);
     SegForReq& operator=(const SegForReq& toBeCopied);
 
-    SegForReq(Volumes* vol, IndexManager* im, uint32_t timeout);
+    SegForReq(Volume* vol, IndexManager* im, uint32_t timeout);
 
     bool TryPut(Request* req);
     void Put(Request* req);
@@ -246,11 +271,104 @@ public:
     SegForSlice(const SegForSlice& toBeCopied);
     SegForSlice& operator=(const SegForSlice& toBeCopied);
 
-    SegForSlice(Volumes* vol, IndexManager* im);
+    SegForSlice(Volume* vol, IndexManager* im);
 
     void UpdateToIndex();
 private:
     IndexManager* idxMgr_;
+};
+
+//class SegForGC : public SegBase {
+//public:
+//    SegForGC();
+//    ~SegForGC();
+//    SegForGC(const SegForGC& toBeCopied);
+//    SegForGC& operator=(const SegForGC& toBeCopied);
+//
+//    SegForGC(Volume* vol, IndexManager* im);
+//
+//private:
+//    IndexManager* idxMgr_;
+//};
+
+class SegForMigrate : public SegBase {
+public:
+    SegForMigrate();
+    ~SegForMigrate();
+    SegForMigrate(const SegForMigrate& toBeCopied);
+    SegForMigrate& operator=(const SegForMigrate& toBeCopied);
+
+    SegForMigrate(Volume* vol, IndexManager* im);
+
+    void UpdateToIndex();
+private:
+    IndexManager* idxMgr_;
+};
+
+class SegLatencyFriendly {
+public:
+    SegLatencyFriendly();
+    ~SegLatencyFriendly();
+    SegLatencyFriendly(const SegLatencyFriendly& toBeCopied);
+    SegLatencyFriendly& operator=(const SegLatencyFriendly& toBeCopied);
+    SegLatencyFriendly(Volume* vol, IndexManager* idx);
+
+    bool TryPut(KVSlice *slice);
+    void Put(KVSlice *slice);
+    bool TryPutList(std::list<KVSlice*> &slice_list);
+    void PutList(std::list<KVSlice*> &slice_list);
+
+    bool WriteSegToDevice();
+
+    void UpdateToIndex();
+
+    uint32_t GetFreeSize() const {
+        return segSize_ - SegBase::SizeOfSegOnDisk() - checksumSize_;
+    }
+
+    int32_t GetSegId() const {
+        return segId_;
+    }
+
+    void SegSegId(int32_t seg_id) {
+        segId_ = seg_id;
+    }
+
+    int32_t GetKeyNum() const {
+        return keyNum_;
+    }
+
+    std::list<KVSlice *>& GetSliceList() {
+        return sliceList_;
+    }
+
+    Volume* GetSelfVolume() {
+        return vol_;
+    }
+
+private:
+    void copyHelper(const SegLatencyFriendly& toBeCopied);
+    void fillEntryToSlice();
+    bool _writeDataToDevice();
+    void copyToDataBuf();
+
+private:
+    Volume* vol_;
+    IndexManager* idxMgr_;
+
+    int32_t segId_;
+    int32_t segSize_;
+
+    uint32_t headPos_;
+
+    int32_t keyNum_;
+
+    uint32_t checksumSize_;
+
+    std::list<KVSlice *> sliceList_;
+
+    char *dataBuf_;
+
 };
 
 }

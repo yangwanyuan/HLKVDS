@@ -23,7 +23,7 @@ CORE_C_OBJ = $(patsubst %.c, %.o, ${CORE_C_SRC})
 CORE_CXX_OBJ = $(patsubst %.cc, %.o, ${CORE_CXX_SRC})
 COMMON_OBJECTS = ${CORE_C_OBJ} ${CORE_CXX_OBJ}
 
-TEST_SRC = ${TEST_DIR}/test_base.cc
+TEST_SRC = ${TEST_DIR}/test_base.cc ${TEST_DIR}/test_new_base.cc
 TEST_OBJECTS  = $(patsubst %.cc, %.o, ${TEST_SRC})
 
 TOOLS_LIST = \
@@ -46,7 +46,9 @@ TESTS_LIST = \
 		${TEST_DIR}/test_index_manager \
 		${TEST_DIR}/test_metastor \
 		${TEST_DIR}/test_datastor \
-		${TEST_DIR}/test_readcache
+		${TEST_DIR}/test_readcache \
+		${TEST_DIR}/test_multivolume \
+		${TEST_DIR}/test_multitier
 
 PROGNAME := ${TOOLS_LIST} ${SHARED_LIB}
 
@@ -104,10 +106,14 @@ ${TEST_DIR}/test_datastor: ${TEST_DIR}/test_datastor.cc ${COMMON_OBJECTS} $(TEST
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 ${TEST_DIR}/test_readcache: ${TEST_DIR}/test_readcache.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_multivolume: ${TEST_DIR}/test_multivolume.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
+${TEST_DIR}/test_multitier: ${TEST_DIR}/test_multitier.cc ${COMMON_OBJECTS} $(TEST_OBJECTS)
+	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -o $@ ${LIBS} ${GTEST_INCLUDES}
 
 .PHONY : clean
 clean:
-	rm -fr $(COMMON_OBJECTS) $(TEST_CXX_OBJ)
+	rm -fr $(COMMON_OBJECTS) $(TEST_OBJECTS)
 	rm -fr $(PROGNAME)
 	rm -fr $(TESTS_LIST)
 

@@ -48,7 +48,7 @@ KVDS* KVDS::Create_KVDS(const char* filename, Options opts) {
     __INFO("\nCreate KVDS Success!!!");
     kvds->printDbStates();
 
-    kvds->dataStor_->CreateAllSegments();
+    kvds->dataStor_->InitSegmentBuffer();
     kvds->startThds();
 
     kvds->isOpen_ = true;
@@ -108,7 +108,7 @@ Status KVDS::openDB() {
     __INFO("\nOpen KVDS Success!!!");
     printDbStates();
 
-    dataStor_->CreateAllSegments();
+    dataStor_->InitSegmentBuffer();
     startThds();
     return Status::OK();
 }
@@ -188,14 +188,14 @@ KVDS::KVDS(const char* filename, Options opts) :
 }
 
 Status KVDS::Insert(const char* key, uint32_t key_len, const char* data,
-                      uint16_t length) {
+                      uint16_t length, bool immediately) {
     if (key == NULL || key[0] == '\0') {
         return Status::InvalidArgument("Key is null or empty.");
     }
 
     KVSlice slice(key, key_len, data, length);
 
-    Status s = dataStor_->WriteData(slice);
+    Status s = dataStor_->WriteData(slice, immediately);
 
     if (s.ok()) {
         if(!options_.disable_cache && !slice.GetDataLen()){

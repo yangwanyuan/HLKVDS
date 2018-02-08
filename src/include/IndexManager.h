@@ -80,6 +80,9 @@ public:
         location(lctn), offset(offset) {
     }
     ~DataHeaderAddress();
+    bool operator==(const DataHeaderAddress& toBeCompared) {
+        return ((location == toBeCompared.location) && (offset == toBeCompared.offset));
+    }
 
     uint64_t GetHeaderOffset() const {
         return offset;
@@ -102,6 +105,10 @@ public:
     HashEntryOnDisk(const HashEntryOnDisk& toBeCopied);
     ~HashEntryOnDisk();
     HashEntryOnDisk& operator=(const HashEntryOnDisk& toBeCopied);
+
+    DataHeaderAddress& GetHeaderAddress() {
+        return address;
+    }
 
     uint16_t GetHeaderLocation() const {
         return address.GetLocation();
@@ -190,166 +197,172 @@ public:
             segTime_ = seg_time;
             keyNo_ = seg_key_no;
         }
-        };
-
-        HashEntry();
-        HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr);
-        HashEntry(DataHeader& data_header, DataHeaderAddress& addrs, void* read_ptr);
-        HashEntry(const HashEntry&);
-        ~HashEntry();
-        bool operator==(const HashEntry& toBeCompare) const;
-        HashEntry& operator=(const HashEntry& toBeCopied);
-
-        uint16_t GetHeaderLocation() const {
-            return entryPtr_->GetHeaderLocation();
-        }
-        uint64_t GetHeaderOffset() const {
-            return entryPtr_->GetHeaderOffset();
-        }
-
-        uint16_t GetKeySize() const {
-            return entryPtr_->GetKeySize();
-        }
-
-        uint16_t GetDataSize() const {
-            return entryPtr_->GetDataSize();
-        }
-
-        uint32_t GetDataOffsetInSeg() const {
-            return entryPtr_->GetDataOffsetInSeg();
-        }
-
-        uint32_t GetNextHeadOffsetInSeg() const {
-            return entryPtr_->GetNextHeadOffsetInSeg();
-        }
-
-        void* GetReadCachePtr() const {
-            return cachePtr_;
-        }
-
-        Kvdb_Digest GetKeyDigest() const {
-            return entryPtr_->GetKeyDigest();
-        }
-
-        HashEntryOnDisk& GetEntryOnDisk() {
-            return *entryPtr_;
-        }
-
-        LogicStamp* GetLogicStamp() {
-            return stampPtr_;
-        }
-
-        void SetKeyDigest(const Kvdb_Digest& digest);
-        void SetLogicStamp(KVTime seg_time, int32_t seg_key_no);
-
-    private:
-        HashEntryOnDisk *entryPtr_;
-        LogicStamp *stampPtr_;
-        void* cachePtr_;
-
     };
 
-    class IndexManager{
-    public:
-        static inline size_t SizeOfDataHeader() {
-            return sizeof(DataHeader);
-        }
+    HashEntry();
+    HashEntry(HashEntryOnDisk& entry_ondisk, KVTime time_stamp, void* read_ptr);
+    HashEntry(DataHeader& data_header, DataHeaderAddress& addrs, void* read_ptr);
+    HashEntry(const HashEntry&);
+    ~HashEntry();
+    bool operator==(const HashEntry& toBeCompare) const;
+    HashEntry& operator=(const HashEntry& toBeCopied);
 
-        static inline size_t SizeOfHashEntryOnDisk() {
-            return sizeof(HashEntryOnDisk);
-        }
+    DataHeaderAddress& GetHeaderAddress() const {
+        return entryPtr_->GetHeaderAddress();
+    }
 
-        static uint64_t CalcIndexSizeOnDevice(uint32_t ht_size);
-        static uint32_t CalcHashSizeForPower2(uint32_t number);
+    uint16_t GetHeaderLocation() const {
+        return entryPtr_->GetHeaderLocation();
+    }
+    uint64_t GetHeaderOffset() const {
+        return entryPtr_->GetHeaderOffset();
+    }
 
-        void printDynamicInfo();
+    uint16_t GetKeySize() const {
+        return entryPtr_->GetKeySize();
+    }
 
-        void InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num);
-        void UpdateMetaToSB();
-        bool Get(char* buff, uint64_t length);
-        bool Set(char* buff, uint64_t length);
+    uint16_t GetDataSize() const {
+        return entryPtr_->GetDataSize();
+    }
 
-        void InitDataStor(DataStor *ds);
+    uint32_t GetDataOffsetInSeg() const {
+        return entryPtr_->GetDataOffsetInSeg();
+    }
 
-        bool UpdateIndex(KVSlice* slice);
-        void UpdateIndexes(std::list<KVSlice*> &slice_list);
-        bool GetHashEntry(KVSlice *slice);
-        void RemoveEntry(HashEntry entry);
+    uint32_t GetNextHeadOffsetInSeg() const {
+        return entryPtr_->GetNextHeadOffsetInSeg();
+    }
 
-        uint32_t GetHashTableSize() const {
-            return htSize_;
-        }
+    void* GetReadCachePtr() const {
+        return cachePtr_;
+    }
 
-        uint64_t GetDataTheorySize() const ;
-        uint32_t GetKeyCounter() const ;
+    Kvdb_Digest GetKeyDigest() const {
+        return entryPtr_->GetKeyDigest();
+    }
 
-        void StartThds();
-        void StopThds();
+    HashEntryOnDisk& GetEntryOnDisk() {
+        return *entryPtr_;
+    }
 
-        void AddToReaper(SegForReq*);
-        int GetSegReaperQueSize() {
-            return (!segRprWQ_)? 0: segRprWQ_->Size();
-        }
+    LogicStamp* GetLogicStamp() {
+        return stampPtr_;
+    }
 
-        IndexManager(SuperBlockManager* sbm, Options &opt);
-        ~IndexManager();
+    void SetKeyDigest(const Kvdb_Digest& digest);
+    void SetLogicStamp(KVTime seg_time, int32_t seg_key_no);
 
-        bool IsSameInMem(HashEntry entry);
+private:
+    HashEntryOnDisk *entryPtr_;
+    LogicStamp *stampPtr_;
+    void* cachePtr_;
 
-        LinkedList<HashEntry>* GetEntryListByNo(uint32_t no) {
-            return hashtable_[no].entryList_;
-        }
-    public:
-        struct HashtableSlot
+};
+
+class IndexManager{
+public:
+    static inline size_t SizeOfDataHeader() {
+        return sizeof(DataHeader);
+    }
+
+    static inline size_t SizeOfHashEntryOnDisk() {
+        return sizeof(HashEntryOnDisk);
+    }
+
+    static uint64_t CalcIndexSizeOnDevice(uint32_t ht_size);
+    static uint32_t CalcHashSizeForPower2(uint32_t number);
+
+    void printDynamicInfo();
+
+    void InitMeta(uint32_t ht_size, uint64_t ondisk_size, uint64_t data_theory_size, uint32_t element_num);
+    void UpdateMetaToSB();
+    bool Get(char* buff, uint64_t length);
+    bool Set(char* buff, uint64_t length);
+
+    void InitDataStor(DataStor *ds);
+
+    bool UpdateIndex(KVSlice* slice, bool gc_update = false);
+    void UpdateIndexes(std::list<KVSlice*> &slice_list);
+    bool GetHashEntry(KVSlice *slice);
+    void RemoveEntry(HashEntry entry);
+
+    void UpdateIndexesForGC(std::list<KVSlice*> &slice_list);
+
+    uint32_t GetHashTableSize() const {
+        return htSize_;
+    }
+
+    uint64_t GetDataTheorySize() const ;
+    uint32_t GetKeyCounter() const ;
+
+    void StartThds();
+    void StopThds();
+
+    void AddToReaper(SegForReq*);
+    int GetSegReaperQueSize() {
+        return (!segRprWQ_)? 0: segRprWQ_->Size();
+    }
+
+    IndexManager(SuperBlockManager* sbm, Options &opt);
+    ~IndexManager();
+
+    bool IsSameInMem(HashEntry &entry);
+
+    LinkedList<HashEntry>* GetEntryListByNo(uint32_t no) {
+        return hashtable_[no].entryList_;
+    }
+public:
+    struct HashtableSlot
+    {
+        LinkedList<HashEntry> *entryList_;
+        std::mutex slotMtx_;
+        HashtableSlot()
         {
-            LinkedList<HashEntry> *entryList_;
-            std::mutex slotMtx_;
-            HashtableSlot()
-            {
-                entryList_ = new LinkedList<HashEntry>;
-            }
-            ~HashtableSlot()
-            {
-                delete entryList_;
-            }
-        };
+            entryList_ = new LinkedList<HashEntry>;
+        }
+        ~HashtableSlot()
+        {
+            delete entryList_;
+        }
+    };
 
-    private:
+private:
 
-        void initHashTable();
-        void destroyHashTable();
+    void initHashTable();
+    void destroyHashTable();
 
-        HashtableSlot *hashtable_;
-        uint32_t htSize_;
-        uint64_t sizeOndisk_;
-        uint32_t keyCounter_;
-        uint64_t dataTheorySize_;
-        SuperBlockManager* sbMgr_;
-        DataStor* dataStor_;
-        Options &options_;
+    HashtableSlot *hashtable_;
+    uint32_t htSize_;
+    uint64_t sizeOndisk_;
+    uint32_t keyCounter_;
+    uint64_t dataTheorySize_;
+    SuperBlockManager* sbMgr_;
+    DataStor* dataStor_;
+    Options &options_;
 
-        KVTime* lastTime_;
-        mutable std::mutex mtx_;
-        std::mutex batch_mtx_;
+    KVTime* lastTime_;
+    mutable std::mutex mtx_;
+    std::mutex batch_mtx_;
 
-    // Seg Reaper thread
-    private:
+// Seg Reaper thread
+private:
     class SegmentReaperWQ : public dslab::WorkQueue<SegForReq> {
-        public:
-            explicit SegmentReaperWQ(IndexManager *im, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), idxMgr_(im) {}
+    public:
+        explicit SegmentReaperWQ(IndexManager *im, int thd_num=1) : dslab::WorkQueue<SegForReq>(thd_num), idxMgr_(im) {}
 
-        protected:
-            void _process(SegForReq* seg) override {
-                idxMgr_->SegReaper(seg);
-            }
-        private:
-            IndexManager *idxMgr_;
-        };
+    protected:
+        void _process(SegForReq* seg) override {
+            idxMgr_->SegReaper(seg);
+        }
+    private:
+        IndexManager *idxMgr_;
+    };
 
     SegmentReaperWQ *segRprWQ_;
     void SegReaper(SegForReq* seg);
 
-    };
+};
 
 }// namespace hlkvds
 #endif //#ifndef _HLKVDS_INDEXMANAGER_H_
