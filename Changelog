@@ -1,3 +1,10 @@
+HLKVDS 1.2.0 (2018-02-08)
+1. Support multi-tiers management, build data store on a hetoerogeneous media
+storage device.
+2. Add new flush strategy which latency friendly, write data to device
+immediately when low queue depth. 
+3. Add multi-volume and multi-tier functional test. 
+
 HLKVDS 1.1.0 (2017-11-27)
 1. Support multi-volumes management, build data store on multiple block
 device.
