@@ -9,7 +9,7 @@
 namespace hlkvds {
 class BlockDevice {
 public:
-    static BlockDevice* CreateDevice();
+    static BlockDevice* CreateDevice(std::string path);
 
     BlockDevice() {
     }

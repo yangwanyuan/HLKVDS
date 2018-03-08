@@ -9,7 +9,7 @@ INCLUDES = -I ${SRC_DIR}/include \
 		   -I ${TEST_DIR}/include
 GTEST_INCLUDES = -I ${TEST_DIR}/include/gtest ${TEST_DIR}/lib/libgmock.a
 
-LIBS = -pthread -lboost_thread -lboost_system 
+LIBS = -pthread -lboost_thread -lboost_system /usr/local/lib/libpmem.a
 
 CC = gcc
 CXX = g++
@@ -33,7 +33,8 @@ TOOLS_LIST = \
 		${TOOLS_DIR}/Benchmark \
 		${TOOLS_DIR}/LoadDB
 
-SHARED_LIB = ${SRC_DIR}/libhlkvds.so
+SHARED_LIB = ${SRC_DIR}/libhlkvds.so \
+             ${SRC_DIR}/libhlkvds.a
 
 TESTS_LIST = \
 		${TEST_DIR}/test_rmd \
@@ -71,6 +72,8 @@ $(TEST_OBJECTS): %.o: %.cc
 
 ${SRC_DIR}/libhlkvds.so: ${COMMON_OBJECTS}
 	${CXX} ${CXX_FLAGS} ${INCLUDES} $^ -shared -o $@ ${LIBS}
+
+${SRC_DIR}/libhlkvds.a: ${COMMON_OBJECTS}
 	ar rcs src/libhlkvds.a $^
 
 ${TOOLS_DIR}/Benchmark: ${TOOLS_DIR}/Benchmark.cc ${COMMON_OBJECTS}

@@ -154,7 +154,7 @@ bool KVDS::openAllDevices(string paths) {
     boost::split(fields, paths, boost::is_any_of(FileDelim));
     vector<string>::iterator iter;
     for(iter = fields.begin(); iter != fields.end(); iter++){
-        BlockDevice *bdev = new KernelDevice();
+        BlockDevice *bdev = BlockDevice::CreateDevice(*iter);
 
         if (bdev->Open(*iter) < 0) {
             return false;
