@@ -49,7 +49,7 @@ int PMEMDevice::Open(std::string p, bool dsync)
 {
   path = p;
   int r = 0;
-  __ERROR("path = %s", path.c_str());
+  __INFO("detect PEMDevice path = %s", path.c_str());
 
   fd = ::open(path.c_str(), O_RDWR);
   if (fd < 0) {
@@ -81,6 +81,8 @@ int PMEMDevice::Open(std::string p, bool dsync)
   size = map_len;
 
   block_size = st.st_blksize;
+
+  __INFO("PEMDevice Open Success! path = %s", path.c_str());
   return 0;
 
  out_fail:
