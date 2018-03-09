@@ -1,5 +1,6 @@
 #!/bin/sh
 
+HOME_DIR=`pwd`
 DEPS_DIR=`pwd`/deps
 DEPS_SRC_DIR=$DEPS_DIR/src
 DEPS_UT_DIR=`pwd`/test
@@ -35,6 +36,8 @@ cp googletest/include/gtest $DEPS_UT_SRC_DIR -r
 cp googlemock/include/gmock $DEPS_UT_SRC_DIR -r
 cp libgmock.a $DEPS_UT_LIB_DIR -r
 
+cd $HOME_DIR
+git submodule sync
 git submodule update --force --init --recursive
 cd $PMDK_DIR
 make -j
