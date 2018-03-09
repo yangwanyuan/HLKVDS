@@ -6,6 +6,8 @@ DEPS_UT_DIR=`pwd`/test
 DEPS_UT_SRC_DIR=$DEPS_UT_DIR/include
 DEPS_UT_LIB_DIR=$DEPS_UT_DIR/lib
 
+PMDK_DIR=`pwd`/src/pmdk
+
 # Create deps folder
 mkdir -p $DEPS_SRC_DIR
 mkdir -p $DEPS_UT_SRC_DIR
@@ -31,3 +33,6 @@ ar -rv libgmock.a gtest-all.o gmock-all.o
 cp googletest/include/gtest $DEPS_UT_SRC_DIR -r
 cp googlemock/include/gmock $DEPS_UT_SRC_DIR -r
 cp libgmock.a $DEPS_UT_LIB_DIR -r
+
+cd $PMDK_DIR
+make -j

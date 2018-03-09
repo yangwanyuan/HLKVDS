@@ -4,12 +4,15 @@ OPT ?= -g2 -O3
 SRC_DIR = ./src
 TOOLS_DIR = ./tools
 TEST_DIR = ./test
+PMDK_DIR = ./src/pmdk
 
 INCLUDES = -I ${SRC_DIR}/include \
-		   -I ${TEST_DIR}/include
+		   -I ${TEST_DIR}/include \
+		   -I ${PMDK_DIR}/src/include
+
 GTEST_INCLUDES = -I ${TEST_DIR}/include/gtest ${TEST_DIR}/lib/libgmock.a
 
-LIBS = -pthread -lboost_thread -lboost_system /usr/local/lib/libpmem.a
+LIBS = -pthread -lboost_thread -lboost_system ${PMDK_DIR}/src/nondebug/libpmem.a
 
 CC = gcc
 CXX = g++
